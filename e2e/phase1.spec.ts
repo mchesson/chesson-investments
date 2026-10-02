@@ -895,3 +895,50 @@ test('standard access by type: a role standard everyone follows, and an agent wi
   await expect(g.getByRole('button', { name: 'Our Projects' })).toHaveCount(0);
   expect((await g.request.get('/api/market/points?bbox=-79,35.5,-78.5,36.2')).status()).toBe(200);
 });
+
+test('the buy box: a zone where we can pay more than lots sell for, on the page and on a watched lot', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const hood = `Buyzone ${s}`;
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const add = async (i: number, use: string, sf: number | null, price: number, year: number | null) => {
+    const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, neighborhood, land_use, heated_sf, year_built, lat, lng, last_sale_price, last_sale_on)
+      values ('wake', $1, $2, $3, 'Raleigh', $4, $5, $6, $7, 35.79, -78.64, $8, current_date - 40) returning id`, [`B${s}${i}`, `${i} BUYZONE${s} ST`, `BUYZONE${s} ST`, hood, use, sf, year, price]);
+    await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - 40, $2, $3)`, [r.rows[0].id, price, sf]);
+  };
+  for (let i = 0; i < 6; i++) await add(i, 'single_family', 2600, 2_300_000 + i * 10_000, 2022); // new builds at ~$890/sf
+  for (let i = 6; i < 9; i++) await add(i, 'land', null, 300_000, null); // lots at $300k
+  await db.query(`insert into properties (address, city, neighborhood, asking_price) values ($1, 'Raleigh', $2, 400000)`, [`${s} Buyzone St`, hood]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto('/market/buy-box');
+  // Saving the numbers works every zone out again.
+  await page.locator('input[name=minLot]').fill('76000');
+  await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
+  await expect(page.getByText(/Saved: every zone is worked out again/)).toBeVisible();
+  await page.goto('/market/buy-box?show=buy');
+  const row = page.locator('.buy-table tr', { hasText: hood });
+  await expect(row).toContainText('Buy Zone');
+  await expect(row).toContainText('$300k');
+  // Raising the build cost makes it too expensive; then back.
+  await page.locator('input[name=buildPerSf]').fill('700');
+  await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
+  await expect(page.getByText(/Saved: every zone/)).toBeVisible();
+  await page.goto('/market/buy-box?show=pass');
+  await expect(page.locator('.buy-table tr', { hasText: hood })).toContainText('Too Expensive');
+  await page.locator('input[name=buildPerSf]').fill('190');
+  await page.locator('input[name=minLot]').fill('75000');
+  await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
+  await expect(page.getByText(/Saved: every zone/)).toBeVisible();
+
+  // The watched lot in that zone is checked against it.
+  await page.goto('/watchlist');
+  await page.getByRole('link', { name: `${s} Buyzone St` }).click();
+  const check = page.locator('section', { hasText: 'Buy Box Check' });
+  await expect(check).toContainText('Buy Zone');
+  await expect(check).toContainText(/The asking price of \$400,000 is .* under what we can pay/);
+  await page.goto('/admin/history');
+  await expect(page.getByText(/changed the buy box: Build Cost per sf \(\$\) 190 → 700/).first()).toBeVisible();
+});

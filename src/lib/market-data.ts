@@ -2,7 +2,8 @@ import 'server-only';
 import { and, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/db';
 import { projects, properties } from '@/db/schema';
-import { isBand, isPlaceName, pace, priceBands, type BandKey } from './market-stats';
+import { isBand, isPlaceName, median, pace, priceBands, type BandKey } from './market-stats';
+import { miles } from './buy-box';
 import { landUses } from './market-sources';
 import { addDays, today } from './format';
 
@@ -108,4 +109,81 @@ export async function marketCounts() {
     select p.county, count(distinct p.id)::int as parcels, count(s.id)::int as sales, max(s.sold_on)::text as newest
     from market_parcels p left join market_sales s on s.parcel_id = p.id group by p.county`);
   return r.rows;
+}
+
+/**
+ * Each zone's numbers for the buy box: finished-house $/sf (new builds when
+ * there are enough, else the top quarter of bigger houses), lot and teardown
+ * sales, and sales by price band in the last 12 months.
+ */
+export async function zoneStats(kind: 'neighborhood' | 'street', counties: string[], minSales: number, only?: { name: string; city?: string | null }) {
+  const t = today(), y2 = addDays(t, -730), y3 = addDays(t, -1095), y1 = addDays(t, -365);
+  const newYear = Number(t.slice(0, 4)) - 10;
+  const key = kind === 'neighborhood' ? sql`p.neighborhood` : sql`p.street`;
+  const where = sql.join([
+    counties.length ? sql`p.county in (${sql.join(counties.map((c) => sql`${c}`), sql`, `)})` : sql`true`,
+    // One zone only (a watched property's street or neighborhood): fast.
+    only ? sql`lower(${key}) = lower(${only.name})` : sql`true`,
+    only?.city && kind === 'street' ? sql`lower(p.city) = lower(${only.city})` : sql`true`,
+  ], sql` and `);
+  const r = await db.execute<{
+    name: string; city: string | null; county: string; lat: number; lng: number;
+    finished: number; top_psf: number | null; new_count: number; new_psf: number | null; entry_count: number; entry_price: number | null;
+  }>(sql`
+    with z as (
+      select ${key} as name, p.city, p.county, p.lat::float as lat, p.lng::float as lng, p.land_use, p.year_built, p.heated_sf as sf, s.price::float as price, s.sold_on,
+        ${bandSql} as band
+      from market_sales s join market_parcels p on p.id = s.parcel_id
+      where ${where} and ${key} is not null and s.sold_on > ${y3}
+    )
+    select name, min(city) as city, min(county) as county, avg(lat) as lat, avg(lng) as lng,
+      count(*) filter (where sold_on > ${y2} and land_use in ('single_family', 'townhouse') and sf >= 1500)::int as finished,
+      percentile_cont(0.75) within group (order by price / sf) filter (where sold_on > ${y2} and land_use in ('single_family', 'townhouse') and sf >= 1500) as top_psf,
+      count(*) filter (where sold_on > ${y2} and land_use = 'single_family' and year_built >= ${newYear} and sf >= 1500)::int as new_count,
+      percentile_cont(0.5) within group (order by price / sf) filter (where sold_on > ${y2} and land_use = 'single_family' and year_built >= ${newYear} and sf >= 1500) as new_psf,
+      0 as entry_count, null::float as entry_price
+    from z group by name ${kind === 'street' ? sql`, city` : sql`, county`}
+    having count(*) filter (where sold_on > ${y2}) >= 3`);
+  // Sales by price band in the last 12 months, per zone (a second, plain grouping: fast).
+  const sub = kind === 'street' ? sql`p.city` : sql`p.county`;
+  const bandRows = await db.execute<{ name: string; sub: string | null; band: BandKey; n: number }>(sql`
+    select ${key} as name, ${sub} as sub, ${bandSql} as band, count(*)::int as n
+    from market_sales s join market_parcels p on p.id = s.parcel_id
+    where ${where} and ${key} is not null and s.sold_on > ${y1} group by 1, 2, 3`);
+  // A box a little over a mile around the zone, for one zone's nearby lot sales.
+  const c0 = r.rows[0];
+  const box = c0 ? { s: Number(c0.lat) - 0.016, n: Number(c0.lat) + 0.016, w: Number(c0.lng) - 0.02, e: Number(c0.lng) + 0.02 } : { s: 0, n: 0, w: 0, e: 0 };
+  // Lots and teardowns: land sales, and old small houses that sold well under the
+  // zone's finished $/sf (a renovated old house isn't a teardown).
+  const entryRows = await db.execute<{ name: string; sub: string | null; land_use: string; price: number; psf: number | null; lat: number; lng: number }>(sql`
+    select ${key} as name, ${sub} as sub, p.land_use, s.price::float as price, case when p.heated_sf > 0 then s.price::float / p.heated_sf end as psf, p.lat::float as lat, p.lng::float as lng
+    from market_sales s join market_parcels p on p.id = s.parcel_id
+    where ${only ? sql`p.lat between ${box.s} and ${box.n} and p.lng between ${box.w} and ${box.e}` : where} and ${key} is not null and s.sold_on > ${y3}
+      and (p.land_use = 'land' or (p.land_use = 'single_family' and p.year_built < 1970 and p.heated_sf < 1600))`);
+  const allEntries = entryRows.rows.map((x) => ({ key: `${x.name}|${x.sub ?? ''}`, landUse: x.land_use, price: Number(x.price), psf: x.psf === null ? null : Number(x.psf), lat: Number(x.lat), lng: Number(x.lng) }));
+  const bands = new Map<string, Partial<Record<BandKey, number>>>();
+  for (const x of bandRows.rows) {
+    const k = `${x.name}|${x.sub ?? ''}`;
+    bands.set(k, { ...(bands.get(k) ?? {}), [x.band]: x.n });
+  }
+  return r.rows.filter((z) => kind === 'street' || isPlaceName(z.name)).map((z) => {
+    const useNew = z.new_count >= minSales && z.new_psf;
+    const finishedPsf = useNew ? Math.round(Number(z.new_psf)) : z.top_psf ? Math.round(Number(z.top_psf)) : null;
+    const zoneKey = `${z.name}|${(kind === 'street' ? z.city : z.county) ?? ''}`;
+    const isLot = (e: (typeof allEntries)[number]) => e.landUse === 'land' || (!!finishedPsf && e.psf !== null && e.psf < finishedPsf * 0.65);
+    // Lot and teardown sales in the zone; with fewer than 3, the nearest within a mile (street by street, not town by town).
+    let lots = allEntries.filter((e) => e.key === zoneKey && isLot(e)).map((e) => e.price);
+    let lotsFrom = 'in it';
+    if (lots.length < 3) {
+      const near = allEntries.filter(isLot).map((e) => ({ e, d: miles({ lat: Number(z.lat), lng: Number(z.lng) }, e) })).filter((x) => x.d <= 1).sort((x, y) => x.d - y.d).slice(0, 7);
+      if (near.length >= 3) { lots = near.map((x) => x.e.price); lotsFrom = `within ${Math.max(0.1, Math.round(near[near.length - 1].d * 10) / 10)} mi`; }
+    }
+    return {
+      name: z.name, city: z.city, county: z.county, lat: Number(z.lat), lng: Number(z.lng),
+      finished: useNew ? z.new_count : z.finished, finishedPsf,
+      basis: useNew ? 'new builds' as const : 'top quarter of houses' as const,
+      entryCount: lots.length, entryPrice: lots.length ? Math.round(median(lots)!) : null, entryFrom: lotsFrom,
+      bandCounts: bands.get(`${z.name}|${(kind === 'street' ? z.city : z.county) ?? ''}`) ?? {},
+    };
+  });
 }

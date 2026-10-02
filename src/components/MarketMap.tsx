@@ -10,12 +10,14 @@ import { psfColor } from '@/lib/market-stats';
 
 type Place = { id: string; name: string; stage: string; lat: number; lng: number };
 type Area = { name: string; city: string | null; sales: number; median_price: number; median_psf: number | null; prior_psf: number | null; lat: number; lng: number };
+type Zone = { name: string; city: string | null; lat: number; lng: number; verdict: string; label: string; maxLot: number | null; entry: number | null; value: number | null };
 type Pt = { id: string; lat: number; lng: number; price: number; psf: number | null; on: string; a: string | null; h: string | null; u: string; sf: number | null };
 
 export const layerDefs = [
   { key: 'heat', label: 'Sales Heat ($/sf)' },
   { key: 'dots', label: 'Each Sale' },
   { key: 'areas', label: 'Neighborhoods' },
+  { key: 'zones', label: 'Buy Zones' },
   { key: 'projects', label: 'Our Projects' },
   { key: 'watch', label: 'Watchlist' },
 ] as const;
@@ -25,13 +27,13 @@ const STORE = 'ci-market-layers';
 const money = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${Math.round(n / 1000)}k`);
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-export function MarketMap({ query, projects, watch, areas, only }: { query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[] }) {
-  const shown = layerDefs.filter((d) => !only || only.includes(d.key));
+export function MarketMap({ query, projects, watch, areas, only, zones = [] }: { query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[]; zones?: Zone[] }) {
+  const shown = layerDefs.filter((d) => (!only || only.includes(d.key)) && (d.key !== 'zones' || zones.length));
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<Leaflet.Map | null>(null);
   const L = useRef<typeof Leaflet | null>(null);
   const groups = useRef<Partial<Record<LayerKey, Leaflet.Layer>>>({});
-  const [on, setOn] = useState<Record<LayerKey, boolean>>({ heat: true, dots: false, areas: true, projects: true, watch: true });
+  const [on, setOn] = useState<Record<LayerKey, boolean>>({ heat: true, dots: false, areas: true, zones: true, projects: true, watch: true });
   const [status, setStatus] = useState('Loading the map…');
   const [range, setRange] = useState<[number, number] | null>(null);
   const onRef = useRef(on);
@@ -65,6 +67,11 @@ export function MarketMap({ query, projects, watch, areas, only }: { query: stri
         radius: Math.max(6, Math.min(22, Math.sqrt(a.sales) * 2.2)), color: '#0D71BA', weight: 2, fillColor: '#0D71BA', fillOpacity: 0.12,
       }).bindTooltip(`${esc(a.name)}: ${a.sales} sales${a.median_psf ? `, $${a.median_psf}/sf` : ''}`)
         .bindPopup(`<strong>${esc(a.name)}</strong>${a.city ? `, ${esc(a.city)}` : ''}<br>${a.sales} sales · median ${money(a.median_price)}${a.median_psf ? ` · $${a.median_psf}/sf` : ''}${a.prior_psf && a.median_psf ? `<br>$/sf ${a.median_psf >= a.prior_psf ? 'up' : 'down'} ${Math.abs(Math.round(((a.median_psf - a.prior_psf) / a.prior_psf) * 100))}% on the period before` : ''}`)));
+      const zoneColor: Record<string, string> = { buy: '#00756f', watch: '#5b6b14', pass: '#b3261e', thin: '#898989' };
+      groups.current.zones = lib.layerGroup(zones.filter((z) => z.lat && z.lng).map((z) => lib.circleMarker([z.lat, z.lng], {
+        radius: z.verdict === 'buy' ? 11 : 8, color: zoneColor[z.verdict] ?? '#898989', weight: 3, fillColor: zoneColor[z.verdict] ?? '#898989', fillOpacity: z.verdict === 'buy' ? 0.45 : 0.2,
+      }).bindTooltip(`${esc(z.name)}: ${esc(z.label)}`)
+        .bindPopup(`<strong>${esc(z.name)}</strong>${z.city ? `, ${esc(z.city)}` : ''}<br><b>${esc(z.label)}</b>${z.value ? `<br>A new house would sell for about ${money(z.value)}` : ''}${z.maxLot ? `<br>We can pay up to ${money(z.maxLot)} for the lot` : ''}${z.entry ? `<br>Lots and teardowns sell around ${money(z.entry)}` : ''}`)));
       m.on('moveend', () => load());
       apply();
       load();
