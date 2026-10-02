@@ -5,6 +5,7 @@ import { saveAssignment, saveBudgetVersion, saveMilestone, setAssignmentDone } f
 import { compareVersions, doneLate, latestByKind, ownerSavings, responsibleKinds, responsibleLabel, versionKinds, versionLabel } from '@/lib/schedule';
 import type { scheduleFor } from '@/lib/schedule-data';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
+import { Choice } from './Choice';
 
 type Sched = Awaited<ReturnType<typeof scheduleFor>>;
 const m = (c: number | null) => (c === null ? '—' : formatCents(c));
@@ -93,7 +94,7 @@ export function ScheduleTab({ projectId, sched, codes, companies, people, canEdi
             <input type="hidden" name="projectId" value={projectId} />
             <div className="fields">
               <label className="f">What<input name="description" required placeholder="Kitchen appliance package" /></label>
-              <label className="f">Who Is Responsible<select name="responsible" defaultValue="gc">{responsibleKinds.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}</select></label>
+              <Choice name="responsible" label="Who Is Responsible" options={responsibleKinds} defaultValue="gc" />
               <label className="f">Vendor (Company)<select name="companyId" defaultValue=""><option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label className="f">Or Person<select name="personId" defaultValue=""><option value="">—</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
               <label className="f">Cost Code<select name="costCodeId" defaultValue=""><option value="">—</option>{codes.map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</select></label>

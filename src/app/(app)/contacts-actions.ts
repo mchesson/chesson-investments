@@ -14,10 +14,33 @@ import { formatName, formatState, isDay, normalizeEmail, storePhone, today, addD
 import { firstStage, isStage, roleDef, roleLabel, stageLabel, cleanSupplierTypes, roleTag, doNotUseProblem } from '@/lib/roles';
 import type { FormResult } from '@/components/ActionForm';
 import { howMetProblem, splitName } from '@/lib/how-met';
+import { likeCompanies, likePeople } from '@/lib/duplicates';
 
 const touchKinds = ['call', 'email', 'text', 'meeting', 'site_walk', 'event'] as const;
 type TouchKind = (typeof touchKinds)[number];
 const touchLabel: Record<TouchKind, string> = { call: 'call', email: 'email', text: 'text', meeting: 'meeting', site_walk: 'site walk', event: 'event' };
+
+/** People on file with a like name ("Bob Smith (Acme), Robert Smyth"), or null. Edits skip it unless the name changed. */
+async function likeOnFile(name: { firstName: string; lastName: string }, selfId: string | null) {
+  if (selfId) {
+    const [me] = await db.select({ firstName: people.firstName, lastName: people.lastName }).from(people).where(eq(people.id, selfId));
+    if (me && me.firstName === name.firstName && me.lastName === name.lastName) return null;
+  }
+  const on = await db.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, company: companies.name })
+    .from(people).leftJoin(companies, eq(companies.id, people.companyId)).where(isNull(people.archived));
+  const like = likePeople(name, on, selfId).slice(0, 4);
+  return like.length ? like.map((p) => `${p.firstName} ${p.lastName}${p.company ? ` (${p.company})` : ''}`).join(', ') : null;
+}
+
+async function likeCompanyOnFile(name: string, selfId: string | null) {
+  if (selfId) {
+    const [me] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, selfId));
+    if (me && me.name === name) return null;
+  }
+  const on = await db.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived));
+  const like = likeCompanies(name, on, selfId).slice(0, 4);
+  return like.length ? like.map((c) => c.name).join(', ') : null;
+}
 
 function personFields(d: FormData) {
   return {
@@ -55,6 +78,20 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
     }
   }
   const newIntroducer = str(d, 'newIntroducer');
+  // Like names (owner, Oct 2, 2026): a nickname, a typo or accents still stop and ask.
+  if (!bool(d, 'different')) {
+    const like = await likeOnFile({ firstName: f.firstName, lastName: f.lastName }, id);
+    if (like) return { error: `This looks like someone already on file: ${like}. Open them instead, or tick "Different person" to save anyway.` };
+    if (!companyId && newCompany) {
+      const c = await likeCompanyOnFile(newCompany, null);
+      if (c) return { error: `The new company looks like one already on file: ${c}. Pick it from the list instead, or tick "Different person" to save anyway.` };
+    }
+    const intro = newIntroducer ? splitName(newIntroducer) : null;
+    if (intro) {
+      const like2 = await likeOnFile({ firstName: formatName(intro.firstName), lastName: formatName(intro.lastName) }, null);
+      if (like2) return { error: `The person who introduced them looks like someone on file: ${like2}. Pick them from the list instead, or tick "Different person" to save anyway.` };
+    }
+  }
   const problem = howMetProblem({ howMet: f.howMet, introducedById: f.introducedById, newIntroducer, selfId: id });
   if (problem) return { error: problem };
   const introName = newIntroducer ? splitName(newIntroducer) : null;
@@ -84,7 +121,7 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
       }
       await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map((r) => roleTag({ role: r, supplierTypes: kinds })).join(', ')}` : ''}`, after: f }, tx);
       if (f.introducedById) await audit({ userId: user.id, entity: 'person', entityId: f.introducedById, action: 'introduced', summary: `introduced us to ${p.firstName} ${p.lastName}`, after: { personId: p.id, note: f.introNote } }, tx);
-      if (bool(d, 'different')) await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'not-duplicate', summary: 'saved as a different person despite a matching email or phone' }, tx);
+      if (bool(d, 'different')) await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'not-duplicate', summary: 'saved as a different person despite a matching or similar name, email or phone' }, tx);
       return p.id;
     }
     const [old] = await tx.select().from(people).where(eq(people.id, id));
@@ -126,9 +163,8 @@ export async function saveCompany(_: FormResult, d: FormData): Promise<FormResul
   };
   if (!f.name) return { error: 'A name is needed.' };
   if (!bool(d, 'different')) {
-    const [same] = await db.select({ id: companies.id }).from(companies)
-      .where(and(isNull(companies.archived), sql`lower(${companies.name}) = lower(${f.name})`, id ? ne(companies.id, id) : undefined));
-    if (same) return { error: `A company called ${f.name} is already on file. Tick "Different company" to save anyway.` };
+    const like = await likeCompanyOnFile(f.name, id);
+    if (like) return { error: `A company with a name like this is already on file: ${like}. Open it instead, or tick "Different company" to save anyway.` };
   }
   const savedId = await db.transaction(async (tx) => {
     if (!id) {

@@ -36,7 +36,7 @@ export function CompanyForm({ company, defaultRole }: { company?: C; defaultRole
       <div className="section" data-c="energy"><header><h2>Notes</h2></header>
         <div className="body">
           <label className="f">Notes<textarea name="notes" defaultValue={company?.notes ?? ''} /></label>
-          <label className="check"><input type="checkbox" name="different" /> Different company (save even if the name matches one on file)</label>
+          <label className="check"><input type="checkbox" name="different" /> Different company (save even if the name looks like one on file)</label>
         </div>
       </div>
     </ActionForm>

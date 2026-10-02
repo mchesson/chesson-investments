@@ -104,9 +104,9 @@ In this order, before phase 2:
     a grade of D or below sets it by itself, with the grade as the reason, and
     a manual override that keeps them usable with a reason.
 11. **Projects with several stages at once** (owner, Oct 2, 2026: "we can be
-    looking for permits and under contract and building"): the stage becomes a
-    set of tracks (Buying, Design, Permits, Building, Selling, Renting), each
-    with its own status, instead of one stage. **Selling** has its own
+    looking for permits and under contract and building"). **Built Oct 2,
+    2026:** each stage has its own state and sub-stages (the stage bar). Still
+    to do: **Selling** has its own
     statuses (Coming Soon, For Sale, Under Contract, Sold) and logs
     **viewings** (date, agent, buyer feedback) and offers. **Permits and
     inspections**: each permit (type, number, applied, issued, expires) and

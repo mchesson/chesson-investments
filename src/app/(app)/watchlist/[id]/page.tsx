@@ -1,3 +1,4 @@
+import { Choice } from '@/components/Choice';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
@@ -64,11 +65,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
                   <ActionForm action={setPropertyStage} submit="Save">
                     <input type="hidden" name="id" value={id} />
                     <div className="fields">
-                      <label className="f">Stage
-                        <select name="stage" defaultValue={pickableStages.includes(p.stage) ? p.stage : 'watching'}>
-                          {pickableStages.map((s) => <option key={s} value={s}>{propertyStageLabel(s)}</option>)}
-                        </select>
-                      </label>
+                      <Choice name="stage" label="Stage" options={pickableStages.map((s) => ({ key: s, label: propertyStageLabel(s) }))} defaultValue={pickableStages.includes(p.stage) ? p.stage : 'watching'} />
                       <label className="f">Our Offer<input name="ourOffer" defaultValue={p.ourOffer ?? ''} inputMode="decimal" /></label>
                       <label className="f">Offered On<input type="date" name="offerOn" defaultValue={p.offerOn ?? ''} /></label>
                       <label className="f">Winning Price<span className="h">If we lost it</span><input name="winningPrice" defaultValue={p.winningPrice ?? ''} inputMode="decimal" /></label>

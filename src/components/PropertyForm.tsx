@@ -1,5 +1,6 @@
 import { ActionForm } from './ActionForm';
 import { saveProperty } from '@/app/(app)/watch-actions';
+import { Choice } from './Choice';
 
 type P = { id: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; sourcePersonId: string | null; askingPrice: string | null; lotSf: number | null; lotAcres: string | null; zoning: string | null; metBuyBox: boolean | null; referralFee: string | null; notes: string | null };
 
@@ -22,11 +23,8 @@ export function PropertyForm({ property, people, defaultSource }: { property?: P
           <label className="f">Lot Size (sq ft)<input name="lotSf" inputMode="numeric" defaultValue={property?.lotSf ?? ''} /></label>
           <label className="f">Acres<span className="h">Worked out from sq ft if blank</span><input name="lotAcres" inputMode="decimal" defaultValue={property?.lotAcres ?? ''} /></label>
           <label className="f">Zoning<input name="zoning" defaultValue={property?.zoning ?? ''} placeholder="R-10" /></label>
-          <label className="f">Meets Our Buy Box?
-            <select name="metBuyBox" defaultValue={property?.metBuyBox === true ? 'yes' : property?.metBuyBox === false ? 'no' : ''}>
-              <option value="">Not decided</option><option value="yes">Yes</option><option value="no">No</option>
-            </select>
-          </label>
+          <Choice name="metBuyBox" label="Meets Our Buy Box?" options={[{ key: '', label: 'Not Decided' }, { key: 'yes', label: 'Yes' }, { key: 'no', label: 'No' }]}
+            defaultValue={property?.metBuyBox === true ? 'yes' : property?.metBuyBox === false ? 'no' : ''} />
         </div>
       </div>
       <div className="section" data-c="energy"><header><h2>Where It Came From</h2><span className="hint">Credits the person who sent it</span></header>

@@ -1,5 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { crc32, deflateSync } from 'node:zlib';
+
+/** Taps one of a Choice's buttons (src/components/Choice.tsx). */
+const choose = (scope: Page | Locator, name: string, value: string) => scope.locator(`label.choice-opt:has(input[name="${name}"][value="${value}"])`).click();
+
 
 /** A small PNG whose colour depends on the time, so each run uploads a new photo. */
 function uniquePng(): Buffer {
@@ -28,19 +32,19 @@ test('a project goes on the website with its photos, and comes off again', async
   await page.getByRole('link', { name: /109 Plainview/ }).first().click();
   await page.getByRole('link', { name: 'Website' }).click();
   // A run that stopped half way may have left it on the website: start from off.
-  if (await page.getByLabel('Website Status').inputValue()) {
-    await page.getByLabel('Website Status').selectOption('');
+  if (await page.locator('input[name=siteStatus]:checked').getAttribute('value')) {
+    await choose(page, 'siteStatus', '');
     await page.getByRole('button', { name: 'Save the Page' }).click();
   }
   await expect(page.getByText(/Not on the website\./)).toBeVisible();
 
   // A photo made on the spot, marked for the website.
   await page.locator('input[name=files]').setInputFiles({ name: 'front.png', mimeType: 'image/png', buffer: uniquePng() });
-  await page.locator('form:has(input[name=files])').getByLabel('They Are').selectOption('after');
+  await choose(page.locator('form:has(input[name=files])'), 'kind', 'after');
   await page.getByRole('button', { name: 'Add Photos' }).click();
   await expect(page.getByText('Added 1 of 1.')).toBeVisible();
 
-  await page.getByLabel('Website Status').selectOption('for_sale');
+  await choose(page, 'siteStatus', 'for_sale');
   await page.getByLabel(/^Price/).fill('1,250,000');
   await page.getByLabel(/^Web Address/).fill('109-plainview-e2e');
   await page.getByLabel(/^One Line/).fill('New construction in the Triangle.');
@@ -68,7 +72,7 @@ test('a project goes on the website with its photos, and comes off again', async
   expect((await request.get('/', { headers: { host: 'chessoninvestments.com' } })).status()).toBe(200);
 
   // History records it, then it comes off.
-  await page.getByLabel('Website Status').selectOption('');
+  await choose(page, 'siteStatus', '');
   await page.getByRole('button', { name: 'Save the Page' }).click();
   await expect(page.getByText('Saved. It isn’t on the website.')).toBeVisible();
   expect((await request.get('/site/projects/109-plainview-e2e')).status()).toBe(404);

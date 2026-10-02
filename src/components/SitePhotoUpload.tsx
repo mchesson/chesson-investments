@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { photoKinds } from '@/lib/site';
 import { uploadSitePhoto } from '@/app/(app)/site-actions';
+import { Choice } from './Choice';
 
 /** Many photos at once, sent one by one (each request stays under 4 MB). */
 export function SitePhotoUpload({ projectId }: { projectId: string }) {
@@ -39,9 +40,7 @@ export function SitePhotoUpload({ projectId }: { projectId: string }) {
       <input type="hidden" name="projectId" value={projectId} />
       <div className="fields">
         <label className="f">Photos<span className="h">JPEG, PNG, WebP or HEIC, up to 4 MB each</span><input type="file" name="files" accept="image/*" multiple required /></label>
-        <label className="f">They Are
-          <select name="kind" defaultValue="after">{photoKinds.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
-        </label>
+        <Choice name="kind" label="They Are" options={photoKinds} defaultValue="after" color="aqua" />
         <label className="f">Order From<span className="h">Lower shows first</span><input name="sort" type="number" min={0} max={999} defaultValue={0} /></label>
       </div>
       <label className="check"><input type="checkbox" name="onSite" defaultChecked /> Show on the website</label>

@@ -55,11 +55,24 @@ text on white: `--aqua-deep`, `--energy-deep`). Vollkorn headings, Open Sans bod
 Title Case for headings and buttons. White top bar with the "Chesson
 Investments" wordmark; Near Black left menu with line icons that collapses to a
 rail (remembered in localStorage `ci-sidenav`) and is a drawer under 768px.
-**Stage bar** (owner, Oct 2, 2026): every project page starts with its stages
-as steps across the top (`src/components/StageBar.tsx`; done ones ticked, the
-current one True Blue, tap to move) and, for a Rental, its sub-stage as aqua
-buttons beneath (Getting Ready … Vacant; History "via stage bar"). Sections
-are framed in their own color (left edge, border, deeper heading tint, shadow).
+**Stages** (owner, Oct 2, 2026): several stages can be going at once. Each
+stage has a state (Not Started / Going Now / Done, `projects.stage_states`) and
+a sub-stage (`projects.sub_stages`; a Rental's is `rentals.status`); every
+stage's sub-stages are in `src/lib/project-stages.ts` (tested). `projects.stage`
+is kept as the main stage (the latest going now). The stage bar at the top of a
+project (`src/components/StageBar.tsx`) shows every stage (going now True Blue
+with its sub-stage, done ticked); tap one to open it beneath (`?stage=`), mark
+its state and tap where it stands (History "via stage bar"). Lists show every
+stage going now (`StageChips`). Short lists of choices are **buttons**, not
+dropdowns (`<Choice>` in src/components/Choice.tsx; filters are `.role-btn`
+links); long lists (companies, people, cost codes) stay dropdowns.
+**Like names** (owner, Oct 2, 2026): adding or renaming a person or company
+stops when the name looks like one on file (nicknames, typos, accents, Inc. /
+LLC, one name inside the other; numbers must agree; `src/lib/duplicates.ts`,
+tested); "Different person / company" saves anyway (History). The import
+preview flags them; admins see every pair at /admin/duplicates (Not the Same).
+`ActionForm` keeps what was typed when a save shows an error.
+Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
 Every page is framed sections with a colored heading band (`<Section kind>` in
 `src/components/ui.tsx`): **blue** details and money, **aqua** places,
 properties and documents, **energy** notes, touches and follow-ups, **grey**

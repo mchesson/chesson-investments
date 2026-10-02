@@ -18,15 +18,10 @@ export default async function GoingCold({ searchParams }: { searchParams: Promis
     <>
       <PageHead title="Going Cold" sub="People we haven't touched in a while, by role. Each role has its own number of days." />
       <Section title="Find" kind="grey">
-        <form className="find-bar">
-          <label className="f">Role
-            <select name="role" defaultValue={role ?? ''}>
-              <option value="">Every role</option>
-              {roles.map((x) => <option key={x.key} value={x.key}>{x.label} ({x.coldDays} days)</option>)}
-            </select>
-          </label>
-          <button className="btn" type="submit">Show</button>
-        </form>
+        <nav aria-label="Roles" className="role-pick">
+          <Link href="/going-cold" className="role-btn" aria-pressed={!role}>Every Role</Link>
+          {roles.map((x) => <Link key={x.key} href={`/going-cold?role=${x.key}`} className="role-btn" aria-pressed={role === x.key}>{x.plural} ({x.coldDays} days)</Link>)}
+        </nav>
       </Section>
       <Section title="Reach Out" kind="energy" hint={`${rows.length}`}>
         {rows.length ? (

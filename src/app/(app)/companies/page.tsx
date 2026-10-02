@@ -17,14 +17,13 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
     <>
       <PageHead title="Companies" actions={<Link className="btn" href="/companies/new">Add Company</Link>} />
       <Section title="Find Companies" kind="grey">
+        <nav aria-label="Roles" className="role-pick">
+          <Link href={sp.q ? `/companies?q=${encodeURIComponent(sp.q)}` : '/companies'} className="role-btn" aria-pressed={!role}>All Roles</Link>
+          {roles.map((r) => <Link key={r.key} href={`/companies?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), role: r.key })}`} className="role-btn" aria-pressed={role === r.key}>{r.plural}</Link>)}
+        </nav>
         <form className="find-bar">
           <label className="f grow">Search<input name="q" defaultValue={sp.q ?? ''} placeholder="Company name" /></label>
-          <label className="f">Role
-            <select name="role" defaultValue={role ?? ''}>
-              <option value="">Any role</option>
-              {roles.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-            </select>
-          </label>
+          {role ? <input type="hidden" name="role" value={role} /> : null}
           <button className="btn" type="submit">Search</button>
           {sp.q || role ? <Link href="/companies">Clear</Link> : null}
         </form>

@@ -1,10 +1,10 @@
 import Link from 'next/link';
+import { StageChips } from '@/components/StageChips';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { listProjects, projectMoney } from '@/lib/projects';
 import { formatCents } from '@/lib/format';
 import { formatMoney } from '@/lib/format';
-import { projectStageLabel } from '@/lib/project-stages';
 import { PageHead, Section, Empty } from '@/components/ui';
 
 export const metadata = { title: 'Projects' };
@@ -26,7 +26,7 @@ export default async function Projects() {
               <tr key={p.id}>
                 <td className="small">{p.projectNumber ? `P-${p.projectNumber}` : ''}</td>
                 <td><Link href={`/projects/${p.id}`}>{p.name}</Link><div className="small muted">{p.city}</div></td>
-                <td><span className="chip blue">{projectStageLabel(p.stage)}</span></td>
+                <td><StageChips p={p} /></td>
                 <td className="num">{p.heatedSf?.toLocaleString() ?? '—'}</td>
                 {seeMoney ? <><td className="num">{formatMoney(p.lotCost)}</td><td className="num">{formatMoney(p.proformaSalePrice)}</td></> : null}
               </tr>

@@ -6,6 +6,7 @@ import { archivePhoto, saveSite, updatePhoto } from '@/app/(app)/site-actions';
 import { projectPhotos } from '@/lib/site-data';
 import { photoKindLabel, photoKinds, showsPrice, siteProblems, siteStatusLabel, siteStatuses, slugify } from '@/lib/site';
 import { formatDateTime } from '@/lib/format';
+import { Choice } from './Choice';
 
 type P = {
   id: string; name: string; heatedSf: number | null; lotAcres: string | null;
@@ -37,12 +38,7 @@ export async function ProjectWebsite({ p, canEdit }: { p: P; canEdit: boolean })
           <ActionForm action={saveSite} submit="Save the Page">
             <input type="hidden" name="projectId" value={p.id} />
             <div className="fields">
-              <label className="f">Website Status
-                <select name="siteStatus" defaultValue={p.siteStatus ?? ''}>
-                  <option value="">Not on the Website</option>
-                  {siteStatuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                </select>
-              </label>
+              <Choice name="siteStatus" label="Website Status" options={[{ key: '', label: 'Not on the Website' }, ...siteStatuses]} defaultValue={p.siteStatus ?? ''} />
               <label className="f">Price<span className="h">Shown only for Coming Soon, For Sale and Under Contract</span><input name="sitePrice" defaultValue={p.sitePrice ? Number(p.sitePrice).toLocaleString('en-US') : ''} placeholder="569,900" /></label>
               <label className="f">Web Address<span className="h">chessoninvestments.com/projects/…</span><input name="siteSlug" defaultValue={slug} /></label>
             </div>
@@ -79,7 +75,7 @@ export async function ProjectWebsite({ p, canEdit }: { p: P; canEdit: boolean })
                     <summary>Change</summary>
                     <ActionForm action={updatePhoto} submit="Save">
                       <input type="hidden" name="fileId" value={f.id} />
-                      <label className="f">They Are<select name="kind" defaultValue={f.photoKind ?? 'after'}>{photoKinds.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select></label>
+                      <Choice name="kind" label="They Are" options={photoKinds} defaultValue={f.photoKind ?? 'after'} color="aqua" />
                       <label className="f">Caption<input name="caption" defaultValue={f.caption ?? ''} maxLength={120} /></label>
                       <label className="f">Order<input name="sort" type="number" min={0} max={999} defaultValue={f.sort} /></label>
                       <label className="check"><input type="checkbox" name="onSite" defaultChecked={f.onSite} /> On the website</label>

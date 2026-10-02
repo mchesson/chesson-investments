@@ -5,6 +5,7 @@ import { addRole, createTask, logTouch, removeRole, setTaskDone, updateRole } fr
 import { roles, roleDef, roleLabel, roleTag, stageLabel, supplierTypes, supplierTypeLabel } from '@/lib/roles';
 import { formatDate, formatDateTime, today, addDays } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
+import { Choice } from './Choice';
 
 type RoleRow = { id: string; role: string; stage: string; supplierTypes?: string[] | null; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
 
@@ -78,11 +79,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                     <ActionForm action={updateRole} submit="Save">
                       <input type="hidden" name="id" value={r.id} />
                       <div className="fields">
-                        <label className="f">Where We Are With Them
-                          <select name="stage" defaultValue={r.stage}>
-                            {def?.stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                          </select>
-                        </label>
+                        <Choice name="stage" label="Where We Are With Them" options={def?.stages ?? []} defaultValue={r.stage} />
                         {def?.trade ? <label className="f">Trade<input name="trade" defaultValue={r.trade ?? ''} /></label> : <input type="hidden" name="trade" value={r.trade ?? ''} />}
                         <label className="f">Areas<input name="areas" defaultValue={r.areas ?? ''} /></label>
                         {def?.trade ? <label className="f">License #<input name="licenseNumber" defaultValue={r.licenseNumber ?? ''} /></label> : <input type="hidden" name="licenseNumber" value={r.licenseNumber ?? ''} />}
@@ -135,12 +132,7 @@ export function TouchForm({ personId, propertyId, projectId }: { personId: strin
       {propertyId ? <input type="hidden" name="propertyId" value={propertyId} /> : null}
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
       <div className="fields">
-        <label className="f">What
-          <select name="kind" defaultValue="call">
-            <option value="call">Call</option><option value="email">Email</option><option value="text">Text</option>
-            <option value="meeting">Meeting</option><option value="site_walk">Site Walk</option><option value="event">Event</option>
-          </select>
-        </label>
+        <Choice name="kind" label="What" options={[{ key: 'call', label: 'Call' }, { key: 'email', label: 'Email' }, { key: 'text', label: 'Text' }, { key: 'meeting', label: 'Meeting' }, { key: 'site_walk', label: 'Site Walk' }, { key: 'event', label: 'Event' }]} defaultValue="call" color="energy" />
         <label className="f">When<input type="date" name="happenedOn" defaultValue={today()} max={today()} /></label>
       </div>
       <label className="f">What Happened<textarea name="notes" placeholder="What you talked about, what they said, what's next" /></label>

@@ -17,7 +17,7 @@ export function ProjectForm({ project }: { project?: P }) {
           <label className="f">ZIP<input name="zip" defaultValue={project?.zip ?? ''} /></label>
           <label className="f">Neighborhood<input name="neighborhood" defaultValue={project?.neighborhood ?? ''} /></label>
           <label className="f">Owned By<span className="h">The entity on the deed</span><input name="ownedBy" defaultValue={project?.ownedBy ?? 'Chesson Investments, LLC'} /></label>
-          <label className="f">Stage<select name="stage" defaultValue={project?.stage ?? 'under_contract'}>{projectStages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
+          {project ? null : <label className="f">Starting Stage<span className="h">After this, change stages with the buttons at the top of the project</span><select name="stage" defaultValue="under_contract">{projectStages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>}
         </div>
       </div>
       <div className="section" data-c="aqua"><header><h2>Lot and House</h2></header>

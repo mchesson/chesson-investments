@@ -1,4 +1,8 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
+
+/** Taps one of a Choice's buttons (src/components/Choice.tsx). */
+const choose = (scope: Page | Locator, name: string, value: string) => scope.locator(`label.choice-opt:has(input[name="${name}"][value="${value}"])`).click();
+
 
 async function signIn(page: Page, who: string) {
   await page.goto('/signin');
@@ -17,7 +21,7 @@ test('log a GC you met, with who introduced them', async ({ page }) => {
   // Roles are buttons: tick two.
   await page.getByLabel('General Contractor', { exact: true }).check();
   await page.getByLabel('Networking Contact', { exact: true }).check();
-  await page.getByLabel('How We Know Them').selectOption('introduction');
+  await choose(page, 'howMet', 'introduction');
   await page.getByLabel(/Or Introducer Not on File/).fill(`Jordan Intro${stamp}`);
   await page.getByLabel('About the Introduction').fill('Met through Jordan at the REIA meetup.');
   await page.getByRole('button', { name: 'Add Person' }).click();
@@ -32,7 +36,7 @@ test('log a GC you met, with who introduced them', async ({ page }) => {
   await expect(page.getByText('Met through Jordan at the REIA meetup.')).toBeVisible();
   await page.goto(personUrl);
   await page.getByRole('link', { name: 'Log a Touch' }).first().click();
-  await page.locator('select[name=kind]').selectOption('site_walk');
+  await choose(page, 'kind', 'site_walk');
   await page.getByLabel('What Happened').fill('Walked the lot together.');
   await page.getByRole('button', { name: 'Log It' }).click();
   await expect(page.getByText('Logged.')).toBeVisible();
@@ -147,7 +151,7 @@ test('budget stages, a GC milestone and an owner-supplied commitment that moves 
   await expect(page.locator('li strong', { hasText: `Trim-Out ${stamp}` })).toBeVisible();
   await page.goto(`${base}?tab=schedule`);
   await page.getByLabel('What', { exact: true }).fill(`Appliances ${stamp}`);
-  await page.getByLabel('Who Is Responsible').selectOption('owner');
+  await choose(page, 'responsible', 'owner');
   await page.getByLabel('Milestone').selectOption({ label: `Trim-Out ${stamp}` });
   await page.getByLabel(/Days Before/).fill('-5');
   await page.getByLabel('GC Allowance').fill('47,000');
@@ -230,7 +234,7 @@ test('a utility supplier with a kind, Do Not Use with a reason, and a property u
   await page.goto('/projects');
   await page.getByRole('link', { name: /109 Plainview/ }).first().click();
   await page.getByRole('link', { name: 'Utilities', exact: true }).click();
-  await page.locator('select[name=service]').selectOption('electric');
+  await choose(page, 'service', 'electric');
   await page.locator('select[name=personId]').selectOption({ label: `Lubna ${last}` });
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('.rows')).toContainText(`Lubna ${last}`);
@@ -332,8 +336,8 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
 
   // Our estimate: appliances owner-supplied at $30,000, nothing for siding/stone.
   await page.locator('summary', { hasText: 'Add one' }).click();
-  const form = page.locator('form:has(select[name=bidKind])');
-  await form.locator('select[name=bidKind]').selectOption('ours');
+  const form = page.locator('form:has(input[name=bidKind])');
+  await choose(form, 'bidKind', 'ours');
   await form.locator('input[name=label]').fill(`Ours ${s}`);
   const code = async (c: string) => form.locator('.bid-grid label', { hasText: new RegExp(`^${c} `) }).locator('input');
   await (await code('08')).fill('72,000');
@@ -385,10 +389,10 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await expect(page.getByText(/^Imported /)).toBeVisible();
   await page.goto('/projects');
   await page.getByRole('link', { name: `Rent Test ${s}` }).first().click();
-  await page.getByRole('link', { name: 'Rental', exact: true }).click();
+  await page.locator('.tabs').getByRole('link', { name: 'Rental', exact: true }).click();
 
-  const setup = page.locator('form:has(select[name=status])');
-  await setup.locator('select[name=status]').selectOption('on_market');
+  const setup = page.locator('form:has(input[name=askingRent])');
+  await choose(setup, 'status', 'on_market');
   await setup.locator('input[name=askingRent]').fill('2,450');
   await setup.locator('input[name=managementFeePct]').fill('8');
   await setup.locator('input[name=taxesMonthly]').fill('300');
@@ -438,7 +442,7 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await expect(page.getByText(`added the lease with Pat Tenant ${s}: $2,500 a month from 2026-09-01 to 2027-08-31`)).toBeVisible();
 });
 
-test('the stage bar at the top: move the stage, then the rental sub-stage, both in History', async ({ page }) => {
+test('stages: several going at once, each with its sub-stages, all in History and on the list', async ({ page }) => {
   await signIn(page, 'Sample Owner');
   const s = Date.now().toString().slice(-6);
   const file = JSON.stringify({ projects: [{ name: `Stage Test ${s}`, address: `${s} Stage St`, city: 'Raleigh', stage: 'building' }] });
@@ -450,14 +454,76 @@ test('the stage bar at the top: move the stage, then the rental sub-stage, both 
   await page.goto('/projects');
   await page.getByRole('link', { name: `Stage Test ${s}` }).first().click();
 
-  const bar = page.getByRole('navigation', { name: 'Stage' });
-  await expect(bar.locator('[aria-current=step]')).toHaveText('Building');
-  await expect(bar.getByRole('button', { name: 'On the Market' })).toHaveCount(0);
-  await bar.getByRole('button', { name: 'Rental' }).click();
-  await expect(bar.locator('[aria-current=step]')).toHaveText('Rental');
-  await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('Getting Ready');
+  const bar = page.getByRole('navigation', { name: 'Stages' });
+  const step = (label: string) => bar.locator('.stage-step', { hasText: label });
+  await expect(step('Building')).toHaveAttribute('data-state', 'active');
+  await expect(step('Design')).toHaveAttribute('data-state', 'done');
+  // Building is open: its own sub-stages.
+  await expect(bar.getByRole('region', { name: 'Building stage' })).toBeVisible();
+  await bar.getByRole('button', { name: 'Framing' }).click();
+  await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('Framing');
+
+  // Permits going at the same time.
+  await step('Permits').click();
+  await expect(bar.getByRole('region', { name: 'Permits stage' })).toBeVisible();
+  await bar.getByRole('button', { name: 'Going Now' }).click();
+  await expect(step('Permits')).toHaveAttribute('data-state', 'active');
+  await bar.getByRole('button', { name: 'In Review' }).click();
+  await expect(bar.locator('.stage-now')).toContainText('Permits (In Review)');
+  await expect(bar.locator('.stage-now')).toContainText('Building (Framing)');
+
+  // For Sale has its own: picking one starts the stage.
+  await step('For Sale').click();
+  await bar.getByRole('button', { name: 'Coming Soon' }).click();
+  await expect(step('For Sale')).toHaveAttribute('data-state', 'active');
+
+  // A rental's sub-stage is the rental's status.
+  await step('Rental').click();
   await bar.getByRole('button', { name: 'On the Market' }).click();
   await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('On the Market');
+
   await page.getByRole('link', { name: 'History', exact: true }).click();
-  await expect(page.getByText(/set it up as a rental \(On the Market\)|moved the rental from .* to On the Market/).first()).toBeVisible();
+  await expect(page.getByText('moved Permits to In Review').first()).toBeVisible();
+  await expect(page.getByText(/marked Permits Going Now/).first()).toBeVisible();
+  await expect(page.getByText(/moved Rental to On the Market; Rental is going now/).first()).toBeVisible();
+
+  await page.goto('/projects');
+  const row = page.locator('tr', { hasText: `Stage Test ${s}` }).first();
+  await expect(row).toContainText('Permits · In Review');
+  await expect(row).toContainText('Building · Framing');
+  await expect(row).toContainText('Rental · On the Market');
+});
+
+test('like names: a nickname or typo stops and asks, and Possible Duplicates lists what is on file', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const add = async (first: string, last: string) => {
+    await page.goto('/people/new');
+    await page.getByLabel('First Name', { exact: true }).fill(first);
+    await page.getByLabel('Last Name', { exact: true }).fill(last);
+  };
+  await add('Robert', `Smithers${s}`);
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Robert Smithers${s}`);
+  await add('Bob', `Smithrs${s}`);
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByText(`This looks like someone already on file: Robert Smithers${s}`)).toBeVisible();
+  await page.getByLabel(/Different person/).check();
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Bob Smithrs${s}`);
+
+  await page.goto('/companies/new');
+  await page.getByLabel('Name', { exact: true }).fill(`Baggett${s}`);
+  await page.getByRole('button', { name: /Add Company|Save/ }).first().click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Baggett${s}`);
+  await page.goto('/companies/new');
+  await page.getByLabel('Name', { exact: true }).fill(`Baggett${s} Construction, Inc.`);
+  await page.getByRole('button', { name: /Add Company|Save/ }).first().click();
+  await expect(page.getByText(`A company with a name like this is already on file: Baggett${s}`)).toBeVisible();
+
+  await page.goto('/admin/duplicates');
+  const pair = page.locator('.dup-rows li', { hasText: `Robert Smithers${s}` });
+  await expect(pair).toContainText(`Bob Smithrs${s}`);
+  await pair.getByRole('button', { name: 'Not the Same' }).click();
+  await expect(page.locator('.dup-rows li', { hasText: `Robert Smithers${s}` })).toHaveCount(0);
 });

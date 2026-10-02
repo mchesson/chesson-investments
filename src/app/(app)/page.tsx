@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StageChips } from '@/components/StageChips';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { goingCold, myOpenTasks } from '@/lib/contacts';
@@ -6,7 +7,6 @@ import { listProjects } from '@/lib/projects';
 import { listProperties } from '@/lib/watch';
 import { formatMoney, today } from '@/lib/format';
 import { roleLabel } from '@/lib/roles';
-import { projectStageLabel } from '@/lib/project-stages';
 import { propertyStageLabel } from '@/lib/properties';
 import { PageHead, Section, Tile, Empty } from '@/components/ui';
 import { DueLabel } from '@/components/contacts';
@@ -60,7 +60,7 @@ export default async function Home() {
         <div className="stack">
           <Section title="Projects" kind="aqua">
             {projects.length ? <ul className="rows">{projects.map((p) => (
-              <li key={p.id}><Link href={`/projects/${p.id}`}>{p.name}</Link> <span className="chip blue">{projectStageLabel(p.stage)}</span></li>
+              <li key={p.id}><Link href={`/projects/${p.id}`}>{p.name}</Link> <StageChips p={p} /></li>
             ))}</ul> : <Empty>No projects yet.</Empty>}
           </Section>
           {watch ? (

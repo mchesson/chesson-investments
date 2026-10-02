@@ -51,18 +51,18 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             })}
           </nav>
         ) : null}
+        {one ? (
+          <nav aria-label="Where we are with them" className="role-pick">
+            <span className="small muted" style={{ alignSelf: 'center' }}>Where we are with them:</span>
+            <Link href={href(picked)} className="role-btn small-btn" aria-pressed={!stage}>Any</Link>
+            {roleDef(one)!.stages.map((s) => <Link key={s.key} href={href(picked, { stage: s.key, supply: supply.length ? supply.join(',') : undefined })} className="role-btn small-btn" aria-pressed={stage === s.key}>{s.label}</Link>)}
+          </nav>
+        ) : null}
         <form className="find-bar">
           <label className="f grow">Search<input name="q" defaultValue={sp.q ?? ''} placeholder="Name, email, phone, company, trade, area" /></label>
           {picked.length ? <input type="hidden" name="roles" value={picked.join(',')} /> : null}
           {supply.length ? <input type="hidden" name="supply" value={supply.join(',')} /> : null}
-          {one ? (
-            <label className="f">Where We Are With Them
-              <select name="stage" defaultValue={stage ?? ''}>
-                <option value="">Any</option>
-                {roleDef(one)!.stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
-            </label>
-          ) : null}
+          {stage ? <input type="hidden" name="stage" value={stage} /> : null}
           <label className="check"><input type="checkbox" name="business" value="1" defaultChecked={business} /> Business contacts only</label>
           <button className="btn" type="submit">Search</button>
           {sp.q || picked.length || business ? <Link href="/people">Clear</Link> : null}
