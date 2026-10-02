@@ -1,8 +1,7 @@
 import { ActionForm } from './ActionForm';
 import { savePerson } from '@/app/(app)/contacts-actions';
-import { roles } from '@/lib/roles';
 import { showPhone } from '@/lib/format';
-import { RoleFields } from './contacts';
+import { RoleFields, RolePicker } from './contacts';
 import { howMetOptions } from '@/lib/how-met';
 
 type P = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; title: string | null; companyId: string | null; city: string | null; state: string | null; howMet: string | null; introducedById: string | null; introNote: string | null; metAtEventId: string | null; notes: string | null };
@@ -44,14 +43,9 @@ export function PersonForm({ person, companies, people, events, defaults }: {
       {!person ? (
         <fieldset className="section" data-c="blue" style={{ padding: 0 }}>
           <legend className="sr-only">Role</legend>
-          <header><h2>Role</h2><span className="hint">More can be added on their page</span></header>
+          <header><h2>What They Are to Us</h2><span className="hint">Tick every role that fits; none is fine</span></header>
           <div className="body">
-            <label className="f">What They Are to Us
-              <select name="role" defaultValue={defaults?.role ?? ''}>
-                <option value="">Decide later</option>
-                {roles.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-              </select>
-            </label>
+            <RolePicker selected={defaults?.role ? [defaults.role] : []} />
             <RoleFields />
           </div>
         </fieldset>

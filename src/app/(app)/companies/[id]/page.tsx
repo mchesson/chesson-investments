@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord } from '@/lib/contacts';
+import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
+import { VendorSpend } from '@/components/VendorSpend';
 import { isUuid } from '@/lib/forms';
 import { formatDate } from '@/lib/format';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
@@ -18,6 +19,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const { company: c, roles, current, former, subs } = data;
   const edit = can(user.role, 'contacts.edit');
   const base = `/companies/${id}`;
+  const seeMoney = can(user.role, 'money.view');
   return (
     <>
       <PageHead eyebrow="Company" title={c.name} sub={<RoleChips items={roles} />}
@@ -37,6 +39,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
+              {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
               <Section title="Roles" kind="blue"><RolesPanel items={roles} companyId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
               {subs.length ? (
                 <Section title="Subs and Suppliers Through Them" kind="aqua" hint="Their invoices come through this GC">
