@@ -11,6 +11,9 @@ import { cents, payBlocker, type CodeMoney } from '@/lib/budget';
 import { projectStages, projectStageLabel } from '@/lib/project-stages';
 import { HOLDING_KINDS } from '@/lib/cost-codes';
 import { lineKinds } from '@/lib/bill-lines';
+import { scheduleFor } from '@/lib/schedule-data';
+import { responsibleLabel } from '@/lib/schedule';
+import { BudgetStages, ScheduleTab } from '@/components/ProjectSchedule';
 import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
@@ -34,9 +37,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const seeMoney = can(user.role, 'money.view');
   const base = `/projects/${id}`;
   const openItems = data.items.filter((i) => i.status === 'unpriced');
+  const sched = await scheduleFor(id);
+  const missed = sched.assignments.filter((a) => a.state === 'missed');
   const tabs = [
     { key: 'overview', label: 'Overview' },
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
+    { key: 'schedule', label: 'Schedule' },
     { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
@@ -66,11 +72,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={tabs} />
+          {missed.length && tab !== 'schedule' ? <div className="notice error"><strong>{missed.length} missed {missed.length === 1 ? 'commitment' : 'commitments'}</strong>: {missed.map((a) => `${a.description} (${a.who ?? responsibleLabel(a.responsible)})`).join('; ')}. <Link href={`${base}?tab=schedule`}>Schedule</Link></div> : null}
           {tab === 'overview' ? <Overview data={data} seeMoney={seeMoney} openItems={openItems.length} edit={editProject} /> : null}
-          {tab === 'budget' && seeMoney ? <Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /> : null}
+          {tab === 'budget' && seeMoney ? <><BudgetStages projectId={id} codes={data.codes} current={new Map(data.codes.map((c) => [c.id, data.money.get(c.id)?.budget ?? 0]))} sched={sched} canEdit={editProject} canApprove={can(user.role, 'users.manage')} /><Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /></> : null}
           {tab === 'commitments' && seeMoney ? <Commitments data={data} edit={editProject} /> : null}
           {tab === 'bills' && seeMoney ? <Bills data={data} role={user.role} /> : null}
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}
+          {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}
           {tab === 'tasks' ? (
             <div className="stack">

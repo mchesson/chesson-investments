@@ -11,6 +11,9 @@ import { propertyStageLabel } from '@/lib/properties';
 import { PageHead, Section, Tile, Empty } from '@/components/ui';
 import { DueLabel } from '@/components/contacts';
 import { setTaskDone } from './contacts-actions';
+import { missedEverywhere } from '@/lib/schedule-data';
+import { responsibleLabel } from '@/lib/schedule';
+import { formatDate } from '@/lib/format';
 
 export default async function Home() {
   const user = await requirePage();
@@ -22,9 +25,11 @@ export default async function Home() {
     can(user.role, 'properties.view') ? listProperties({ view: 'active' }) : null,
   ]);
   const due = tasks.filter((t) => t.dueOn <= today());
+  const missed = can(user.role, 'projects.view') ? await missedEverywhere() : [];
   return (
     <>
       <PageHead title={`Hello${user.name ? `, ${user.name.split(' ')[0]}` : ''}`} sub="Chesson Investments" />
+      {missed.length ? <div className="notice error"><strong>Missed commitments:</strong> {missed.map((x, i) => <span key={i}>{i ? '; ' : ''}<Link href={`/projects/${x.projectId}?tab=schedule`}>{x.projectName}</Link>: {x.description} ({x.who ?? responsibleLabel(x.responsible)}, due {formatDate(x.due)})</span>)}</div> : null}
       <div className="tiles">
         {contacts ? <Tile k="Tasks Due" v={due.length} s={<Link href="/tasks">My Tasks</Link>} color={due.length ? 'var(--energy)' : undefined} /> : null}
         {contacts ? <Tile k="Going Cold" v={cold.length} s={<Link href="/going-cold">Reach out</Link>} /> : null}

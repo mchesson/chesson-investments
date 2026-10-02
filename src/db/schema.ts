@@ -438,3 +438,62 @@ export const appSettings = pgTable('app_settings', {
   updated: updated(),
 }).enableRLS();
 
+
+// Budget stages (owner, Oct 2, 2026): a rough estimate before design, the
+// post-design budget with real numbers (structural engineer, GC), then the
+// owner's approved budget, locked as the baseline. Each is a snapshot of the
+// lines, so later changes show against it.
+export const budgetVersions = pgTable('budget_versions', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  kind: text('kind').notNull(), // rough | design | approved
+  label: text('label'),
+  preparedBy: text('prepared_by'),
+  lines: jsonb('lines').notNull(), // [{ costCodeId, cents }]
+  totalCents: integer('total_cents').notNull(),
+  approvedBy: uuid('approved_by').references(() => users.id),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+}, (t) => [index('budget_versions_project').on(t.projectId, t.created)]).enableRLS();
+
+// The GC's schedule: milestones the commitments hang off.
+export const milestones = pgTable('milestones', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  name: text('name').notNull(),
+  plannedStart: date('planned_start'),
+  plannedEnd: date('planned_end'),
+  actualStart: date('actual_start'),
+  actualEnd: date('actual_end'),
+  source: text('source'), // "GC schedule 9/8/26"
+  sort: integer('sort').notNull().default(0),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('milestones_project').on(t.projectId, t.sort)]).enableRLS();
+
+// Who supplies or does what, by when (owner: "a clear expectation if someone
+// misses their commitment including myself"). Due is a fixed day or a number
+// of days before or after a milestone, so it follows the GC's schedule.
+export const assignments = pgTable('assignments', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  costCodeId: uuid('cost_code_id').references(() => costCodes.id),
+  description: text('description').notNull(),
+  responsible: text('responsible').notNull(), // gc | owner | vendor
+  personId: uuid('person_id').references(() => people.id),
+  companyId: uuid('company_id').references(() => companies.id),
+  userId: uuid('user_id').references(() => users.id),
+  gcAllowance: money('gc_allowance'), // what the GC budgeted for it
+  ourCost: money('our_cost'), // what it costs us supplying it ourselves
+  milestoneId: uuid('milestone_id').references(() => milestones.id),
+  offsetDays: integer('offset_days'), // negative = before the milestone starts
+  dueOn: date('due_on'),
+  status: text('status').notNull().default('open'), // open | done
+  doneOn: date('done_on'),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('assignments_project').on(t.projectId)]).enableRLS();

@@ -126,6 +126,19 @@ address). Styles: `src/app/globals.css`.
   is shown with it and never counted twice. Learned from 420 Peyton: the GC
   (Luxury Oaks) re-bills vendor invoices at cost plus a 20% construction
   management fee, with credits; vendors bill the GC, not us.
+- **Budget stages** (owner, Oct 2, 2026): `budget_versions` snapshots the
+  budget as the **Rough Estimate** (before design), the **Post-Design Budget**
+  (real numbers from the structural engineer and GC) and the **Approved
+  Budget** (Owner only; the newest approved one is the baseline). The Budget
+  tab compares them line by line, with the current budget vs approved.
+- **Schedule and commitments**: `milestones` (the GC's schedule) and
+  `assignments` (who supplies or does what: the GC, us (owner-supplied) or a
+  vendor; due on a date or N days before/after a milestone, so it moves with
+  the GC's schedule; GC allowance vs our cost, e.g. Plainview's appliances:
+  $47,000 allowance, $30,000 ours; the GC must credit the allowance). Missed
+  commitments, the owner's included ("a clear expectation if someone misses
+  their commitment including myself"), show red with the name on the project
+  and Home. Rules: `src/lib/schedule.ts`.
 - **daily_logs** with photos, **holding_costs**, **files** (bytes in the row
   until `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` are set,
   then a private bucket; `/files/<id>` checks the viewer's role).
