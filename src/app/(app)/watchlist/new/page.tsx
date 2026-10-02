@@ -5,8 +5,8 @@ import { PropertyForm } from '@/components/PropertyForm';
 
 export const metadata = { title: 'Add a Property' };
 
-export default async function NewProperty({ searchParams }: { searchParams: Promise<{ source?: string }> }) {
+export default async function NewProperty({ searchParams }: { searchParams: Promise<{ source?: string; address?: string; city?: string }> }) {
   await requirePage('properties.edit');
-  const { source } = await searchParams;
-  return (<><PageHead title="Add a Property" eyebrow="Watchlist" /><PropertyForm people={await peopleOptions()} defaultSource={source} /></>);
+  const { source, address, city } = await searchParams;
+  return (<><PageHead title="Add a Property" eyebrow="Watchlist" /><PropertyForm people={await peopleOptions()} defaultSource={source} defaultAddress={address?.slice(0, 200)} defaultCity={city?.slice(0, 80)} /></>);
 }

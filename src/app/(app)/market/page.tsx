@@ -27,7 +27,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         actions={<Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link>} />
       <Section title="Filters" kind="grey"><Filters f={f} /></Section>
       <Section title="Map" kind="aqua" hint={totalSales ? `${totalSales.toLocaleString()} sales on file` : 'No sales loaded yet'}>
-        <MarketMap query={query(f)} projects={places.projects} watch={places.watch} areas={hoods} />
+        <MarketMap query={query(f)} projects={places.projects} watch={places.watch} areas={hoods} parcelInfo />
         {places.notPlaced ? <p className="small muted" style={{ margin: '8px 0 0' }}>{places.notPlaced} of our projects and watched properties aren’t on the map yet (their address wasn’t found on the county parcels).</p> : null}
       </Section>
       <Section title="Where the Market Is Headed" kind="blue" hint="Sales per month: the latest 6 months (to 30 days ago) against the same months a year earlier">

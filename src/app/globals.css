@@ -348,6 +348,22 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .map-pin { display: grid !important; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .map-pin.pin-project { background: var(--near-black); }
 .map-pin.pin-watch { background: var(--energy-deep); }
+.map-pin.pin-found { background: #b3261e; font-size: 15px; }
+.map-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.map-search { position: relative; display: flex; gap: 6px; flex: 1; min-width: 220px; max-width: 460px; margin: 0; }
+.map-search input { flex: 1; min-width: 0; font: inherit; padding: 6px 10px; border: 1.5px solid var(--hair); border-radius: 8px; }
+.map-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 1200; list-style: none; margin: 4px 0 0; padding: 4px; background: #fff; border: 1px solid var(--hair); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.15); max-height: 300px; overflow: auto; }
+.map-results button { display: block; width: 100%; text-align: left; font: inherit; padding: 7px 8px; border: 0; background: none; border-radius: 6px; cursor: pointer; }
+.map-results button:hover, .map-results button:focus-visible { background: #e8f1f9; }
+.market-map-wrap.is-full { position: fixed; inset: 0; z-index: 2000; background: #fff; padding: 10px; grid-template-rows: auto auto 1fr auto; }
+.market-map-wrap.is-full .market-map { height: 100%; min-height: 0; }
+.leaflet-tooltip.sale-label { padding: 1px 5px; font-size: 11px; font-weight: 700; color: var(--near-black); background: rgba(255,255,255,.92); border: 1px solid #999; box-shadow: none; }
+.leaflet-tooltip.sale-label::before { display: none; }
+.leaflet-tooltip.found-label { font-weight: 700; font-size: 13px; color: #fff; background: #b3261e; border: 0; }
+.leaflet-tooltip.found-label::before { border-top-color: #b3261e; }
+.leaflet-tooltip.zone-label { font-weight: 600; }
+.parcel-pop { font-size: 13px; line-height: 1.45; }
+.parcel-pop strong { font-size: 14px; }
 .trend-sentence { margin: 0 0 12px; font-size: 1.05rem; }
 .pace { font-size: 1.05rem; }
 .pace-faster { color: var(--aqua-deep); }

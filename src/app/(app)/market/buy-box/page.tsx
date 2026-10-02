@@ -62,7 +62,7 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
         </div>
       </Section>
       <Section title="Map" kind="aqua" hint="Green: buy zones · olive: watch (too-expensive zones are in the table)">
-        <MarketMap query={county ? `county=${county}` : ''} projects={places.projects} watch={places.watch} areas={[]} only={['zones', 'heat', 'dots', 'projects', 'watch']}
+        <MarketMap query={county ? `county=${county}` : ''} projects={places.projects} watch={places.watch} areas={[]} only={['zones', 'heat', 'dots', 'parcels', 'projects', 'watch']} parcelInfo
           zones={inView.filter((z) => z.verdict === 'buy' || z.verdict === 'watch').map((z) => ({ name: z.name, city: z.city, lat: z.lat, lng: z.lng, verdict: z.verdict, label: verdictLabel[z.verdict], maxLot: z.money?.maxLot ?? null, entry: z.entryPrice, value: z.money?.value ?? null }))} />
       </Section>
       <Section title={by === 'street' ? 'Streets' : 'Neighborhoods'} kind="blue" hint={`${listed.length} shown`}>

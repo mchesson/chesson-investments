@@ -4,14 +4,14 @@ import { Choice } from './Choice';
 
 type P = { id: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; sourcePersonId: string | null; askingPrice: string | null; lotSf: number | null; lotAcres: string | null; zoning: string | null; metBuyBox: boolean | null; referralFee: string | null; notes: string | null };
 
-export function PropertyForm({ property, people, defaultSource }: { property?: P; people: { id: string; name: string; companyName: string | null }[]; defaultSource?: string }) {
+export function PropertyForm({ property, people, defaultSource, defaultAddress, defaultCity }: { property?: P; people: { id: string; name: string; companyName: string | null }[]; defaultSource?: string; defaultAddress?: string; defaultCity?: string }) {
   return (
     <ActionForm action={saveProperty} submit={property ? 'Save Changes' : 'Add to Watchlist'}>
       {property ? <input type="hidden" name="id" value={property.id} /> : null}
       <div className="section" data-c="aqua"><header><h2>Where</h2></header>
         <div className="body fields">
-          <label className="f">Address<input name="address" required defaultValue={property?.address} placeholder="109 Plainview Ave" /></label>
-          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={property?.city ?? 'Raleigh'} /></label>
+          <label className="f">Address<input name="address" required defaultValue={property?.address ?? defaultAddress} placeholder="109 Plainview Ave" /></label>
+          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={property?.city ?? defaultCity ?? 'Raleigh'} /></label>
           <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={property?.state ?? 'NC'} /></label>
           <label className="f">ZIP<input name="zip" defaultValue={property?.zip ?? ''} /></label>
           <label className="f">Neighborhood<input name="neighborhood" list="neighborhood-options" defaultValue={property?.neighborhood ?? ''} /></label>

@@ -625,7 +625,7 @@ test('the market map: filters and layer buttons, sales in view, neighborhoods an
   for (let i = 0; i < 6; i++) {
     const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, neighborhood, land_use, heated_sf, lat, lng, last_sale_price, last_sale_on)
       values ('wake', $1, $2, 'TESTWOOD LN', 'Raleigh', $3, 'condo', 2000, $4, $5, $6, current_date - ($7 || ' days')::interval) returning id`,
-      [`T${s}${i}`, `${i + 1} TESTWOOD LN`, hood, 35.70 + i * 0.001, -78.70, 2600000 + i * 10000, 20 + i * 10]);
+      [`T${s}${i}`, `${i + 1} TESTWOOD${s} LN`, hood, 35.70 + i * 0.001, -78.70, 2600000 + i * 10000, 20 + i * 10]);
     await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - ($2 || ' days')::interval, $3, 2000)`, [r.rows[0].id, 20 + i * 10, 2600000 + i * 10000]);
   }
   await db.end();
@@ -653,6 +653,21 @@ test('the market map: filters and layer buttons, sales in view, neighborhoods an
   const body = await r.json();
   expect(body.points.filter((p: { h: string }) => p.h === hood).length).toBe(6);
   expect(body.points.find((p: { h: string }) => p.h === hood).psf).toBeGreaterThan(1000);
+
+  // Go to an address: the sale on file, with a star where it is.
+  await page.getByRole('textbox', { name: 'Go to an address' }).fill(`1 TESTWOOD${s}`);
+  await page.getByRole('button', { name: 'Go', exact: true }).click();
+
+  await expect(page.locator('.found-label')).toContainText(`1 TESTWOOD${s} LN`);
+  const found = await (await page.request.get(`/api/market/find?q=2%20Testwood${s}%20Ln`)).json();
+  expect(found.results[0]).toMatchObject({ label: `2 TESTWOOD${s} LN, Raleigh`, kind: 'Sold' });
+  // Street map or aerial, and the parcel lines as a layer.
+  await page.getByRole('button', { name: 'Aerial (Wake)' }).click();
+  await expect(page.getByRole('button', { name: 'Aerial (Wake)' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Parcel Lines' })).toBeVisible();
+  await page.getByRole('button', { name: 'Full Screen' }).click();
+  await expect(page.locator('.market-map-wrap.is-full')).toBeVisible();
+  await page.getByRole('button', { name: 'Exit Full Screen' }).click();
 
   // Filters are buttons in the address.
   await page.locator('.market-filters').getByRole('link', { name: 'Durham' }).click();
@@ -894,6 +909,9 @@ test('standard access by type: a role standard everyone follows, and an agent wi
   await expect(g.getByRole('button', { name: 'Each Sale' })).toBeVisible();
   await expect(g.getByRole('button', { name: 'Our Projects' })).toHaveCount(0);
   expect((await g.request.get('/api/market/points?bbox=-79,35.5,-78.5,36.2')).status()).toBe(200);
+  // Agents can go to an address, but owners' names on a parcel are for us only.
+  expect((await g.request.get('/api/market/find?q=ab')).status()).toBe(200);
+  expect((await g.request.get('/api/market/parcel?lat=35.78&lng=-78.64')).status()).toBe(403);
 });
 
 test('the buy box: a zone where we can pay more than lots sell for, on the page and on a watched lot', async ({ page }) => {
@@ -914,6 +932,7 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
 
   await signIn(page, 'Sample Owner');
   await page.goto('/market/buy-box');
+  await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
   // Saving the numbers works every zone out again.
   await page.locator('input[name=minLot]').fill('76000');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
