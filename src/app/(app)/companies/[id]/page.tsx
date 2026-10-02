@@ -18,10 +18,10 @@ import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
 import { HistoryList, RoleChips, RolesPanel, TaskForm, TaskRows } from '@/components/contacts';
 
-export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string }> }) {
+export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; merged?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview', status } = await searchParams;
+  const { tab = 'overview', status, merged } = await searchParams;
   const [gs, iss] = await Promise.all([gradesFor({ companyId: id }), issuesFor({ companyId: id })]);
   const openIssues = iss.filter((i) => !isClosed(i.status)).length;
   const data = isUuid(id) ? await getCompany(id) : null;
@@ -34,6 +34,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
     <>
       <PageHead eyebrow="Company" title={c.name} sub={<span className="sub-row"><GradeBadge letter={gs.overall?.letter} size="sm" /><RoleChips items={roles} /></span>}
         actions={edit ? (<><Link className="btn" href={`/people/new?company=${id}`}>Add Person Here</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null} />
+      {merged ? <div className="notice" role="status">Merged {merged} into this record: everything linked to it is here now, and it’s archived. History has the details.</div> : null}
       <DoNotUseBanner on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} />
       <div className="record">
         <div className="card-side">

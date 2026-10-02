@@ -371,3 +371,4 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .copy-link input { flex: 1; min-width: 0; font-size: .85rem; }
 .guest-body main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
 .guest-who { margin-right: 8px; }
+.dup-actions { display: inline-flex; gap: 6px; align-items: center; }
