@@ -12,6 +12,7 @@ test('every role has stages, and the contractor ladder matches the spec', () => 
   assert.deepEqual(roleDef('gc')!.stages.map((s) => s.label), ['Met', 'Talking', 'Bid', 'Hired', 'Preferred', 'Avoid']);
   assert.deepEqual(roleDef('agent')!.stages.map((s) => s.label), ['Met', 'Talking', 'Sent a Deal', 'Closed a Deal']);
   assert.deepEqual(roleDef('networking')!.stages.map((s) => s.label), ['Met', 'Keeping in Touch']);
+  assert.deepEqual(roleDef('personal')!.stages.map((s) => s.label), ['Friend', 'Family', 'Acquaintance']);
   assert.equal(firstStage('sub'), 'met');
   assert.equal(isStage('gc', 'avoid'), true);
   assert.equal(isStage('agent', 'avoid'), false);

@@ -103,8 +103,12 @@ function Overview({ data, seeMoney, openItems, edit }: { data: Money; seeMoney: 
         <Tile k="Build Budget" v={m(all.budget)} s={p.heatedSf ? `${formatCents(Math.round(all.budget / p.heatedSf), { cents: true })} / heated sf` : undefined} />
         <Tile k="Committed" v={m(all.committed)} s={<div className="bar" aria-hidden="true"><span className={all.over ? 'over' : ''} style={{ width: `${usedPct}%` }} /></div>} />
         <Tile k="Billed / Paid" v={`${m(all.billed)}`} s={`${m(all.paid)} paid`} />
-        <Tile k="Left in Budget" v={signed(all.left)} color={all.left < 0 ? 'var(--red)' : undefined} />
-        <Tile k="Projected Profit" v={signed(pnl.projected.profit)} s={pnl.projected.margin !== null ? `${pnl.projected.margin}% of sale` : 'Set a sale price'} color={pnl.projected.profit < 0 ? 'var(--red)' : 'var(--aqua)'} />
+        {all.budget ? <Tile k="Left in Budget" v={signed(all.left)} color={all.left < 0 ? 'var(--red)' : undefined} /> : <Tile k="Budget" v="—" s="No budget set (costs are from the bills)" />}
+        {pnl.projected.sale ? (
+          <Tile k="Projected Profit" v={signed(pnl.projected.profit)} s={pnl.projected.margin !== null ? `${pnl.projected.margin}% of sale` : undefined} color={pnl.projected.profit < 0 ? 'var(--red)' : 'var(--aqua)'} />
+        ) : pnl.market ? (
+          <Tile k="At Market Value" v={signed(pnl.market.profit)} s={`If sold at ${m(pnl.market.value)}`} color={pnl.market.profit < 0 ? 'var(--red)' : 'var(--aqua)'} />
+        ) : <Tile k="Projected Profit" v="—" s="Set a sale price or market value" />}
       </div>
       {pnl.market ? (
         <div className={`notice ${pnl.market.overbuilt ? 'error' : ''}`}>
@@ -119,7 +123,8 @@ function Overview({ data, seeMoney, openItems, edit }: { data: Money; seeMoney: 
           <tbody>
             <tr><td>Sale price</td><td className="num">{m(pnl.proforma.sale)}</td><td className="num">{m(pnl.projected.sale)}</td><td className="num">{p.actualSalePrice ? formatMoney(p.actualSalePrice) : '—'}</td></tr>
             <tr><td>Selling costs ({Number(p.sellingCostPct ?? 0)}%)</td><td className="num">−{m(pnl.proforma.selling)}</td><td className="num">−{m(pnl.projected.selling)}</td><td className="num">—</td></tr>
-            <tr><td>Lot</td><td className="num">−{m(pnl.proforma.lot)}</td><td className="num">−{m(pnl.projected.lot)}</td><td className="num">{m(pnl.actualToDate.lot)}</td></tr>
+            <tr><td>Staging, listing and marketing</td><td className="num">−{m(pnl.proforma.staging)}</td><td className="num">−{m(pnl.projected.staging)}</td><td className="num">{m(pnl.projected.staging)}</td></tr>
+            <tr><td>Lot (with closing costs)</td><td className="num">−{m(pnl.proforma.lot)}</td><td className="num">−{m(pnl.projected.lot)}</td><td className="num">{m(pnl.actualToDate.lot)}</td></tr>
             <tr><td>Build</td><td className="num">−{m(pnl.proforma.build)}</td><td className="num">−{m(pnl.projected.build)}</td><td className="num">{m(pnl.actualToDate.build)} billed</td></tr>
             <tr><td>Holding costs</td><td className="num">—</td><td className="num">−{m(pnl.projected.holding)}</td><td className="num">{m(pnl.actualToDate.holding)}</td></tr>
           </tbody>

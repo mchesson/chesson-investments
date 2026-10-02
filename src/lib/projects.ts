@@ -72,6 +72,7 @@ export async function projectMoney(projectId: string) {
   const report = pnl({
     salePrice: sale, marketValue: project.marketValue ? cents(project.marketValue) : null,
     sellingCostPct: Number(project.sellingCostPct ?? 0), lotCost: cents(project.lotCost), acquisitionCosts: acquisition.projected,
+    stagingBudget: selling.budget, stagingProjected: selling.projected,
     buildBudget: build.budget, buildProjected: build.projected, buildBilled: build.billed, holdingToDate, heatedSf: project.heatedSf,
   });
   const allIn = cents(project.lotCost) + acquisition.projected + build.projected + holdingToDate + selling.projected;

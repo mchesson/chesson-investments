@@ -12,7 +12,7 @@ const PAGE = 50;
 
 export const lastTouchSql = sql<string | null>`(select max(t.happened_on)::text from ${touches} t where t.person_id = ${people.id} and t.archived_at is null)`;
 
-export async function listPeople(opts: { q?: string; role?: string; stage?: string; page?: number }) {
+export async function listPeople(opts: { q?: string; role?: string; stage?: string; page?: number; business?: boolean }) {
   const where = [isNull(people.archived)];
   if (opts.q) {
     const like = `%${opts.q}%`;
@@ -26,6 +26,11 @@ export async function listPeople(opts: { q?: string; role?: string; stage?: stri
   if (opts.role) {
     where.push(sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role = ${opts.role}
       ${opts.stage ? sql`and r.stage = ${opts.stage}` : sql``})`);
+  }
+  if (opts.business) {
+    // Hide people whose only roles are Personal Connection (friends and family).
+    where.push(sql`not (exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role = 'personal')
+      and not exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role <> 'personal'))`);
   }
   const page = Math.max(1, opts.page ?? 1);
   const rows = await db.select({

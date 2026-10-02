@@ -77,7 +77,10 @@ address). Styles: `src/app/globals.css`.
   license #), Supplier, Agent/Broker and Wholesaler (Met, Talking, Sent a Deal,
   Closed a Deal; moved forward automatically when they send a deal or it goes
   under contract), Lender, Attorney/Title, Designer/Engineer/Surveyor, Property
-  Manager, Investor, Landowner/Seller, Networking (Met, Keeping in Touch).
+  Manager, Investor, Landowner/Seller, Networking (Met, Keeping in Touch), and
+  **Personal Connection** (Friend, Family, Acquaintance: friends who introduce us
+  to people but aren't in the business; People → "Business contacts only"
+  hides people whose only role is this; Going Cold after 180 days).
 - **How we know them** (owner, Oct 2, 2026: "most people that we meet are
   through networks and intros"): `people.how_met` (`src/lib/how-met.ts`),
   `introduced_by_id` (always a person on file: typing a new name adds them),

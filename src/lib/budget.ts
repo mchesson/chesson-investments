@@ -116,6 +116,8 @@ export type PnlIn = {
   sellingCostPct: number; // percent of the sale price
   lotCost: number;
   acquisitionCosts?: number; // due diligence and closing costs (code 30): added to the lot
+  stagingBudget?: number; // staging, listing and marketing (code 31): a cost of selling
+  stagingProjected?: number;
   buildBudget: number; // resolved total budget
   buildProjected: number; // sum of each line's projected
   buildBilled: number;
@@ -126,8 +128,8 @@ export type PnlIn = {
 export type Pnl = {
   /** Over-building check: what it would net at today's market value vs the all-in cost. */
   market: { value: number; net: number; allIn: number; profit: number; overbuilt: boolean } | null;
-  proforma: { sale: number; selling: number; lot: number; build: number; profit: number; margin: number | null; perSf: number | null };
-  projected: { sale: number; selling: number; lot: number; build: number; holding: number; profit: number; margin: number | null; perSf: number | null };
+  proforma: { sale: number; selling: number; staging: number; lot: number; build: number; profit: number; margin: number | null; perSf: number | null };
+  projected: { sale: number; selling: number; staging: number; lot: number; build: number; holding: number; profit: number; margin: number | null; perSf: number | null };
   actualToDate: { lot: number; build: number; holding: number; total: number; buildPerSf: number | null };
 };
 
@@ -138,9 +140,11 @@ const margin = (profit: number, sale: number) => (sale > 0 ? Math.round((profit 
 export function pnl(p: PnlIn): Pnl {
   const lot = p.lotCost + (p.acquisitionCosts ?? 0);
   const selling = Math.round((p.salePrice * p.sellingCostPct) / 100);
-  const proProfit = p.salePrice - selling - lot - p.buildBudget;
-  const projProfit = p.salePrice - selling - lot - p.buildProjected - p.holdingToDate;
-  const allIn = lot + p.buildProjected + p.holdingToDate;
+  const stB = p.stagingBudget ?? 0;
+  const stP = p.stagingProjected ?? 0;
+  const proProfit = p.salePrice - selling - stB - lot - p.buildBudget;
+  const projProfit = p.salePrice - selling - stP - lot - p.buildProjected - p.holdingToDate;
+  const allIn = lot + p.buildProjected + p.holdingToDate + stP;
   let market: Pnl['market'] = null;
   if (p.marketValue) {
     const net = p.marketValue - Math.round((p.marketValue * p.sellingCostPct) / 100);
@@ -150,16 +154,16 @@ export function pnl(p: PnlIn): Pnl {
   return {
     market,
     proforma: {
-      sale: p.salePrice, selling, lot: p.lotCost, build: p.buildBudget, profit: proProfit,
+      sale: p.salePrice, selling, staging: stB, lot: p.lotCost, build: p.buildBudget, profit: proProfit,
       margin: margin(proProfit, p.salePrice), perSf: per(p.lotCost + p.buildBudget, p.heatedSf),
     },
     projected: {
-      sale: p.salePrice, selling, lot: p.lotCost, build: p.buildProjected, holding: p.holdingToDate, profit: projProfit,
-      margin: margin(projProfit, p.salePrice), perSf: per(p.lotCost + p.buildProjected + p.holdingToDate, p.heatedSf),
+      sale: p.salePrice, selling, staging: stP, lot: p.lotCost, build: p.buildProjected, holding: p.holdingToDate, profit: projProfit,
+      margin: margin(projProfit, p.salePrice), perSf: per(p.lotCost + p.buildProjected + p.holdingToDate + stP, p.heatedSf),
     },
     actualToDate: {
       lot: p.lotCost, build: p.buildBilled, holding: p.holdingToDate,
-      total: p.lotCost + p.buildBilled + p.holdingToDate, buildPerSf: per(p.buildBilled, p.heatedSf),
+      total: p.lotCost + p.buildBilled + p.holdingToDate + stP, buildPerSf: per(p.buildBilled, p.heatedSf),
     },
   };
 }
