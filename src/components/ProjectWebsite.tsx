@@ -70,7 +70,7 @@ export async function ProjectWebsite({ p, canEdit }: { p: P; canEdit: boolean })
           <div className="photos">
             {photos.map((f) => (
               <figure key={f.id}>
-                <a href={`/files/${f.id}`} target="_blank"><img src={`/files/${f.id}`} alt={f.caption ?? f.name} loading="lazy" /></a>
+                <a href={`/documents/${f.id}`}><img src={`/files/${f.id}`} alt={f.caption ?? f.name} loading="lazy" /></a>
                 <figcaption>
                   {photoKindLabel(f.photoKind)} · {f.onSite ? <strong>On the website</strong> : 'Not shown'}{f.caption ? ` · ${f.caption}` : ''}
                 </figcaption>

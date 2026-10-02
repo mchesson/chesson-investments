@@ -242,6 +242,11 @@ this app; GoDaddy keeps only the domain and email.
   `attachDatabasePool`. Transaction mode (6543) froze the app: see
   `src/lib/db-url.ts`. Never use `db` inside a transaction. The website reads
   through a 5-minute cache (tag `site`).
+- **Every saved document opens in the app or downloads** (owner, Oct 2, 2026):
+  `/documents/<id>` shows PDFs in the page and web images, with Download and Open
+  in a New Tab; anything else (HEIC) downloads. `/files/<id>` serves the bytes
+  (`?inline=1`, `?download=1`); who may open a file follows its record
+  (`fileNeed` in `src/lib/file-view.ts`). Link files to `/documents/<id>`.
 - Claude can't write to production itself (a standing import door was refused by
   the safety system, Oct 2, 2026): the owner runs imports from the Import page.
 

@@ -351,12 +351,12 @@ async function Bills({ data, role }: { data: Money; role: Parameters<typeof can>
                 ) : <div className="small">{lineLabel(lines[0])}</div>}
                 {backups.length ? (
                   <details className="fold"><summary>Backup: {backups.length} vendor {backups.length === 1 ? 'invoice' : 'invoices'} ({formatMoney(backups.reduce((s, x) => s + Number(x.amount), 0), { cents: true })})</summary>
-                    <ul className="small">{backups.map((x) => <li key={x.id}>{x.vendor}{x.invoiceNumber ? ` #${x.invoiceNumber}` : ''}, {formatDate(x.invoiceOn)}: {formatMoney(x.amount, { cents: true })}{x.fileId ? <> · <a href={`/files/${x.fileId}?inline=1`} target="_blank" rel="noreferrer">open</a></> : null}</li>)}</ul>
+                    <ul className="small">{backups.map((x) => <li key={x.id}>{x.vendor}{x.invoiceNumber ? ` #${x.invoiceNumber}` : ''}, {formatDate(x.invoiceOn)}: {formatMoney(x.amount, { cents: true })}{x.fileId ? <> · <a href={`/documents/${x.fileId}`}>open</a></> : null}</li>)}</ul>
                   </details>
                 ) : null}
                 {b.notes ? <div className="small">{b.notes}</div> : null}
                 <div className="form-actions" style={{ marginTop: 6 }}>
-                  {b.fileId ? <a className="btn small secondary" href={`/files/${b.fileId}?inline=1`} target="_blank" rel="noreferrer">Open the Bill</a> : null}
+                  {b.fileId ? <a className="btn small secondary" href={`/documents/${b.fileId}`}>Open the Bill</a> : null}
                   {b.status === 'entered' && can(role, 'bills.approve') ? <form action={approveBill.bind(null, b.id)}><button className="btn small" type="submit">Approve</button></form> : null}
                   {b.status !== 'paid' && b.lienWaiverRequired && canAdd ? <form action={setLienWaiver.bind(null, b.id, !b.lienWaiverReceived)}><button className="btn small secondary" type="submit">{b.lienWaiverReceived ? 'Lien Waiver Not In' : 'Lien Waiver Received'}</button></form> : null}
                 </div>
@@ -471,7 +471,7 @@ async function DailyLog({ id, edit }: { id: string; edit: boolean }) {
               <div><strong>{formatDate(l.loggedOn)}</strong> <span className="small muted">{l.userName}{l.weather ? ` · ${l.weather}` : ''}</span></div>
               {l.onSite ? <div className="small">On site: {l.onSite}</div> : null}
               <div style={{ whiteSpace: 'pre-wrap' }}>{l.work}</div>
-              {photos[i].length ? <div className="photos" style={{ marginTop: 8 }}>{photos[i].map((f) => <a key={f.id} href={`/files/${f.id}`}><img src={`/files/${f.id}`} alt={f.name} loading="lazy" /></a>)}</div> : null}
+              {photos[i].length ? <div className="photos" style={{ marginTop: 8 }}>{photos[i].map((f) => <a key={f.id} href={`/documents/${f.id}`}><img src={`/files/${f.id}`} alt={f.name} loading="lazy" /></a>)}</div> : null}
             </li>
           ))}</ul>
         ) : <Empty>Nothing logged yet.</Empty>}
