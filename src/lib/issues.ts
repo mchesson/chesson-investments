@@ -6,6 +6,7 @@ export const issueStatuses = [
   { key: 'open', label: 'Open', hint: 'Reported, nobody on it yet' },
   { key: 'in_progress', label: 'Being Fixed', hint: 'They are working on it' },
   { key: 'waiting', label: 'Waiting on Them', hint: 'We asked; waiting on the vendor' },
+  { key: 'check', label: 'Ready to Check', hint: 'They say it’s fixed; we check it' },
   { key: 'resolved', label: 'Fixed', hint: 'Fixed and checked' },
   { key: 'wont_fix', label: 'Closed Without a Fix', hint: 'Dropped, credited or not worth fixing' },
 ] as const;

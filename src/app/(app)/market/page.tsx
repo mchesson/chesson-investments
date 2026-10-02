@@ -96,7 +96,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         <Section title="Streets" kind="aqua" hint="Three or more sales"><AreaRows rows={streets} kind="streets" /></Section>
       </div>
       <Section title="Towns" kind="energy"><AreaRows rows={towns} kind="towns" /></Section>
-      {can(user.role, 'properties.edit') ? <Section title="Update Market Data" kind="grey" hint="Read-only from the counties"><MarketSync last={last} /></Section> : null}
+      {can(user, 'properties.edit') ? <Section title="Update Market Data" kind="grey" hint="Read-only from the counties"><MarketSync last={last} /></Section> : null}
     </>
   );
 }

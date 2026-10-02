@@ -357,3 +357,17 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .sync-name { flex: 1; min-width: 220px; }
 .sync-progress { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .sync-progress progress { flex: 1; max-width: 360px; }
+.vendor-note { background: #e6f8f7; border-radius: 6px; padding: 6px 8px; }
+
+/* Users and guests */
+.user-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.user-card { border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px; background: #fff; display: grid; gap: 8px; }
+.user-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.user-who { min-width: 220px; }
+.perm-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 8px; }
+.perm-group { border: 1px solid #c4dcef; border-left: 4px solid var(--true-blue); border-radius: 8px; padding: 8px 12px; margin: 0; display: grid; gap: 4px; background: #f7fbfe; }
+.perm-group legend { font-weight: 700; font-size: .85rem; padding: 0 4px; }
+.copy-link { display: flex; gap: 8px; margin: 8px 0; }
+.copy-link input { flex: 1; min-width: 0; font-size: .85rem; }
+.guest-body main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
+.guest-who { margin-right: 8px; }

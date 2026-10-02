@@ -36,7 +36,7 @@ export async function setArchived(kind: string, id: string, archived: boolean) {
 
 /** The owner only, after typing the name. */
 export async function deleteRecord(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('users.manage');
+  const user = await requireAction('records.delete');
   const kind = str(d, 'kind');
   const id = uuidOrNull(d, 'id');
   if (!isKind(kind) || !id) return { error: 'Not found.' };

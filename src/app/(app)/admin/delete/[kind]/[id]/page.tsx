@@ -13,7 +13,7 @@ import { PageHead, Section } from '@/components/ui';
 export const metadata = { title: 'Delete Permanently' };
 
 export default async function DeletePage({ params }: { params: Promise<{ kind: string; id: string }> }) {
-  await requirePage('users.manage');
+  await requirePage('records.delete');
   const { kind, id } = await params;
   if ((kind !== 'person' && kind !== 'company') || !isUuid(id)) notFound();
   const [rec] = kind === 'person'

@@ -17,7 +17,7 @@ const done = (projectId: string, ok: string) => { revalidatePath(`/projects/${pr
 /** Saves today's budget as a stage. Approved needs the owner, and becomes the baseline. */
 export async function saveBudgetVersion(_: FormResult, d: FormData): Promise<FormResult> {
   const kind = str(d, 'kind');
-  const user = await requireAction(kind === 'approved' ? 'users.manage' : 'projects.edit');
+  const user = await requireAction(kind === 'approved' ? 'budgets.approve' : 'projects.edit');
   const projectId = uuidOrNull(d, 'projectId');
   if (!projectId || !isVersionKind(kind)) return { error: 'Pick the stage.' };
   const m = await projectMoney(projectId);

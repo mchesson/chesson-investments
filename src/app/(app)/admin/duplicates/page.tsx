@@ -10,7 +10,7 @@ import { Empty, PageHead, Section } from '@/components/ui';
 export const metadata = { title: 'Possible Duplicates' };
 
 export default async function DuplicatesPage() {
-  await requirePage('users.manage');
+  await requirePage('records.delete');
   const [ps, cs, gone] = await Promise.all([
     db.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, email: people.email, company: companies.name })
       .from(people).leftJoin(companies, eq(companies.id, people.companyId)).where(isNull(people.archived)),

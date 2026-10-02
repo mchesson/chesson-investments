@@ -21,7 +21,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHead title="Watchlist" sub="Every lot we like, bid on or watch. Sold ones stay as comparables."
-        actions={can(user.role, 'properties.edit') ? <Link className="btn" href="/watchlist/new">Add a Property</Link> : null} />
+        actions={can(user, 'properties.edit') ? <Link className="btn" href="/watchlist/new">Add a Property</Link> : null} />
       <Section title="Find Properties" kind="grey">
         <nav className="chips" style={{ marginBottom: 10 }} aria-label="Which properties">
           {views.map((v) => (

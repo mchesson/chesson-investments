@@ -14,7 +14,7 @@ const view = (s: typeof marketSyncs.$inferSelect): SyncState => ({ id: s.id, cou
 
 /** Starts refreshing a county's sales (the page then asks for each next page). */
 export async function startMarketSync(county: string): Promise<SyncState | { problem: string }> {
-  const user = await requireAction('properties.edit');
+  const user = await requireAction('market.update');
   if (!isCounty(county)) return { problem: 'Pick a county.' };
   const since = await nextSince(county);
   let total: number;
@@ -30,7 +30,7 @@ export async function startMarketSync(county: string): Promise<SyncState | { pro
 
 /** Reads the next page; History records how a refresh ended. */
 export async function stepMarketSync(id: string): Promise<SyncState | { problem: string }> {
-  const user = await requireAction('properties.edit');
+  const user = await requireAction('market.update');
   const s = await runStep(id);
   if (!s) return { problem: 'Not found.' };
   if (s.status !== 'running') {
@@ -43,7 +43,7 @@ export async function stepMarketSync(id: string): Promise<SyncState | { problem:
 
 /** Finds our projects and the watchlist on the county parcels, to show them on the map. */
 export async function placeOurPlaces() {
-  const user = await requireAction('properties.edit');
+  const user = await requireAction('market.update');
   const n = await locateOurPlaces();
   await audit({ userId: user.id, entity: 'market', entityId: user.id, action: 'locate', summary: `put ${n} of our projects and watched properties on the map` });
   revalidatePath('/market');

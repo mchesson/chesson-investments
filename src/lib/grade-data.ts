@@ -24,7 +24,7 @@ export async function issuesFor(w: Who & { projectId?: string | null }) {
   const rows = await db.select({
     id: vendorIssues.id, number: vendorIssues.number, title: vendorIssues.title, details: vendorIssues.details, severity: vendorIssues.severity,
     status: vendorIssues.status, reportedOn: vendorIssues.reportedOn, dueOn: vendorIssues.dueOn, resolvedOn: vendorIssues.resolvedOn,
-    resolution: vendorIssues.resolution, costToFix: vendorIssues.costToFix, projectId: vendorIssues.projectId, projectName: projects.name,
+    resolution: vendorIssues.resolution, costToFix: vendorIssues.costToFix, vendorNote: vendorIssues.vendorNote, vendorNoteAt: vendorIssues.vendorNoteAt, projectId: vendorIssues.projectId, projectName: projects.name,
     personId: vendorIssues.personId, companyId: vendorIssues.companyId, reportedBy: users.name,
     vendorName: sql<string | null>`coalesce((select c.name from companies c where c.id = "vendor_issues"."company_id"), (select p.first_name || ' ' || p.last_name from people p where p.id = "vendor_issues"."person_id"))`,
   }).from(vendorIssues).leftJoin(projects, eq(projects.id, vendorIssues.projectId)).leftJoin(users, eq(users.id, vendorIssues.reportedBy))

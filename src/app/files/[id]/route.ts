@@ -15,7 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const user = await currentUser();
   if (!user || !isUuid(id)) return new Response('Not found', { status: 404 });
   const [f] = await db.select().from(files).where(eq(files.id, id));
-  if (!f || f.archived || !can(user.role, fileNeed(f.entity))) return new Response('Not found', { status: 404 });
+  if (!f || f.archived || !can(user, fileNeed(f.entity))) return new Response('Not found', { status: 404 });
   const body = f.data ?? (f.storagePath ? await getObject(f.storagePath).catch(() => null) : null);
   if (!body) return new Response('The file couldn’t be read from storage.', { status: 502 });
   const q = new URL(req.url).searchParams;

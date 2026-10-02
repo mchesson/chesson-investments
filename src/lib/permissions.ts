@@ -1,35 +1,79 @@
-// Who may do what. Data, not scattered checks. Pure, tested in permissions.test.ts.
+// Who may do what. Data, not scattered checks. Pure, tested in rules.test.ts.
+// Each role starts with a set of permissions; the owner can tick or untick any
+// of them for one person (owner, Oct 2, 2026: "a checkbox with all the
+// available things on the app"), kept in users.permissions.
 
-export type Role = 'pending' | 'owner' | 'staff' | 'accountant';
+export type Role = 'pending' | 'owner' | 'staff' | 'accountant' | 'guest';
 
-export type Permission =
-  | 'contacts.view' | 'contacts.edit'
-  | 'properties.view' | 'properties.edit'
-  | 'projects.view' | 'projects.edit'
-  | 'money.view' | 'bills.edit' | 'bills.approve' | 'bills.pay'
-  | 'users.manage'
-  // Later phases (nothing uses these yet): tax returns, PFS, investor money.
-  | 'sensitive.view';
+/** Every permission, grouped as the Users page shows them. */
+export const permissionGroups = [
+  { label: 'People and Companies', items: [
+    { key: 'contacts.view', label: 'See people and companies' },
+    { key: 'contacts.edit', label: 'Add and change people and companies' },
+    { key: 'vendors.grade', label: 'Grade contractors and log their issues' },
+  ] },
+  { label: 'Watchlist and Market', items: [
+    { key: 'properties.view', label: 'See the watchlist and the Market Map' },
+    { key: 'properties.edit', label: 'Add and change watched properties' },
+    { key: 'market.update', label: 'Update the market data from the counties' },
+  ] },
+  { label: 'Projects', items: [
+    { key: 'projects.view', label: 'See projects (schedule, daily log, documents)' },
+    { key: 'projects.edit', label: 'Change projects, schedules, rentals and the daily log' },
+    { key: 'website.edit', label: 'Edit the public website' },
+  ] },
+  { label: 'Money', items: [
+    { key: 'money.view', label: 'See budgets, bids, bills and profit' },
+    { key: 'bills.edit', label: 'Enter bills and receipts' },
+    { key: 'bills.approve', label: 'Approve bills' },
+    { key: 'bills.pay', label: 'Mark bills paid' },
+    { key: 'budgets.approve', label: 'Approve budgets and pick the winning bid' },
+  ] },
+  { label: 'Running the App', items: [
+    { key: 'import.run', label: 'Import files' },
+    { key: 'records.delete', label: 'See archived records, clean up duplicates, delete permanently' },
+    { key: 'history.all', label: 'See everyone’s History' },
+    { key: 'users.manage', label: 'Manage users, access and guests' },
+    { key: 'sensitive.view', label: 'See restricted records (tax returns, PFS, W-9s)' },
+  ] },
+] as const;
 
-const grants: Record<Role, Permission[]> = {
+export type Permission = (typeof permissionGroups)[number]['items'][number]['key'];
+export const allPermissions: Permission[] = permissionGroups.flatMap((g) => g.items.map((i) => i.key));
+export const isPermission = (v: string): v is Permission => (allPermissions as string[]).includes(v);
+
+export const roleDefaults: Record<Role, Permission[]> = {
   pending: [],
-  owner: [
-    'contacts.view', 'contacts.edit', 'properties.view', 'properties.edit', 'projects.view', 'projects.edit',
-    'money.view', 'bills.edit', 'bills.approve', 'bills.pay', 'users.manage', 'sensitive.view',
-  ],
+  owner: allPermissions,
   staff: [
-    'contacts.view', 'contacts.edit', 'properties.view', 'properties.edit', 'projects.view', 'projects.edit',
-    'money.view', 'bills.edit',
+    'contacts.view', 'contacts.edit', 'vendors.grade', 'properties.view', 'properties.edit', 'market.update',
+    'projects.view', 'projects.edit', 'website.edit', 'money.view', 'bills.edit',
   ],
   accountant: ['projects.view', 'money.view', 'bills.edit', 'bills.pay'],
+  // Guests (contractors, partners) never use the staff pages: they see only the
+  // projects they're invited to, through /guest, with that project's checkboxes.
+  guest: [],
 };
 
 export const roleNames: Record<Role, string> = {
-  pending: 'Waiting for Access', owner: 'Owner', staff: 'Staff', accountant: 'Accountant',
+  pending: 'Waiting for Access', owner: 'Owner', staff: 'Staff', accountant: 'Accountant', guest: 'Guest (Outside)',
 };
 
-export function can(role: Role | null | undefined, p: Permission): boolean {
-  return !!role && grants[role].includes(p);
+/** A person's permissions: their own ticked list if the owner set one, else their role's. */
+export function effectivePermissions(role: Role, own: string[] | null | undefined): Permission[] {
+  if (role === 'pending' || role === 'guest') return [];
+  if (role === 'owner') return allPermissions; // the owner can never lock themselves out
+  return own ? own.filter(isPermission) : roleDefaults[role];
 }
 
-export const isRole = (v: string): v is Role => v in grants;
+type Who = Role | { role: Role; permissions?: Permission[] } | null | undefined;
+export function can(who: Who, p: Permission): boolean {
+  if (!who) return false;
+  if (typeof who === 'string') return roleDefaults[who].includes(p);
+  return (who.permissions ?? roleDefaults[who.role]).includes(p);
+}
+
+export const isRole = (v: string): v is Role => v in roleDefaults;
+
+const items: readonly { key: string; label: string }[] = permissionGroups.flatMap((g) => g.items as readonly { key: string; label: string }[]);
+export const permissionLabel = (p: string) => items.find((i) => i.key === p)?.label ?? p;

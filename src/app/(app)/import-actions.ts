@@ -73,7 +73,7 @@ function summarize(plan: Plan): Summary {
 }
 
 export async function previewImport(text: string): Promise<Summary> {
-  await requireAction('users.manage');
+  await requireAction('import.run');
   console.info('[import] access checked');
   const p = parse(text);
   console.info(`[import] file read: ${'error' in p ? p.error : 'ok'}`);
@@ -86,7 +86,7 @@ export async function previewImport(text: string): Promise<Summary> {
 
 /** Adds what's new, fills only empty fields on matches, never changes what's typed. One transaction. */
 export async function applyImport(text: string): Promise<Summary> {
-  const user = await requireAction('users.manage');
+  const user = await requireAction('import.run');
   const p = parse(text);
   if ('error' in p) return { error: p.error };
   const file = p.file;
@@ -360,13 +360,13 @@ const toRows = (m: Awaited<ReturnType<typeof billMatches>>): BillMatch[] => [...
 })).sort((a, b) => Number(!!b.to) - Number(!!a.to) || a.vendor.localeCompare(b.vendor));
 
 export async function previewBillMatches(): Promise<{ rows: BillMatch[] }> {
-  await requireAction('users.manage');
+  await requireAction('import.run');
   return { rows: toRows(await billMatches(db)) };
 }
 
 /** Links every bill whose vendor name matches a company or person (one step, in History). */
 export async function applyBillMatches(): Promise<{ rows: BillMatch[]; done: string }> {
-  const user = await requireAction('users.manage');
+  const user = await requireAction('import.run');
   const r = await db.transaction(async (tx) => {
     const m = await billMatches(tx);
     let linked = 0;

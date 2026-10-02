@@ -73,6 +73,26 @@ tested); "Different person / company" saves anyway (History). The import
 preview flags them; admins see every pair at /admin/duplicates (Not the Same).
 `ActionForm` keeps what was typed when a save shows an error.
 Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
+**Access is checkboxes** (owner, Oct 2, 2026): every permission is listed in
+`permissionGroups` (src/lib/permissions.ts); each role has a standard set
+(`roleDefaults`) and the Users page ticks or unticks any of them per person
+(`users.permissions`; empty = the role's set; the Owner always has all). Code
+checks `can(user, 'x')` with the signed-in user (its `permissions`), never the
+role alone. **Guests** (role `guest`): outside people (a GC, a sub, a partner)
+invited on the Users page to chosen projects with per-project checkboxes
+(`guest_access`; `src/lib/guests.ts`, tested): see the project, the schedule and
+their own commitments (no amounts), the daily log, add to it, see and answer
+the issues with their company ("Working On It" / "Fixed: Please Check", never
+close). They use only `/guest` (`src/lib/guest-data.ts` checks their live
+access on every read; staff pages send them back to /guest). They sign in with
+a one-time link (`sign_in_links`, only the SHA-256 kept; invite 7 days, asked
+for at sign-in 30 minutes; the link page signs in only on the button so email
+scanners can't use it up), and stay signed in 30 days; staff Microsoft
+sessions are cut at 12 hours. Microsoft sign-in takes only Technical Source
+accounts, so an outside email can be a Guest or an Accountant only. **Email**
+(`src/lib/mail.ts`, Resend) sends nothing until `RESEND_API_KEY` and
+`MAIL_FROM` are set in Vercel; until then the Users page shows each link to
+copy and send by hand.
 **Market Map** (/market, owner Oct 2, 2026: "an interactive heat map ... buttons
 at the top to add in or subtract what is showing"): county public records of
 sales, read-only from the counties' ArcGIS services (Wake

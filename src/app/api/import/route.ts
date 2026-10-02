@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const origin = req.headers.get('origin');
   if (!origin || new URL(origin).host !== new URL(req.url).host) return Response.json({ error: 'Not allowed.' }, { status: 403 });
   const user = await currentUser();
-  if (!user || !can(user.role, 'users.manage')) return Response.json({ error: 'Only the owner can import.' }, { status: 403 });
+  if (!user || !can(user, 'import.run')) return Response.json({ error: 'Only the owner can import.' }, { status: 403 });
   const mode = new URL(req.url).searchParams.get('mode');
   const text = await req.text();
   console.info(`[import] ${mode} start: ${text.length} characters, signed in as ${user.role}`);

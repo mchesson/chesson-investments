@@ -8,7 +8,7 @@ import { requireAction } from '@/lib/session';
 
 /** "Not the same": the pair stops showing on Possible Duplicates. History on both records. */
 export async function notTheSame(kind: 'person' | 'company', a: string, b: string, aName: string, bName: string) {
-  const user = await requireAction('users.manage');
+  const user = await requireAction('records.delete');
   const [x, y] = a < b ? [a, b] : [b, a];
   await db.transaction(async (tx) => {
     const [row] = await tx.insert(duplicateDismissals).values({ kind, aId: x, bId: y, dismissedBy: user.id }).onConflictDoNothing().returning();

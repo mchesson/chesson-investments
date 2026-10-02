@@ -10,16 +10,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requirePage();
   const items = [
     { href: '/', label: 'Home', icon: 'home' },
-    ...(can(user.role, 'contacts.view') ? [
+    ...(can(user, 'contacts.view') ? [
       { href: '/people', label: 'People', icon: 'people' },
       { href: '/companies', label: 'Companies', icon: 'companies' },
       { href: '/going-cold', label: 'Going Cold', icon: 'cold' },
       { href: '/events', label: 'Events', icon: 'events' },
       { href: '/lists', label: 'Lists', icon: 'lists' },
     ] : []),
-    ...(can(user.role, 'properties.view') ? [{ href: '/watchlist', label: 'Watchlist', icon: 'watch' }, { href: '/market', label: 'Market Map', icon: 'map' }] : []),
+    ...(can(user, 'properties.view') ? [{ href: '/watchlist', label: 'Watchlist', icon: 'watch' }, { href: '/market', label: 'Market Map', icon: 'map' }] : []),
     { href: '/projects', label: 'Projects', icon: 'projects' },
-    ...(can(user.role, 'contacts.view') ? [{ href: '/tasks', label: 'My Tasks', icon: 'tasks' }] : []),
+    ...(can(user, 'contacts.view') ? [{ href: '/tasks', label: 'My Tasks', icon: 'tasks' }] : []),
   ];
   return (
     <>
@@ -31,11 +31,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <summary>{user.name ?? user.email} ▾</summary>
           <div className="pop">
             <div className="small muted" style={{ padding: '4px 10px' }}>{user.email} · {roleNames[user.role]}</div>
-            {can(user.role, 'users.manage') ? <Link href="/admin/users">Users and Access</Link> : null}
-            {can(user.role, 'users.manage') ? <Link href="/admin/history">History (Everything)</Link> : null}
-            {can(user.role, 'users.manage') ? <Link href="/admin/import">Import</Link> : null}
-            {can(user.role, 'users.manage') ? <Link href="/admin/archived">Archived</Link> : null}
-            {can(user.role, 'users.manage') ? <Link href="/admin/duplicates">Possible Duplicates</Link> : null}
+            {can(user, 'users.manage') ? <Link href="/admin/users">Users and Access</Link> : null}
+            {can(user, 'history.all') ? <Link href="/admin/history">History (Everything)</Link> : null}
+            {can(user, 'import.run') ? <Link href="/admin/import">Import</Link> : null}
+            {can(user, 'records.delete') ? <Link href="/admin/archived">Archived</Link> : null}
+            {can(user, 'records.delete') ? <Link href="/admin/duplicates">Possible Duplicates</Link> : null}
             <form action={async () => { 'use server'; await signOut({ redirectTo: '/signin' }); }}>
               <button type="submit">Sign Out</button>
             </form>

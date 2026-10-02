@@ -51,7 +51,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const data = isUuid(id) ? await getPerson(id) : null;
   if (!data || data.person.archived) notFound();
   const { person: p, company, introducedBy, roles, lastTouch, introduced, metAt } = data;
-  const edit = can(user.role, 'contacts.edit');
+  const edit = can(user, 'contacts.edit');
   const base = `/people/${id}`;
   const since = daysSince(lastTouch, today());
   const [gs, iss] = await Promise.all([gradesFor({ personId: id }), issuesFor({ personId: id })]);
@@ -99,7 +99,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
             {edit ? <p className="small" style={{ marginBottom: 0 }}><Link href={`/people/new?introducedBy=${id}`}>Add someone they introduced</Link></p> : null}
           </Section>
           <DoNotUseSection personId={id} on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} canEdit={edit} />
-          <RecordManage kind="person" id={id} canArchive={edit} canDelete={can(user.role, 'users.manage')} />
+          <RecordManage kind="person" id={id} canArchive={edit} canDelete={can(user, 'records.delete')} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[
@@ -110,7 +110,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
           ]} />
           {tab === 'grades' ? <VendorGrades who={{ personId: id }} canEdit={edit} override={{ on: p.gradeOverride, reason: p.gradeOverrideReason }} /> : null}
           {tab === 'issues' ? <VendorIssues who={{ personId: id }} theirs={[{ id, name: `${p.firstName} ${p.lastName}` }]} base={base} status={status ?? null} canEdit={edit} /> : null}
-          {tab === 'overview' && can(user.role, 'money.view') ? await (async () => { const vb = await vendorBills({ personId: id }); return vb.length ? <div style={{ marginBottom: 16 }}><VendorSpend bills={vb} /></div> : null; })() : null}
+          {tab === 'overview' && can(user, 'money.view') ? await (async () => { const vb = await vendorBills({ personId: id }); return vb.length ? <div style={{ marginBottom: 16 }}><VendorSpend bills={vb} /></div> : null; })() : null}
           {tab === 'overview' ? <Overview id={id} roles={roles} edit={edit} notes={p.notes} introduced={introduced} /> : null}
           {tab === 'touches' ? (
             <div className="stack">
