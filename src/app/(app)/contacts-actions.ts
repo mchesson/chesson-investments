@@ -327,8 +327,8 @@ export async function addRoleToList(_: FormResult, d: FormData): Promise<FormRes
       where r.removed_at is null and p.archived_at is null and r.role = ${role} ${stage ? sql`and r.stage = ${stage}` : sql``}
         and not exists (select 1 from saved_list_members m where m.list_id = ${listId} and m.person_id = r.person_id and m.removed_at is null)
       group by r.person_id returning id`);
-    await audit({ userId: user.id, entity: 'list', entityId: listId, action: 'member-add', summary: `added ${rows.length} ${roleDef(role)!.plural}${stage ? ` (${stageLabel(role, stage)})` : ''}` }, tx);
-    return rows.length;
+    await audit({ userId: user.id, entity: 'list', entityId: listId, action: 'member-add', summary: `added ${rows.rows.length} ${roleDef(role)!.plural}${stage ? ` (${stageLabel(role, stage)})` : ''}` }, tx);
+    return rows.rows.length;
   });
   revalidatePath(`/lists/${listId}`);
   return { ok: `Added ${n}.` };
