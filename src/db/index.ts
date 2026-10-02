@@ -2,20 +2,22 @@ import 'server-only';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { sessionUrl } from '@/lib/db-url';
 
-// Supabase transaction pooler (port 6543) in production: no prepared statements,
-// and one query at a time per connection (max_pipeline: 1). With pipelining,
-// queries started together (Promise.all) were sent down one pooled connection
-// back to back; the pooler mixed them up and left the connection "active"
-// waiting for the client, freezing every page that used it (Oct 2, 2026; the
-// same fix TS Workspace uses).
-// (Supabase's own statement timeout still applies; startup settings are left
-// out because the pooler may refuse them.)
-const url = process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci';
+// Production goes through Supabase's pooler. Its transaction mode (port 6543)
+// froze the app (Oct 2, 2026): queries started together left database
+// connections "active, waiting for the client" with a transaction open, and
+// every page waiting behind them hung. max_pipeline: 1 didn't stop it. So the
+// app uses the pooler's session mode (same host, port 5432): each app
+// connection keeps its own database connection, nothing is split between them.
+// sessionUrl() (src/lib/db-url.ts) switches a 6543 pooler address to 5432.
+const url = sessionUrl(process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci');
 const g = globalThis as unknown as { __ciSql?: ReturnType<typeof postgres> };
 // max_pipeline is a real postgres.js option (default 100) missing from its types.
+// Few connections per server instance: session mode holds one database
+// connection per app connection, and they're freed after 20 idle seconds.
 const options = {
-  max: 5, prepare: false, idle_timeout: 20, connect_timeout: 15, max_pipeline: 1,
+  max: 3, prepare: false, idle_timeout: 20, connect_timeout: 15, max_pipeline: 1,
 } as postgres.Options<{}>;
 const client = g.__ciSql ?? postgres(url, options);
 if (process.env.NODE_ENV !== 'production') g.__ciSql = client;
