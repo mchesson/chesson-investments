@@ -142,6 +142,15 @@ address). Styles: `src/app/globals.css`.
   commitments, the owner's included ("a clear expectation if someone misses
   their commitment including myself"), show red with the name on the project
   and Home. Rules: `src/lib/schedule.ts`.
+- **Post-Project Review** (owner, Oct 2, 2026: "after action reports that use
+  the same data driven points to tell us where we screwed up"): a project tab
+  worked out from its own bills, budget, dates and value (`src/lib/review.ts`):
+  profit vs a target (default 15%), the most we could have paid at that scope,
+  the most the build could have cost at the price we paid, first estimate vs
+  spent, cost vs value per heated sf, unbudgeted spend, staging, costs outside
+  the GC, months the money was tied up, planned vs actual exit; plus the
+  written lessons (`projects.review_notes`). Fields: purchased_on,
+  completed_on, original_estimate, target_profit_pct, planned/backup/actual exit.
 - **daily_logs** with photos, **holding_costs**, **files** (bytes in the row
   until `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_BUCKET` are set,
   then a private bucket; `/files/<id>` checks the viewer's role).

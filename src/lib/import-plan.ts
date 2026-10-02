@@ -40,6 +40,8 @@ export const importSchema = z.object({
     city: z.string().nullish(), state: z.string().nullish(), zip: z.string().nullish(),
     stage: z.string().nullish(), ownedBy: z.string().nullish(), heatedSf: z.number().nullish(),
     lotCost: money.nullish(), marketValue: money.nullish(), notes: z.string().max(4000).nullish(),
+    purchasedOn: day.nullish(), completedOn: day.nullish(), originalEstimate: money.nullish(), plannedExit: z.string().max(200).nullish(), actualExit: z.string().max(200).nullish(),
+    closingCostAtSale: money.nullish(), sellingCostPct: z.string().nullish(), reviewNotes: z.string().max(8000).nullish(),
   })).default([]),
   bills: z.array(z.object({
     project: z.string().min(1),

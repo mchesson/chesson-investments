@@ -158,7 +158,9 @@ export async function applyImport(text: string): Promise<Summary> {
       const [row] = await tx.insert(projects).values({
         name: r.name, address: r.address, city: r.city ?? null, state: formatState(r.state) ?? 'NC', zip: r.zip ?? null,
         stage: isProjectStage(r.stage) ? r.stage : 'building', ownedBy: r.ownedBy ?? null, heatedSf: r.heatedSf ?? null,
-        lotCost: r.lotCost ?? null, marketValue: r.marketValue ?? null, notes: r.notes ?? null, sellingCostPct: '5', createdBy: user.id,
+        lotCost: r.lotCost ?? null, marketValue: r.marketValue ?? null, notes: r.notes ?? null, sellingCostPct: r.sellingCostPct ?? '5', createdBy: user.id,
+        purchasedOn: r.purchasedOn ?? null, completedOn: r.completedOn ?? null, originalEstimate: r.originalEstimate ?? null,
+        plannedExit: r.plannedExit ?? null, actualExit: r.actualExit ?? null, closingCostAtSale: r.closingCostAtSale ?? null, reviewNotes: r.reviewNotes ?? null,
       }).returning();
       await tx.insert(budgetLines).values(codes.map((c) => ({ projectId: row.id, costCodeId: c.id, percentOfConstruction: null as string | null, amount: null })));
       projectId.set(k(r.name), row.id); projectId.set(k(r.address), row.id);

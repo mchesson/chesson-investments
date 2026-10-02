@@ -367,3 +367,28 @@ export async function addHoldingCost(_: FormResult, d: FormData): Promise<FormRe
   });
   return r as FormResult;
 }
+
+/** The post-project review's inputs and the written lessons. */
+export async function saveReview(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('projects.edit');
+  const id = uuidOrNull(d, 'projectId');
+  if (!id) return { error: 'Not found.' };
+  const r = await guard(async () => {
+    const day = (k: string) => { const v = str(d, k); return isDay(v) ? v : null; };
+    const f = {
+      purchasedOn: day('purchasedOn'), completedOn: day('completedOn'),
+      originalEstimate: money(d, 'originalEstimate', 'First estimate'), targetProfitPct: pct(d, 'targetProfitPct', 'Target profit'),
+      plannedExit: str(d, 'plannedExit'), backupExit: str(d, 'backupExit'), actualExit: str(d, 'actualExit'), reviewNotes: str(d, 'reviewNotes'),
+    };
+    const [old] = await db.select().from(projects).where(eq(projects.id, id));
+    if (!old) return { error: 'Not found.' };
+    const ch = diff(old as Record<string, unknown>, f);
+    if (!ch) return { ok: 'No changes.' };
+    await db.transaction(async (tx) => {
+      await tx.update(projects).set({ ...f, reviewUpdatedAt: new Date(), updated: new Date() }).where(eq(projects.id, id));
+      await audit({ userId: user.id, entity: 'project', entityId: id, action: 'review', summary: `updated the post-project review (${Object.keys(ch.after).join(', ')})`, ...ch }, tx);
+    });
+    return done(id, 'Saved.');
+  });
+  return r as FormResult;
+}
