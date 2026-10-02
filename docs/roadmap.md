@@ -56,6 +56,39 @@ In this order, before phase 2:
    receipt with its file. Later Claude reads the vendor, date, lines and tax
    and proposes the cost codes for one-tap confirm (phase 2 invoice reading).
 
+7. **Rentals (owner, Oct 2, 2026; moved up from phase 4).** 420 Peyton is a
+   rental now. A rental gets:
+   - a **status**: Getting Ready, On the Market (asking rent, listed on, where),
+     Application Pending, Leased, Notice Given, Vacant;
+   - the **lease**: tenant(s), the signed lease and every version (a typed
+     document), rent and due day, term start and end, renewal terms and the
+     date to decide (a task 60 days before it ends), deposit (amount, where it's
+     held, what was returned), pets, utilities paid by whom, the terms and
+     conditions;
+   - the **property manager** (AMG Realty for Peyton): the company and its
+     people, the management agreement (fee %, leasing fee, term), their
+     monthly statements read in;
+   - **work done while rented**: each repair or maintenance call (who did it,
+     what, cost, the invoice), with the vendor's grade;
+   - **money**: expected monthly revenue vs actual (rent collected, late fees,
+     vacancy), expenses (management, repairs, taxes, insurance, HOA, utilities),
+     the **bank loan** against it (lender, balance, rate, payment, escrow,
+     maturity), and the result: monthly cash flow, NOI, cap rate,
+     cash-on-cash and DSCR, with a plain "making money / losing money" line and
+     how much rent or cost would change it. The same numbers for Shaw View and
+     the beach condo.
+8. **Grading contractors and checking their prices (owner, Oct 2, 2026).**
+   - A **grade per job**: quality, schedule kept, budget kept, communication,
+     clean-up, would-we-hire-again, with a note, given when their work on a
+     project ends (a task asks for it); an **overall grade** on their page from
+     every job.
+   - **Cost against the market**: each bid and invoice line by cost code (per
+     sf, per unit) compared with every quote we've received over time from
+     anyone (the bids in item 2), our own past bills, and outside price guides
+     where we can get them free; shown as "12% above our median for framing".
+   - **Suggest another vendor** when someone with an equal or better grade has
+     quoted or billed the same trade for less, with the numbers and dates.
+
 ## Next: the post-project review says where, why, how and with what
 Owner (Oct 2, 2026): "Telling me we should have spent less doesn't help, but
 having the info and then telling me where we should have spent less and why
@@ -168,7 +201,7 @@ review's findings become specific, from the project's own bills and lines:
   contributions and intercompany transfers (the $5,000 to WJ on 5/20/25).
 - **Accountant role**, **QuickBooks** (confirm Online or Desktop with the owner).
 
-## Phase 4: rentals
+## Phase 4: rentals (moved up: see Next, item 7)
 The Chateau N-3 beach condo (S Ocean Blvd, North Myrtle Beach; WJ Investment
 Group; placed in service June 9, 2025) and 1211 Shaw View Alley, Unit 101:
 property managers, bookings and leases (nightly / weekly rates, platform),

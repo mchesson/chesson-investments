@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { gcOptions, activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, workHistory } from '@/lib/contacts';
+import { gcOptions, activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, vendorBills, workHistory } from '@/lib/contacts';
+import { VendorSpend } from '@/components/VendorSpend';
 import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
@@ -91,6 +92,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
             { key: 'overview', label: 'Overview' }, { key: 'touches', label: 'Touches' }, { key: 'tasks', label: 'Tasks' },
             { key: 'work', label: 'Work History' }, { key: 'intros', label: 'Introductions', count: introduced.length }, { key: 'deals', label: 'Deals Sent' }, { key: 'history', label: 'History' },
           ]} />
+          {tab === 'overview' && can(user.role, 'money.view') ? await (async () => { const vb = await vendorBills({ personId: id }); return vb.length ? <div style={{ marginBottom: 16 }}><VendorSpend bills={vb} /></div> : null; })() : null}
           {tab === 'overview' ? <Overview id={id} roles={roles} edit={edit} notes={p.notes} introduced={introduced} /> : null}
           {tab === 'touches' ? (
             <div className="stack">

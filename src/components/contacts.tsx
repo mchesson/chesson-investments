@@ -13,9 +13,21 @@ export function RoleChips({ items }: { items: { role: string; stage: string }[] 
   return (
     <span className="chips">
       {items.map((r, i) => (
-        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`}>{roleLabel(r.role)} · {stageLabel(r.role, r.stage)}</span>
+        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`} title={r.stage === 'avoid' ? 'Marked Avoid' : undefined}>{roleLabel(r.role)}{r.stage === 'avoid' ? ' (Avoid)' : ''}</span>
       ))}
     </span>
+  );
+}
+
+/** Toggle buttons for roles: tick one or several (they post as name="roles"). */
+export function RolePicker({ selected = [], name = 'roles' }: { selected?: string[]; name?: string }) {
+  return (
+    <fieldset className="role-pick">
+      <legend className="sr-only">Roles</legend>
+      {roles.map((r) => (
+        <label key={r.key} className="role-btn"><input type="checkbox" name={name} value={r.key} defaultChecked={selected.includes(r.key)} /><span>{r.label}</span></label>
+      ))}
+    </fieldset>
   );
 }
 
@@ -40,8 +52,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
               <li key={r.id}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'baseline' }}>
                   <strong>{roleLabel(r.role)}</strong>
-                  <span className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`}>{stageLabel(r.role, r.stage)}</span>
-                  <span className="small muted">since {formatDate(r.stageChangedAt.toISOString())}</span>
+                  <span className={`small ${r.stage === 'avoid' ? 'red' : 'muted'}`}>Where we are with them: {stageLabel(r.role, r.stage)} (since {formatDate(r.stageChangedAt.toISOString())})</span>
                 </div>
                 {r.hiredThroughCompanyId ? <div className="small">Through <Link href={`/companies/${r.hiredThroughCompanyId}`}>{r.hiredThroughName ?? 'the GC'}</Link> (bills come through the GC)</div> : null}
                 {r.trade || r.areas || r.licenseNumber ? (
@@ -54,7 +65,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                     <ActionForm action={updateRole} submit="Save">
                       <input type="hidden" name="id" value={r.id} />
                       <div className="fields">
-                        <label className="f">Stage
+                        <label className="f">Where We Are With Them
                           <select name="stage" defaultValue={r.stage}>
                             {def?.stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                           </select>

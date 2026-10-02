@@ -1,10 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { db, type Reader } from '@/db';
-import {
-  auditLog, companies, eventPeople, events, partyRoles, people, personCompanies, properties, projects,
-  savedListMembers, savedLists, tasks, touches, users,
-} from '@/db/schema';
+import { auditLog, companies, eventPeople, events, partyRoles, people, personCompanies, properties, projects, savedListMembers, savedLists, tasks, touches, users, bills } from '@/db/schema';
 import { isCold } from './roles';
 import { today } from './format';
 
@@ -12,7 +9,7 @@ const PAGE = 50;
 
 export const lastTouchSql = sql<string | null>`(select max(t.happened_on)::text from ${touches} t where t.person_id = ${people.id} and t.archived_at is null)`;
 
-export async function listPeople(opts: { q?: string; role?: string; stage?: string; page?: number; business?: boolean }) {
+export async function listPeople(opts: { q?: string; roles?: string[]; stage?: string; page?: number; business?: boolean }) {
   const where = [isNull(people.archived)];
   if (opts.q) {
     const like = `%${opts.q}%`;
@@ -23,9 +20,11 @@ export async function listPeople(opts: { q?: string; role?: string; stage?: stri
       sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and (r.trade ilike ${like} or r.areas ilike ${like}))`,
     )!);
   }
-  if (opts.role) {
-    where.push(sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role = ${opts.role}
-      ${opts.stage ? sql`and r.stage = ${opts.stage}` : sql``})`);
+  if (opts.roles?.length) {
+    // Any of the chosen roles; a stage only narrows when one role is chosen.
+    const list = sql.join(opts.roles.map((r) => sql`${r}`), sql`, `);
+    where.push(sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role in (${list})
+      ${opts.stage && opts.roles.length === 1 ? sql`and r.stage = ${opts.stage}` : sql``})`);
   }
   if (opts.business) {
     // Hide people whose only roles are Personal Connection (friends and family).
@@ -208,4 +207,15 @@ export function gcOptions() {
   return db.select({ id: companies.id, name: companies.name }).from(companies)
     .where(and(isNull(companies.archived), sql`exists (select 1 from ${partyRoles} r where r.company_id = ${companies.id} and r.role = 'gc' and r.removed_at is null)`))
     .orderBy(asc(companies.name));
+}
+
+/** Every bill from a company (or a person), with its project, for "What We've Spent". */
+export function vendorBills(by: { companyId?: string; personId?: string }) {
+  return db.select({
+    id: bills.id, projectId: bills.projectId, projectName: projects.name, number: bills.invoiceNumber, date: sql<string>`${bills.invoiceOn}::text`,
+    kind: bills.kind, amount: bills.amount, status: bills.status,
+    throughBillId: bills.includedInBillId,
+    throughVendor: sql<string | null>`(select coalesce(pb.vendor_name, (select gc.name from ${companies} gc where gc.id = pb.vendor_company_id)) from ${bills} pb where pb.id = ${bills.includedInBillId})`,
+  }).from(bills).innerJoin(projects, eq(projects.id, bills.projectId))
+    .where(and(by.companyId ? eq(bills.vendorCompanyId, by.companyId) : eq(bills.vendorPersonId, by.personId!), isNull(bills.archived), isNull(projects.archived)));
 }

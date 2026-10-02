@@ -76,11 +76,12 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
     if (!id) {
       const [p] = await tx.insert(people).values({ ...f, companyId: cid, createdBy: user.id }).returning();
       if (cid) await tx.insert(personCompanies).values({ personId: p.id, companyId: cid, title: f.title, startedOn: today() });
-      const role = str(d, 'role');
-      if (role && roleDef(role)) {
+      // Every role ticked (the old single "role" field still works).
+      const picked = [...new Set([...d.getAll('roles').map(String), str(d, 'role') ?? ''])].filter((r) => roleDef(r));
+      for (const role of picked) {
         await tx.insert(partyRoles).values({ personId: p.id, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber') });
       }
-      await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${role ? ` as ${roleLabel(role)}` : ''}`, after: f }, tx);
+      await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map(roleLabel).join(', ')}` : ''}`, after: f }, tx);
       if (f.introducedById) await audit({ userId: user.id, entity: 'person', entityId: f.introducedById, action: 'introduced', summary: `introduced us to ${p.firstName} ${p.lastName}`, after: { personId: p.id, note: f.introNote } }, tx);
       if (bool(d, 'different')) await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'not-duplicate', summary: 'saved as a different person despite a matching email or phone' }, tx);
       return p.id;

@@ -14,13 +14,18 @@ test('log a GC you met, with who introduced them', async ({ page }) => {
   await page.getByLabel('First Name', { exact: true }).fill('Riley');
   await page.getByLabel('Last Name', { exact: true }).fill(`Builder${stamp}`);
   await page.getByLabel('Mobile or Main Phone').fill(`919555${stamp.slice(-4)}`);
-  await page.getByLabel('What They Are to Us').selectOption('gc');
+  // Roles are buttons: tick two.
+  await page.getByLabel('General Contractor', { exact: true }).check();
+  await page.getByLabel('Networking Contact', { exact: true }).check();
   await page.getByLabel('How We Know Them').selectOption('introduction');
   await page.getByLabel(/Or Introducer Not on File/).fill(`Jordan Intro${stamp}`);
   await page.getByLabel('About the Introduction').fill('Met through Jordan at the REIA meetup.');
   await page.getByRole('button', { name: 'Add Person' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Riley Builder${stamp}`);
-  await expect(page.getByText('General Contractor · Met')).toBeVisible();
+  await expect(page.getByText('Where we are with them: Met').first()).toBeVisible();
+  await expect(page.locator('.page-head .chip', { hasText: 'General Contractor' })).toBeVisible();
+  await expect(page.locator('.page-head .chip', { hasText: 'Networking Contact' })).toBeVisible();
+  await expect(page.locator('.page-head')).not.toContainText('· Met');
   const personUrl = page.url();
   await page.getByRole('link', { name: `Jordan Intro${stamp}` }).click();
   await page.getByRole('link', { name: /Introductions/ }).click();
@@ -113,7 +118,7 @@ test('import a file: preview first, then people, a sub through the GC and a bill
   await expect(page.getByText(/Imported 1 people, 2 companies, 0 projects, 1 bills and 0 photos/)).toBeVisible();
   await page.goto(`/people?q=Sub${stamp}`);
   await page.getByRole('link', { name: `Emma Sub${stamp}` }).click();
-  await expect(page.getByText('Subcontractor · Hired')).toBeVisible();
+  await expect(page.getByText('Where we are with them: Hired').first()).toBeVisible();
   await expect(page.getByText(new RegExp(`Through GC Co ${stamp}`))).toBeVisible();
   await page.goto(`/companies?q=GC Co ${stamp}`);
   await page.getByRole('link', { name: `GC Co ${stamp}` }).click();
@@ -178,4 +183,18 @@ test('the account menu closes on a click outside and on Esc', async ({ page }) =
   await menu.locator('summary').click();
   await page.keyboard.press('Escape');
   await expect(menu).not.toHaveAttribute('open', '');
+});
+
+test('People: role buttons pick one or several roles', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  await page.goto('/people');
+  await page.getByRole('link', { name: 'General Contractors', exact: true }).click();
+  await expect(page).toHaveURL(/roles=gc/);
+  await expect(page.getByRole('link', { name: 'General Contractors', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('link', { name: 'Subcontractors', exact: true }).click();
+  await expect(page).toHaveURL(/roles=gc%2Csub|roles=gc,sub/);
+  await expect(page.getByRole('heading', { name: 'General Contractors, Subcontractors' })).toBeVisible();
+  await expect(page.locator('table.t')).not.toContainText('· Met');
+  await page.getByRole('link', { name: 'All Roles' }).click();
+  await expect(page).toHaveURL(/\/people$/);
 });
