@@ -17,12 +17,17 @@ type Area = { name: string; city: string | null; sales: number; median_price: nu
 type Zone = { name: string; city: string | null; lat: number; lng: number; verdict: string; label: string; maxLot: number | null; entry: number | null; value: number | null };
 type Pt = { id: string; lat: number; lng: number; price: number; psf: number | null; on: string; a: string | null; h: string | null; u: string; sf: number | null };
 type Found = { label: string; kind: string; lat: number; lng: number };
+type ZipLabel = { zip: string; lat: number; lng: number; dom: number | null; mos: number | null; heat: string | null; label: string };
+type Permit = { k: string; lat: number; lng: number; a: string | null; c: string | null; d: string; b: string | null; v: number | null; t: string | null };
 
 export const layerDefs = [
   { key: 'heat', label: 'Sales Heat ($/sf)' },
   { key: 'dots', label: 'Each Sale' },
   { key: 'parcels', label: 'Parcel Lines' },
   { key: 'areas', label: 'Neighborhoods' },
+  { key: 'zips', label: 'ZIP Codes: Days on Market' },
+  { key: 'permits', label: 'New-Home Permits' },
+  { key: 'teardowns', label: 'Teardowns' },
   { key: 'zones', label: 'Buy Zones' },
   { key: 'projects', label: 'Our Projects' },
   { key: 'watch', label: 'Watchlist' },
@@ -40,12 +45,12 @@ const money = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M`
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const useLabel: Record<string, string> = { single_family: 'Single family', townhouse: 'Townhouse', condo: 'Condo', multi_family: '2–4 units', land: 'Land / lot', other: 'Other' };
 
-export function MarketMap({ query, projects, watch, areas, only, zones = [], parcelInfo = false }: {
-  query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[]; zones?: Zone[];
+export function MarketMap({ query, projects, watch, areas, only, zones = [], zips = [], parcelInfo = false }: {
+  query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[]; zones?: Zone[]; zips?: ZipLabel[];
   /** Staff only: a click on a parcel up close shows its owner and last sale. */
   parcelInfo?: boolean;
 }) {
-  const shown = layerDefs.filter((d) => (!only || only.includes(d.key) || d.key === 'parcels') && (d.key !== 'zones' || zones.length));
+  const shown = layerDefs.filter((d) => (!only || only.includes(d.key) || d.key === 'parcels') && (d.key !== 'zones' || zones.length) && (d.key !== 'zips' || zips.length));
   const wrap = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<Leaflet.Map | null>(null);
@@ -54,7 +59,7 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
   const base = useRef<{ streets?: Leaflet.Layer; aerial?: Leaflet.Layer }>({});
   const points = useRef<Pt[]>([]);
   const found = useRef<Leaflet.Layer | null>(null);
-  const [on, setOn] = useState<Record<LayerKey, boolean>>({ heat: true, dots: false, parcels: true, areas: true, zones: true, projects: true, watch: true });
+  const [on, setOn] = useState<Record<LayerKey, boolean>>({ heat: true, dots: false, parcels: true, areas: true, zips: false, permits: false, teardowns: false, zones: true, projects: true, watch: true });
   const [aerial, setAerial] = useState(false);
   const [full, setFull] = useState(false);
   const [zoom, setZoom] = useState(10);
@@ -107,6 +112,11 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
         radius: Math.max(6, Math.min(22, Math.sqrt(a.sales) * 2.2)), color: '#0D71BA', weight: 2, fillColor: '#0D71BA', fillOpacity: 0.12,
       }).bindTooltip(`${esc(a.name)}: ${a.sales} sales${a.median_psf ? `, $${a.median_psf}/sf` : ''}`)
         .bindPopup(`<strong>${esc(a.name)}</strong>${a.city ? `, ${esc(a.city)}` : ''}<br>${a.sales} sales · median ${money(a.median_price)}${a.median_psf ? ` · $${a.median_psf}/sf` : ''}${a.prior_psf && a.median_psf ? `<br>$/sf ${a.median_psf >= a.prior_psf ? 'up' : 'down'} ${Math.abs(Math.round(((a.median_psf - a.prior_psf) / a.prior_psf) * 100))}% on the period before` : ''}`)));
+      // Redfin's numbers by ZIP code: a label at each ZIP's middle, colored by how hot it is.
+      const heatColor: Record<string, string> = { hot: '#b3261e', balanced: '#0D71BA', slow: '#5b6b14' };
+      groups.current.zips = lib.layerGroup(zips.filter((z) => z.lat && z.lng).map((z) => lib.marker([z.lat, z.lng], {
+        icon: lib.divIcon({ className: 'zip-label', html: `<span style="border-color:${heatColor[z.heat ?? ''] ?? '#898989'}"><b>${esc(z.zip)}</b> ${z.dom === null ? '' : `${Math.round(z.dom)} days`}</span>`, iconSize: [96, 22], iconAnchor: [48, 11] }),
+      }).bindPopup(`<strong>ZIP ${esc(z.zip)}</strong><br>${esc(z.label)}`)));
       const zoneColor: Record<string, string> = { buy: '#00756f', watch: '#5b6b14', pass: '#b3261e', thin: '#898989' };
       groups.current.zones = lib.layerGroup(zones.filter((z) => z.lat && z.lng).map((z) => lib.circleMarker([z.lat, z.lng], {
         radius: z.verdict === 'buy' ? 12 : 9, color: zoneColor[z.verdict] ?? '#898989', weight: 3, fillColor: zoneColor[z.verdict] ?? '#898989', fillOpacity: z.verdict === 'buy' ? 0.45 : 0.2,
@@ -128,7 +138,7 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
             + `<a href="/watchlist/new?address=${encodeURIComponent(p.address ?? '')}&city=${encodeURIComponent(p.city ?? '')}">Add to the Watchlist</a></div>`);
         } catch { pop.setContent('Couldn’t reach the county records just now.'); }
       });
-      m.on('moveend', () => load());
+      m.on('moveend', () => { load(); loadPermits(); });
       m.on('zoomend', () => { setZoom(m.getZoom()); drawDots(); });
       apply();
       load();
@@ -137,6 +147,8 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Permits load when either permit layer is turned on.
+  useEffect(() => { if (map.current) loadPermits(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [on.permits, on.teardowns]);
   // Reload sales when the filters change.
   useEffect(() => { if (map.current) load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [query]);
   useEffect(() => {
@@ -183,6 +195,32 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
       if (close) mk.bindTooltip(`${money(p.price)}${p.psf ? ` · $${p.psf}/sf` : ''}`, { permanent: true, direction: 'right', offset: [8, 0], className: 'sale-label' });
       return mk;
     }));
+    apply();
+  }
+
+  async function loadPermits() {
+    const m = map.current, lib = L.current;
+    if (!m || !lib) return;
+    const kinds = [onRef.current.permits ? 'new_home' : null, onRef.current.teardowns ? 'demolition' : null].filter(Boolean);
+    if (!kinds.length || m.getZoom() < 12) {
+      for (const k of ['permits', 'teardowns'] as const) { const g = groups.current[k]; if (g && m.hasLayer(g)) m.removeLayer(g); delete groups.current[k]; }
+      return;
+    }
+    const b = m.getBounds();
+    const r = await fetch(`/api/market/permits?bbox=${[b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((x) => x.toFixed(5)).join(',')}&kinds=${kinds.join(',')}`).catch(() => null);
+    if (!r?.ok) return;
+    const { permits } = (await r.json()) as { permits: Permit[] };
+    const what: Record<string, string> = { demolition: 'Teardown', rebuild: 'New home on a teardown', new_home: 'New-home permit' };
+    const make = (p: Permit) => lib.marker([p.lat, p.lng], {
+      icon: lib.divIcon({ className: `map-pin ${p.k === 'new_home' ? 'pin-permit' : 'pin-teardown'}`, html: `<span>${p.k === 'demolition' ? '✕' : p.k === 'rebuild' ? '↻' : '⌂'}</span>`, iconSize: [20, 20], iconAnchor: [10, 10] }), zIndexOffset: 500,
+    }).bindPopup(`<strong>${what[p.k] ?? 'Permit'}</strong>${p.a ? `<br>${esc(p.a)}${p.c ? `, ${esc(p.c)}` : ''}` : ''}<br>${p.d}${p.b ? ` · <b>${esc(p.b)}</b>` : ''}${p.v ? ` · ${money(p.v)} to build` : ''}${p.t ? `<br><span class="small">${esc(p.t)}</span>` : ''}`);
+    // A rebuild shows on both layers (drawn once, on Teardowns when that's on).
+    const tearOn = onRef.current.teardowns;
+    for (const [k, keep] of [['permits', (p: Permit) => p.k === 'new_home' || (p.k === 'rebuild' && !tearOn)], ['teardowns', (p: Permit) => p.k !== 'new_home']] as const) {
+      const old = groups.current[k];
+      if (old && m.hasLayer(old)) m.removeLayer(old);
+      groups.current[k] = lib.layerGroup(permits.filter(keep).map(make));
+    }
     apply();
   }
 
@@ -258,7 +296,7 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], par
       </nav>
       <div ref={box} className="market-map" role="region" aria-label="Market map" />
       <div className="map-foot">
-        <span className="small" role="status">{status}{zoom < STREET_ZOOM ? ' · Zoom in to street level to see every sale with its price, and the parcel lines.' : parcelInfo ? ' · Tap a parcel for its owner and last sale.' : ''}</span>
+        <span className="small" role="status">{status}{(on.permits || on.teardowns) && zoom < 12 ? ' · Zoom in to see permits.' : ''}{zoom < STREET_ZOOM ? ' · Zoom in to street level to see every sale with its price, and the parcel lines.' : parcelInfo ? ' · Tap a parcel for its owner and last sale.' : ''}</span>
         {range ? <span className="map-legend small"><span>${range[0]}/sf</span><span className="legend-bar" /><span>${range[1]}/sf</span></span> : null}
       </div>
     </div>

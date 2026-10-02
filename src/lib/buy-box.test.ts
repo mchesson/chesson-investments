@@ -39,3 +39,32 @@ test('best zones first', () => {
   const a = judgeZone(base, defaultBuyBox), b = judgeZone({ ...base, name: 'B', entryPrice: 100000 }, defaultBuyBox), c = judgeZone({ ...base, name: 'C', entryPrice: 600000 }, defaultBuyBox);
   assert.deepEqual(rankZones([c, a, b], defaultBuyBox).map((z) => z.name), ['B', 'Oakwood', 'C']);
 });
+
+test('looking ahead: the zone’s trend carried to when we sell, and whether the Low case holds up', async () => {
+  const { outlook, zoneTrend } = await import('./buy-box');
+  assert.equal(zoneTrend({ psfRecent: 440, psfPrior: 400 }), 10);
+  assert.equal(zoneTrend({ psfRecent: 600, psfPrior: 400 }), 15); // capped
+  assert.equal(zoneTrend({ psfRecent: 440, psfPrior: null }), null);
+  const s = { ...defaultBuyBox, monthsToSell: 12, downsidePct: 10, upsidePct: 5 };
+  // Prices up 10% a year: Mid is today's $/sf × 1.10.
+  const o = outlook(426, { psfRecent: 440, psfPrior: 400, entryPrice: 150_000, entryCount: 4 }, s);
+  assert.equal(o.trend, 10);
+  assert.equal(o.mid, maxLotPrice(426 * 1.1, s).maxLot);
+  assert.equal(o.low, maxLotPrice(426 * 0.9, s).maxLot);
+  assert.equal(o.high, maxLotPrice(426 * 1.1 * 1.05, s).maxLot);
+  assert.ok(o.low < o.mid && o.mid < o.high);
+  assert.equal(o.holdsUp, o.low >= 150_000);
+  // A falling zone: Low starts from the lower Mid.
+  const f = outlook(426, { psfRecent: 380, psfPrior: 400, entryPrice: 280_000, entryCount: 4 }, s);
+  assert.equal(f.trend, -5);
+  assert.equal(f.low, maxLotPrice(426 * 0.95 * 0.9, s).maxLot);
+  assert.equal(f.holdsUp, false);
+  // Too few lot sales to compare: can't say.
+  assert.equal(outlook(426, { entryPrice: 100_000, entryCount: 1 }, s).holdsUp, null);
+  // The judged zone carries it, with a reason when a buy wouldn't survive the Low case.
+  const z = judgeZone({ name: 'X', city: 'Raleigh', county: 'wake', lat: 35.79, lng: -78.64, finished: 10, finishedPsf: 426, entryCount: 4, entryPrice: 250_000, bandCounts: { '1m_15m': 6 }, psfRecent: 440, psfPrior: 400 }, s);
+  assert.equal(z.verdict, 'buy');
+  assert.ok(z.outlook && z.outlook.holdsUp === false);
+  assert.ok(z.reasons.some((r) => r.includes('if prices fall 10%')));
+  assert.ok(z.reasons.some((r) => r.includes('up 10% in a year')));
+});

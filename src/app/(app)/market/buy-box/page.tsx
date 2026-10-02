@@ -4,6 +4,8 @@ import { can } from '@/lib/permissions';
 import { buyBoxSettings, judgedZones } from '@/lib/buy-box-data';
 import { buyBoxFields, verdictLabel, type Verdict } from '@/lib/buy-box';
 import { ourPlaces } from '@/lib/market-data';
+import { permitsNear } from '@/lib/market-feeds';
+import { rateSummary, recentPermitPoints } from '@/lib/market-feeds-data';
 import { MarketMap } from '@/components/MarketMap';
 import { ActionForm } from '@/components/ActionForm';
 import { Empty, PageHead, Section, Tile } from '@/components/ui';
@@ -22,9 +24,11 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
   const county = sp.county === 'wake' || sp.county === 'durham' ? sp.county : null;
   const near = sp.near === '1';
   const show = verdicts.includes(sp.show as Verdict) ? (sp.show as Verdict) : null;
-  const [{ settings, zones }, saved, places] = await Promise.all([judgedZones(by, county ? [county] : []), buyBoxSettings(), ourPlaces()]);
+  const [{ settings, zones }, saved, places, permits, rates] = await Promise.all([judgedZones(by, county ? [county] : []), buyBoxSettings(), ourPlaces(), recentPermitPoints(), rateSummary()]);
   const inView = zones.filter((z) => (!near || z.near.miles <= settings.nearMiles));
   const listed = inView.filter((z) => (show ? z.verdict === show : z.verdict !== 'thin')).slice(0, 150);
+  const building = new Map(listed.map((z) => [`${z.name}|${z.city}|${z.county}`, permitsNear(z, permits)]));
+  const holdUp = inView.filter((z) => z.verdict === 'buy' && z.outlook?.holdsUp).length;
   const count = (v: Verdict) => inView.filter((z) => z.verdict === v).length;
   const href = (o: Record<string, string | null>) => {
     const q = new URLSearchParams(Object.entries({ by: by === 'street' ? 'street' : null, county, near: near ? '1' : null, show, ...o }).filter(([, v]) => v) as [string, string][]).toString();
@@ -38,6 +42,8 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
         <Tile k="Buy Zones" v={count('buy')} s={`${inView.filter((z) => z.verdict === 'buy' && z.near.miles <= settings.nearMiles).length} within ${settings.nearMiles} miles of a downtown`} color="var(--aqua)" />
         <Tile k="Watch" v={count('watch')} s="Close: look for below-market lots" color="var(--energy)" />
         <Tile k="Too Expensive" v={count('pass')} color="var(--red)" />
+        <Tile k="Buy Zones That Hold Up" v={holdUp} s={`Still a buy if prices fall ${settings.downsidePct}% by the time we sell`} color="var(--aqua-deep)" />
+        {rates ? <Tile k="30-Year Rate" v={`${rates.now.rate.toFixed(2)}%`} s={rates.yearAgo ? `${rates.yearAgo.rate.toFixed(2)}% a year ago` : ''} color="var(--light-grey)" /> : null}
         <Tile k="The House We’d Build" v={`${settings.houseSf.toLocaleString()} sf`} s={`$${settings.buildPerSf}/sf to build · ${settings.profitPct}% profit`} color="var(--true-blue)" />
       </div>
       <Section title="Show" kind="grey">
@@ -62,13 +68,13 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
         </div>
       </Section>
       <Section title="Map" kind="aqua" hint="Green: buy zones · olive: watch (too-expensive zones are in the table)">
-        <MarketMap query={county ? `county=${county}` : ''} projects={places.projects} watch={places.watch} areas={[]} only={['zones', 'heat', 'dots', 'parcels', 'projects', 'watch']} parcelInfo
+        <MarketMap query={county ? `county=${county}` : ''} projects={places.projects} watch={places.watch} areas={[]} only={['zones', 'heat', 'dots', 'parcels', 'permits', 'teardowns', 'projects', 'watch']} parcelInfo
           zones={inView.filter((z) => z.verdict === 'buy' || z.verdict === 'watch').map((z) => ({ name: z.name, city: z.city, lat: z.lat, lng: z.lng, verdict: z.verdict, label: verdictLabel[z.verdict], maxLot: z.money?.maxLot ?? null, entry: z.entryPrice, value: z.money?.value ?? null }))} />
       </Section>
       <Section title={by === 'street' ? 'Streets' : 'Neighborhoods'} kind="blue" hint={`${listed.length} shown`}>
         {listed.length ? (
           <div className="table-wrap"><table className="t buy-table">
-            <thead><tr><th>{by === 'street' ? 'Street' : 'Neighborhood'}</th><th>Verdict</th><th className="num">Downtown</th><th className="num">Finished $/sf</th><th className="num">New House Sells For</th><th className="num">We Can Pay for the Lot</th><th className="num">Lots and Teardowns Sell For</th><th className="num">Sales at That Price</th><th>Why</th></tr></thead>
+            <thead><tr><th>{by === 'street' ? 'Street' : 'Neighborhood'}</th><th>Verdict</th><th className="num">Downtown</th><th className="num">Finished $/sf</th><th className="num">New House Sells For</th><th className="num">We Can Pay for the Lot</th><th className="num">Lots and Teardowns Sell For</th><th className="num">Sales at That Price</th><th className="num">When We’d Sell: Low / Mid / High</th><th className="num">Building Nearby</th><th>Why</th></tr></thead>
             <tbody>{listed.map((z) => (
               <tr key={`${z.name}|${z.city}|${z.county}`}>
                 <td><strong>{z.name}</strong><div className="small muted">{z.city ?? ''}{z.county ? ` · ${z.county === 'wake' ? 'Wake' : 'Durham'}` : ''}</div></td>
@@ -79,6 +85,9 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
                 <td className="num"><strong>{money(z.money?.maxLot)}</strong></td>
                 <td className="num">{money(z.entryPrice)}<div className="small muted">{z.entryCount} sales{z.entryCount ? ` ${z.entryFrom ?? ""}` : ""}</div></td>
                 <td className="num">{z.money ? z.absorb : '—'}</td>
+                <td className="num outlook">{z.outlook ? <>{money(z.outlook.low)} / <strong>{money(z.outlook.mid)}</strong> / {money(z.outlook.high)}
+                  <div className="small muted">{z.outlook.trend === null ? 'no trend yet' : `prices ${z.outlook.trend >= 0 ? '+' : ''}${z.outlook.trend}% a year`}{z.outlook.holdsUp === true ? ' · holds up' : z.outlook.holdsUp === false ? ' · not at Low' : ''}</div></> : '—'}</td>
+                <td className="num">{(() => { const b = building.get(`${z.name}|${z.city}|${z.county}`); return b && (b.newHomes || b.teardowns) ? <>{b.newHomes} new · {b.teardowns} teardowns<div className="small muted">within ½ mile, 12 months</div></> : '—'; })()}</td>
                 <td className="small">{z.reasons.join('; ')}</td>
               </tr>
             ))}</tbody>
@@ -87,7 +96,9 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
         <p className="small muted" style={{ margin: '10px 0 0' }}>
           How it’s worked out: a new {settings.houseSf.toLocaleString()} sf house at the zone’s finished $/sf (new builds when there are {settings.minSales}+, else the top quarter of houses over 1,500 sf, last 2 years),
           less {settings.sellingPct}% selling, the build at ${settings.buildPerSf}/sf, {settings.softPct}% soft and holding, and {settings.profitPct}% profit, divided by 1 + {settings.financingPct}% financing = what we can pay for the lot.
-          Lots and teardowns = land sales and houses built before 1970 under 1,600 sf, last 3 years. Days on market and listings aren’t in county records yet.
+          Lots and teardowns = land sales and houses built before 1970 under 1,600 sf, last 3 years.
+          When we’d sell: Mid carries the zone’s own $/sf trend (last 12 months against the 12 before, capped at ±15% a year) forward {settings.monthsToSell} months; Low takes {settings.downsidePct}% off, High adds {settings.upsidePct}%. “Holds up” means the Low case still covers what lots sell for there.
+          Building nearby counts new-home and demolition permits (Raleigh and Durham) within half a mile.
         </p>
       </Section>
       <Section title="Our Numbers" kind="energy" hint={saved.saved ? `Changed ${saved.updated?.toISOString().slice(0, 10)}` : 'The starting numbers from the Plainview math'}>

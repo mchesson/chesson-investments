@@ -641,7 +641,7 @@ test('the market map: filters and layer buttons, sales in view, neighborhoods an
   await page.locator('.market-filters').getByRole('link', { name: '$1.5M and Up' }).click();
   await expect(page).toHaveURL(/use=condo.*band=15m|band=15m.*use=condo/);
   await expect(page.locator('table', { hasText: hood }).first()).toBeVisible();
-  await expect(page.locator('.trend-sentence')).not.toBeEmpty();
+  await expect(page.locator('section', { hasText: 'Where the Market Is Headed' }).locator('.trend-sentence').first()).not.toBeEmpty();
 
   // Layer buttons add and take away.
   const dots = page.getByRole('button', { name: 'Each Sale' });
@@ -698,9 +698,11 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   // An outside email can't be added as staff: it says to invite a guest.
   await page.goto('/admin/users');
   const add = page.locator('form:has(button:text("Add"))').last();
-  await add.locator('input[name=email]').fill(`other${s}@contractor.example`);
-  await add.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(/isn’t a Technical Source account/)).toBeVisible();
+  await expect(async () => { // filled again if the page wasn't ready yet
+    await add.locator('input[name=email]').fill(`other${s}@contractor.example`);
+    await add.getByRole('button', { name: 'Add' }).click();
+    await expect(add.getByText(/isn’t a Technical Source account/)).toBeVisible({ timeout: 5000 });
+  }).toPass({ timeout: 30_000 });
 
   // Added as staff before this check existed: inviting them as a guest turns them into one.
   const { Client } = await import('pg');
@@ -712,12 +714,15 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   await expect(page.locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('isn’t a Technical Source account');
   // Invite them: one project, the standard things; the page gives the link (no email here).
   const inv = page.locator('form:has(button:text("Invite Them"))');
-  await inv.locator('input[name=email]').fill(`jo${s}@contractor.example`);
-  await inv.locator('input[name=name]').fill(`Jo Framer${s}`);
-  await inv.locator('select[name=companyId]').selectOption({ label: `Guest${s} Framing` });
-  await inv.locator('label.role-btn', { hasText: '109 Plainview Ave' }).click();
-  await inv.getByRole('button', { name: 'Invite Them' }).click();
-  await expect(inv.getByText(/Invited\. Email isn’t set up yet/)).toBeVisible();
+  await expect(async () => { // filled again if the page wasn't ready yet after the reload
+    await inv.locator('input[name=email]').fill(`jo${s}@contractor.example`);
+    await inv.locator('input[name=name]').fill(`Jo Framer${s}`);
+    await inv.locator('select[name=companyId]').selectOption({ label: `Guest${s} Framing` });
+    const plainview = inv.locator('label.role-btn', { hasText: '109 Plainview Ave' });
+    if (!(await plainview.locator('input').isChecked())) await plainview.click();
+    await inv.getByRole('button', { name: 'Invite Them' }).click();
+    await expect(inv.getByText(/Invited\. Email isn’t set up yet/)).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
   const link = await inv.locator('.copy-link input').inputValue();
   expect(link).toMatch(/\/signin\/link\?t=[A-Za-z0-9_-]{40,}/);
   await page.reload();
@@ -848,9 +853,12 @@ test('outside partner types: a wholesaler sees only the deals they sent us', asy
   const inv = page.locator('form:has(button:text("Invite Them"))');
   await inv.locator('input[name=email]').fill(`wes${s}@deals.example`);
   await inv.locator('select[name=personId]').selectOption({ label: `Wes Wholesale${s}` });
-  await choose(inv, 'guestType', 'wholesaler');
-  // Picking Wholesaler ticks "see the deals they sent" and only the project basics.
-  await expect(inv.locator('input[name=extra][value=deals]')).toBeChecked();
+  // Picking Wholesaler ticks "see the deals they sent" and only the project basics (tapped again if the page wasn't ready yet).
+  await expect(async () => {
+    await choose(inv, 'guestType', 'gc'); // another kind first: re-tapping a picked button changes nothing
+    await choose(inv, 'guestType', 'wholesaler');
+    await expect(inv.locator('input[name=extra][value=deals]')).toBeChecked({ timeout: 1500 });
+  }).toPass({ timeout: 15_000 });
   await expect(inv.locator('input[name=can][value=daily_log]')).not.toBeChecked();
   await inv.getByRole('button', { name: 'Invite Them' }).click();
   const link = await inv.locator('.copy-link input').inputValue();
@@ -928,29 +936,38 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   for (let i = 0; i < 6; i++) await add(i, 'single_family', 2600, 2_300_000 + i * 10_000, 2022); // new builds at ~$890/sf
   for (let i = 6; i < 9; i++) await add(i, 'land', null, 300_000, null); // lots at $300k
   await db.query(`insert into properties (address, city, neighborhood, asking_price) values ($1, 'Raleigh', $2, 400000)`, [`${s} Buyzone St`, hood]);
+  // Builders at work there: two new homes and a teardown within half a mile.
+  for (const [i, kind] of (['new_home', 'new_home', 'demolition'] as const).entries())
+    await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, lat, lng) values ('raleigh', 'wake', $1, $2, current_date - 20, extract(year from current_date), 35.7905, -78.6402)`, [`BZ${s}${i}`, kind]);
   await db.end();
 
   await signIn(page, 'Sample Owner');
   await page.goto('/market/buy-box');
   await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
-  // Saving the numbers works every zone out again.
-  await page.locator('input[name=minLot]').fill('76000');
+  // Saving the numbers works every zone out again (a value that's always a change, whatever an earlier run left).
+  await page.locator('input[name=buildPerSf]').fill('190');
+  await page.locator('input[name=minLot]').fill(String(76000 + Number(s.slice(-3))));
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone is worked out again/)).toBeVisible();
+  await expect(page.getByText(/Saved: every zone is worked out again/)).toBeVisible({ timeout: 20_000 });
   await page.goto('/market/buy-box?show=buy');
+  await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
   const row = page.locator('.buy-table tr', { hasText: hood });
   await expect(row).toContainText('Buy Zone');
   await expect(row).toContainText('$300k');
+  // Looking ahead (no trend yet: every sale is recent) and the builders nearby.
+  await expect(row).toContainText('no trend yet');
+  await expect(row).toContainText(/\d+ new · \d+ teardowns/);
   // Raising the build cost makes it too expensive; then back.
   await page.locator('input[name=buildPerSf]').fill('700');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone/)).toBeVisible();
+  await expect(page.getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
   await page.goto('/market/buy-box?show=pass');
+  await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
   await expect(page.locator('.buy-table tr', { hasText: hood })).toContainText('Too Expensive');
   await page.locator('input[name=buildPerSf]').fill('190');
   await page.locator('input[name=minLot]').fill('75000');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone/)).toBeVisible();
+  await expect(page.getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
 
   // The watched lot in that zone is checked against it.
   await page.goto('/watchlist');
@@ -960,4 +977,49 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await expect(check).toContainText(/The asking price of \$400,000 is .* under what we can pay/);
   await page.goto('/admin/history');
   await expect(page.getByText(/changed the buy box: Build Cost per sf \(\$\) 190 → 700/).first()).toBeVisible();
+});
+
+test('free market data: rates and what buyers can afford, time on market by ZIP, and who is building', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const zip = `9${s.slice(-4)}`;
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  // Three years of weekly rates, ending at 6.30% (made up; the Federal Reserve is never called in tests).
+  for (let i = 0; i < 160; i++) {
+    const week = new Date(Date.UTC(2026, 8, 24) - i * 7 * 864e5).toISOString().slice(0, 10);
+    await db.query(`insert into market_rates (series, week, rate) values ('30yr', $1, $2) on conflict (series, week) do update set rate = excluded.rate`, [week, (6.3 + Math.sin(i / 20) * 0.6).toFixed(2)]);
+  }
+  // Redfin's numbers for a made-up ZIP, now and a year earlier, and Wake County's month.
+  for (const [end, dom] of [['2026-08-31', 14], ['2025-08-31', 31]] as const)
+    await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_sale_price, median_ppsf, inventory, months_of_supply, median_dom, sale_to_list, price_drops, off_market_2wk)
+      values ('zip', $1, 'Raleigh, NC', 'all', $2, 815000, 402.5, 37, 2.1, $3, 0.9934, 0.18, 0.41)`, [zip, end, dom]);
+  await db.query(`update market_trends set homes_sold = 52 where region = $1`, [zip]);
+  await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_sale_price, median_dom, months_of_supply, inventory)
+    values ('county', 'Wake County, NC', 'Raleigh, NC', 'all', '2026-08-31', 480000, 33, 3.4, 5100) on conflict do nothing`);
+  // A builder's new homes: enough to top the list whatever else is loaded.
+  await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, zip, lat, lng, builder, cost)
+    select 'raleigh', 'wake', $1 || g, 'new_home', current_date - 30, extract(year from current_date), $2, 35.81, -78.62, $3, 400000 from generate_series(1, 400) g`,
+    [`FB${s}-`, zip, `Testbuild${s} Homes, LLC`]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto('/market');
+  const rates = page.locator('section', { hasText: 'Rates and Buyers' }).first();
+  await expect(rates.locator('.tile', { hasText: '30-Year Rate Now' })).toContainText('6.30%');
+  await expect(rates.locator('svg.rate-chart')).toBeVisible();
+  await expect(rates.locator('tr', { hasText: '$1.5M and Up' })).toContainText(/\$\d{1,3},\d{3}/); // a monthly payment
+  const zips = page.locator('.zip-table tr', { hasText: zip }).first(); // fastest, with enough sales: in the open top 20
+  await expect(zips).toContainText('14');
+  await expect(zips).toContainText('31 a year ago');
+  await expect(zips).toContainText('Seller’s Market');
+  await expect(page.locator('.tile', { hasText: 'Wake County' })).toContainText('33 days');
+  await expect(page.locator('section', { hasText: 'Who’s Building' }).first()).toContainText(`Testbuild${s} Homes`);
+  // The map's permit layer reads them in the view; guests without the Market Map can't.
+  const p = await (await page.request.get('/api/market/permits?bbox=-78.63,35.80,-78.61,35.82&kinds=new_home')).json();
+  expect(p.permits.filter((x: { b: string | null }) => x.b === `Testbuild${s} Homes`).length).toBe(400);
+  await page.getByRole('button', { name: 'New-Home Permits' }).click();
+  await expect(page.getByRole('button', { name: 'New-Home Permits' })).toHaveAttribute('aria-pressed', 'true');
+  // The update buttons are there for each free source.
+  for (const b of ['Update Rates', 'Update Redfin Data', 'Update Permits']) await expect(page.getByRole('button', { name: b })).toBeVisible();
 });

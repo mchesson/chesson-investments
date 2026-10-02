@@ -127,6 +127,13 @@
       "when": 1790975914315,
       "tag": "0017_user_types",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790980923173,
+      "tag": "0018_free_market_data",
+      "breakpoints": true
     }
   ]
 }

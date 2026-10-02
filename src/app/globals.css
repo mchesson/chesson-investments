@@ -348,6 +348,9 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .map-pin { display: grid !important; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
 .map-pin.pin-project { background: var(--near-black); }
 .map-pin.pin-watch { background: var(--energy-deep); }
+.map-pin.pin-permit { background: var(--true-blue); font-size: 13px; }
+.map-pin.pin-teardown { background: #b3261e; font-size: 11px; }
+.zip-label span { display: inline-block; white-space: nowrap; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.95); border: 2px solid #898989; font-size: 12px; color: var(--near-black); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
 .map-pin.pin-found { background: #b3261e; font-size: 15px; }
 .map-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .map-search { position: relative; display: flex; gap: 6px; flex: 1; min-width: 220px; max-width: 460px; margin: 0; }
@@ -395,3 +398,12 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .chip.verdict-pass { background: #fdecea; border-color: #f2b8b5; color: var(--red); }
 .chip.verdict-thin { background: #f1f3f5; color: #666; }
 .buy-table td { vertical-align: top; }
+
+/* Free market data */
+.rate-chart { display: block; width: 100%; max-width: 720px; height: auto; margin: 10px 0; }
+.sub-h { font-size: 1rem; margin: 0 0 8px; }
+.chip.heat-hot { background: #fbe4e2; border-color: #efb7b2; color: #8c1d16; }
+.chip.heat-balanced { background: #e5f0f9; border-color: #b9d6ee; }
+.chip.heat-slow { background: #eef3d6; border-color: #cbd88f; color: #44500c; }
+.outlook { white-space: nowrap; }
+.buy-table td:last-child { min-width: 280px; }

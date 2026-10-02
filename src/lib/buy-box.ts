@@ -16,11 +16,14 @@ export type BuyBoxSettings = {
   minSales: number; // finished sales needed to trust a zone
   minAbsorb: number; // sales at our price band in 12 months the zone needs
   minLot: number; // below this, a new house there doesn't leave enough for a lot
+  monthsToSell: number; // buying the lot to selling the house: how far ahead the trend is carried
+  downsidePct: number; // the Low case: finished prices this much lower when we sell
+  upsidePct: number; // the High case: this much higher
 };
 // Starting numbers from the owner's Plainview math (Sept 10, 2025): 2,600 sf at
 // $190/sf; holding, demolition, survey and closing about 18% of the build;
 // realtor and closing about 6%; profit about $150k on $1.1M (13.5%).
-export const defaultBuyBox: BuyBoxSettings = { houseSf: 2600, buildPerSf: 190, softPct: 18, sellingPct: 6, profitPct: 13.5, financingPct: 8, nearMiles: 6, minSales: 5, minAbsorb: 3, minLot: 75000 };
+export const defaultBuyBox: BuyBoxSettings = { houseSf: 2600, buildPerSf: 190, softPct: 18, sellingPct: 6, profitPct: 13.5, financingPct: 8, nearMiles: 6, minSales: 5, minAbsorb: 3, minLot: 75000, monthsToSell: 15, downsidePct: 10, upsidePct: 5 };
 
 export const buyBoxFields: { key: keyof BuyBoxSettings; label: string; hint: string; min: number; max: number }[] = [
   { key: 'houseSf', label: 'House We’d Build (heated sf)', hint: 'The size used for every zone', min: 600, max: 10000 },
@@ -33,6 +36,9 @@ export const buyBoxFields: { key: keyof BuyBoxSettings; label: string; hint: str
   { key: 'minSales', label: 'Finished Sales to Trust a Zone', hint: 'In the last 2 years', min: 1, max: 50 },
   { key: 'minAbsorb', label: 'Sales at Our Price a Zone Needs', hint: 'In the last 12 months, in the same price band', min: 0, max: 50 },
   { key: 'minLot', label: 'Smallest Lot Budget Worth a Look ($)', hint: 'Below this a new house there doesn’t pay', min: 0, max: 2000000 },
+  { key: 'monthsToSell', label: 'Months From Buying the Lot to Selling', hint: 'How far ahead each zone’s price trend is carried', min: 1, max: 48 },
+  { key: 'downsidePct', label: 'Low Case: Prices Fall (%)', hint: 'Does the zone still work if finished prices drop this much?', min: 0, max: 50 },
+  { key: 'upsidePct', label: 'High Case: Prices Rise (%)', hint: 'The better case', min: 0, max: 50 },
 ];
 
 export function readBuyBox(v: unknown): BuyBoxSettings {
@@ -77,7 +83,30 @@ export type ZoneStats = {
   name: string; city: string | null; county: string; lat: number; lng: number;
   finished: number; finishedPsf: number | null; entryCount: number; entryPrice: number | null;
   bandCounts: Partial<Record<BandKey, number>>; entryFrom?: string;
+  /** Median finished $/sf in the last 12 months and the 12 before (the zone's trend). */
+  psfRecent?: number | null; psfPrior?: number | null;
 };
+
+/** The zone's yearly $/sf change, from its own finished sales (null with too little to compare); capped at ±15%. */
+export function zoneTrend(z: { psfRecent?: number | null; psfPrior?: number | null }): number | null {
+  if (!z.psfRecent || !z.psfPrior) return null;
+  const t = ((z.psfRecent - z.psfPrior) / z.psfPrior) * 100;
+  return Math.round(Math.max(-15, Math.min(15, t)) * 10) / 10;
+}
+/**
+ * Looking ahead to when we'd sell: the Mid case carries the zone's own price
+ * trend forward over the months to sell; Low and High move today's prices down
+ * or up by the settings. Each gives the most we could pay for the lot, and
+ * "holds up" says whether the Low case still covers what lots sell for there.
+ */
+export function outlook(finishedPsf: number, z: { psfRecent?: number | null; psfPrior?: number | null; entryPrice: number | null; entryCount: number }, s: BuyBoxSettings) {
+  const trend = zoneTrend(z);
+  const mid = finishedPsf * (1 + ((trend ?? 0) / 100) * (s.monthsToSell / 12));
+  const lot = (psf: number) => maxLotPrice(psf, s).maxLot;
+  const low = lot(Math.min(mid, finishedPsf) * (1 - s.downsidePct / 100)), high = lot(Math.max(mid, finishedPsf) * (1 + s.upsidePct / 100));
+  const holdsUp = z.entryPrice === null || z.entryCount < 2 ? null : low >= z.entryPrice;
+  return { trend, low, mid: lot(mid), high, holdsUp };
+}
 /**
  * One zone's verdict: Buy when the most we can pay covers what lots and
  * teardowns sell for there and the zone absorbs houses at our price; Watch when
@@ -85,7 +114,7 @@ export type ZoneStats = {
  */
 export function judgeZone(z: ZoneStats, s: BuyBoxSettings) {
   const near = nearestDowntown(z);
-  if (!z.finishedPsf || z.finished < s.minSales) return { ...z, near, verdict: 'thin' as Verdict, money: null, band: null, absorb: 0, margin: null, marginPct: null, reasons: [`only ${z.finished} finished-house sales in 2 years (needs ${s.minSales})`] };
+  if (!z.finishedPsf || z.finished < s.minSales) return { ...z, near, verdict: 'thin' as Verdict, money: null, band: null, absorb: 0, margin: null, marginPct: null, outlook: null, reasons: [`only ${z.finished} finished-house sales in 2 years (needs ${s.minSales})`] };
   const money = maxLotPrice(z.finishedPsf, s);
   const band = bandOf(money.value);
   const absorb = z.bandCounts[band] ?? 0;
@@ -106,7 +135,10 @@ export function judgeZone(z: ZoneStats, s: BuyBoxSettings) {
     reasons.push(`only ${absorb} ${absorb === 1 ? 'sale' : 'sales'} at ${price(money.value)}-level prices there in 12 months (needs ${s.minAbsorb})`);
   }
   if (near.miles > s.nearMiles) reasons.push(`${near.miles} miles from ${near.name}`);
-  return { ...z, near, verdict, money, band, absorb, margin, marginPct, reasons };
+  const ahead = outlook(z.finishedPsf, z, s);
+  if (ahead.trend !== null && Math.abs(ahead.trend) >= 3) reasons.push(`prices there are ${ahead.trend > 0 ? 'up' : 'down'} ${Math.abs(ahead.trend)}% in a year`);
+  if (verdict === 'buy' && ahead.holdsUp === false) reasons.push(`if prices fall ${s.downsidePct}% we could pay only ${fmt(ahead.low)}: buy below market`);
+  return { ...z, near, verdict, money, band, absorb, margin, marginPct, reasons, outlook: ahead };
 }
 export type JudgedZone = ReturnType<typeof judgeZone>;
 

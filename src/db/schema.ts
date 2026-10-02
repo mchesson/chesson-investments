@@ -854,3 +854,61 @@ export const marketSyncs = pgTable('market_syncs', {
   started: created(),
   finished: timestamp('finished_at', { withTimezone: true }),
 }, (t) => [index('market_syncs_county').on(t.county, t.started)]).enableRLS();
+
+// Free market data beyond the county sales (owner, Oct 2, 2026: "proceed with
+// free items"; src/lib/market-feeds.ts). Public, read-only from each source,
+// refreshed from the Market Map's Update Market Data. Never edited by hand.
+
+// The 30-year mortgage rate each week (Freddie Mac's survey, through FRED).
+export const marketRates = pgTable('market_rates', {
+  id: id(),
+  series: text('series').notNull(), // '30yr'
+  week: date('week').notNull(),
+  rate: numeric('rate', { precision: 5, scale: 2 }).notNull(),
+}, (t) => [uniqueIndex('market_rates_week').on(t.series, t.week)]).enableRLS();
+
+// Redfin's market data by ZIP code and county, 3-month rolling, each month.
+export const marketTrends = pgTable('market_trends', {
+  id: id(),
+  regionType: text('region_type').notNull(), // zip / county
+  region: text('region').notNull(), // '27608', 'Wake County, NC'
+  metro: text('metro'),
+  propertyType: text('property_type').notNull(), // all / single_family / townhouse / condo / multi_family
+  periodEnd: date('period_end').notNull(),
+  medianSalePrice: money('median_sale_price'),
+  medianListPrice: money('median_list_price'),
+  medianPpsf: numeric('median_ppsf', { precision: 10, scale: 1 }),
+  homesSold: integer('homes_sold'),
+  pendingSales: integer('pending_sales'),
+  newListings: integer('new_listings'),
+  inventory: integer('inventory'),
+  monthsOfSupply: numeric('months_of_supply', { precision: 6, scale: 1 }),
+  medianDom: numeric('median_dom', { precision: 6, scale: 1 }),
+  saleToList: numeric('sale_to_list', { precision: 6, scale: 4 }),
+  soldAboveList: numeric('sold_above_list', { precision: 6, scale: 4 }),
+  priceDrops: numeric('price_drops', { precision: 6, scale: 4 }),
+  offMarket2Wk: numeric('off_market_2wk', { precision: 6, scale: 4 }),
+}, (t) => [uniqueIndex('market_trends_once').on(t.regionType, t.region, t.propertyType, t.periodEnd), index('market_trends_period').on(t.periodEnd)]).enableRLS();
+
+// Building permits: new homes and teardowns (Raleigh and Durham open data).
+export const marketPermits = pgTable('market_permits', {
+  id: id(),
+  source: text('source').notNull(), // raleigh / durham_demo / durham_new
+  county: text('county').notNull(),
+  permitNo: text('permit_no').notNull(),
+  kind: text('kind').notNull(), // new_home / demolition
+  issuedOn: date('issued_on'),
+  year: integer('year').notNull(),
+  address: text('address'),
+  city: text('city'),
+  zip: text('zip'),
+  lat: numeric('lat', { precision: 9, scale: 6 }),
+  lng: numeric('lng', { precision: 9, scale: 6 }),
+  cost: money('cost'),
+  sf: integer('sf'),
+  units: integer('units'),
+  builder: text('builder'),
+  description: text('description'),
+  status: text('status'),
+  updated: updated(),
+}, (t) => [uniqueIndex('market_permits_key').on(t.source, t.permitNo), index('market_permits_latlng').on(t.lat, t.lng), index('market_permits_year').on(t.kind, t.year)]).enableRLS();
