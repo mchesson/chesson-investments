@@ -167,3 +167,15 @@ test('post-project review: the numbers and the lessons', async ({ page }) => {
   await expect(page.getByText('Saved.')).toBeVisible();
   await expect(page.getByText(/The build (ran over|came in under) the first estimate/)).toBeVisible();
 });
+
+test('the account menu closes on a click outside and on Esc', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const menu = page.locator('details.account');
+  await menu.locator('summary').click();
+  await expect(menu).toHaveAttribute('open', '');
+  await page.mouse.click(600, 500);
+  await expect(menu).not.toHaveAttribute('open', '');
+  await menu.locator('summary').click();
+  await page.keyboard.press('Escape');
+  await expect(menu).not.toHaveAttribute('open', '');
+});
