@@ -101,6 +101,22 @@ stay in code (`roleDefaults`, `guestTypes`). Agents get the **Market Map**
 (`guest_extras` 'market': /guest/market, county sales, trends and
 neighborhoods only, never our projects or watchlist).
 
+**Buy Box** (/market/buy-box; owner, Oct 2, 2026: "the buy box is not
+static"): every neighborhood and street is judged from the county sales
+(`src/lib/buy-box.ts`, tested; `zoneStats` in market-data.ts, cached until the
+next market update, tag `market-zones`). Finished $/sf = new builds (last 10
+years) when there are enough, else the top quarter of houses over 1,500 sf (2
+years); value = that × the house we'd build; max lot = (value − selling − build
+− soft and holding − profit) ÷ (1 + financing); against lots and teardowns
+(land sales, and pre-1970 houses under 1,600 sf selling under 65% of the
+finished $/sf, 3 years) in the zone, else the nearest within a mile; and
+whether the zone sold houses at that price band in 12 months. Verdicts Buy
+Zone / Watch / Too Expensive / Not Enough Sales, with the reasons; miles to
+downtown Raleigh or Durham. The numbers (app_settings `buy_box`, defaults from
+the owner's Plainview math) are on the page, History "changed the buy box". A
+Buy Zones layer on the map; each watchlist property has a Buy Box Check
+(its own street and neighborhood only, streamed). Listing alerts and days on
+market wait on a listings feed.
 **Access is checkboxes** (owner, Oct 2, 2026): every permission is listed in
 `permissionGroups` (src/lib/permissions.ts); each role has a standard set
 (`roleDefaults`) and the Users page ticks or unticks any of them per person

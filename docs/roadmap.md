@@ -303,6 +303,9 @@ analysis on the property:
   data-wake.opendata.arcgis.com and *.arcgis.com (owner adding, Oct 2, 2026).
 
 ### Buy box: it moves with the market (owner, Oct 2, 2026)
+**Built Oct 2, 2026** (Buy Box page, map layer, watchlist check) from county
+sales; still to come: listing alerts and time on market (a listings feed), and
+trend alerts on a schedule.
 "The buy box is not static." It's worked out from market data and re-checked
 as the market moves, not typed once:
 - **Data sets, dated:** sale price, time on market (days from listing to

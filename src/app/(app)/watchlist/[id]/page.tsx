@@ -4,7 +4,10 @@ import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { activeStaff, historyFor, tasksForRecord } from '@/lib/contacts';
+import { Suspense } from 'react';
 import { getProperty } from '@/lib/watch';
+import { zoneFor } from '@/lib/buy-box-data';
+import { verdictLabel } from '@/lib/buy-box';
 import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
@@ -59,6 +62,9 @@ export default async function PropertyPage({ params, searchParams }: { params: P
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'photos', label: 'Photos', count: photos.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
+              <Suspense fallback={<Section title="Buy Box Check" kind="aqua"><p className="small muted" style={{ margin: 0 }}>Working it out from the market…</p></Section>}>
+                <BuyBoxCheck p={{ neighborhood: p.neighborhood, address: p.address, city: p.city, askingPrice: p.askingPrice }} />
+              </Suspense>
               {p.notes ? <Section title="Notes" kind="energy"><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{p.notes}</p></Section> : null}
               {edit && p.stage !== 'sold' && !project ? (
                 <Section title="Where It Stands" kind="blue" hint="Offer Made and Lost keep our offer; Lost keeps who won and at what price">
@@ -132,4 +138,23 @@ export default async function PropertyPage({ params, searchParams }: { params: P
       </div>
     </>
   );
+}
+
+/** How this property's zone looks against the buy box (streams in: the market numbers take a moment). */
+async function BuyBoxCheck({ p }: { p: { neighborhood: string | null; address: string; city: string | null; askingPrice: string | null } }) {
+                const z = await zoneFor({ neighborhood: p.neighborhood, address: p.address, city: p.city });
+                const zone = z.street && z.street.verdict !== 'thin' ? z.street : z.hood ?? z.street;
+                const asking = p.askingPrice ? Number(p.askingPrice) : null;
+                return (
+                  <Section title="Buy Box Check" kind="aqua" hint={zone ? `From ${zone === z.street ? 'sales on its street' : `sales in ${zone.name}`}` : 'From what’s selling near it'}>
+                    {zone && zone.money ? (
+                      <>
+                        <p className="trend-sentence" style={{ marginBottom: 6 }}><span className={`chip verdict-${zone.verdict}`}>{verdictLabel[zone.verdict]}</span>{' '}
+                          A new {z.settings.houseSf.toLocaleString()} sf house here would sell for about <strong>{formatMoney(String(zone.money.value))}</strong>; we can pay up to <strong>{formatMoney(String(zone.money.maxLot))}</strong> for the lot.</p>
+                        {asking ? <p style={{ margin: '0 0 6px' }} className={asking <= zone.money.maxLot ? 'green' : 'red'}>The asking price of {formatMoney(String(asking))} is {asking <= zone.money.maxLot ? `${formatMoney(String(zone.money.maxLot - asking))} under` : `${formatMoney(String(asking - zone.money.maxLot))} over`} what we can pay.</p> : null}
+                        <p className="small muted" style={{ margin: 0 }}>{zone.reasons.join('; ')}. <Link href="/market/buy-box">See the Buy Box</Link></p>
+                      </>
+                    ) : <p className="small muted" style={{ margin: 0 }}>Not enough sales on its street or in its neighborhood yet{p.neighborhood ? '' : ' (add its neighborhood on Edit)'}. <Link href="/market/buy-box">See the Buy Box</Link></p>}
+                  </Section>
+                );
 }

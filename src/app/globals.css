@@ -374,3 +374,8 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .dup-actions { display: inline-flex; gap: 6px; align-items: center; }
 .std-head { font-size: 1rem; margin: 14px 0 8px; color: var(--ink); }
 .guest-nav { display: flex; gap: 14px; margin-left: 18px; font-weight: 600; } .guest-nav a { text-decoration: none; }
+.chip.verdict-buy { background: var(--aqua-deep); border-color: var(--aqua-deep); color: #fff; }
+.chip.verdict-watch { background: #eef5d3; border-color: #dbe8b0; color: var(--energy-deep); }
+.chip.verdict-pass { background: #fdecea; border-color: #f2b8b5; color: var(--red); }
+.chip.verdict-thin { background: #f1f3f5; color: #666; }
+.buy-table td { vertical-align: top; }

@@ -1,9 +1,12 @@
 'use server';
 
 import { eq } from 'drizzle-orm';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { db } from '@/db';
-import { marketSyncs } from '@/db/schema';
+import { appSettings, marketSyncs } from '@/db/schema';
+import { buyBoxFields } from '@/lib/buy-box';
+import { BUY_BOX_KEY, buyBoxSettings, ZONES_TAG } from '@/lib/buy-box-data';
+import type { FormResult } from '@/components/ActionForm';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { isCounty, sources } from '@/lib/market-sources';
@@ -37,6 +40,7 @@ export async function stepMarketSync(id: string): Promise<SyncState | { problem:
     await audit({ userId: user.id, entity: 'market', entityId: s.id, action: s.status === 'done' ? 'sync-done' : 'sync-failed',
       summary: s.status === 'done' ? `refreshed ${sources[s.county as 'wake'].label}: ${s.parcels.toLocaleString()} parcels, ${s.newSales.toLocaleString()} new sales` : `refreshing ${s.county} stopped: ${s.error}` });
     revalidatePath('/market');
+    revalidateTag(ZONES_TAG, 'max');
   }
   return view(s);
 }
@@ -48,3 +52,26 @@ export async function placeOurPlaces() {
   await audit({ userId: user.id, entity: 'market', entityId: user.id, action: 'locate', summary: `put ${n} of our projects and watched properties on the map` });
   revalidatePath('/market');
 }
+
+/** The buy box's numbers (what we build, what it costs, what we need to make). */
+export async function saveBuyBox(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('properties.edit');
+  const next: Record<string, number> = {};
+  for (const f of buyBoxFields) {
+    const raw = String(d.get(f.key) ?? '').replace(/[$,%\s]/g, '');
+    const n = Number(raw);
+    if (!raw || !Number.isFinite(n) || n < f.min || n > f.max) return { error: `${f.label}: enter a number from ${f.min} to ${f.max}.` };
+    next[f.key] = n;
+  }
+  const { settings: before } = await buyBoxSettings();
+  const changed = buyBoxFields.filter((f) => before[f.key] !== next[f.key]);
+  if (!changed.length) return { ok: 'No changes.' };
+  await db.transaction(async (tx) => {
+    await tx.insert(appSettings).values({ key: BUY_BOX_KEY, value: next }).onConflictDoUpdate({ target: appSettings.key, set: { value: next, updated: new Date() } });
+    await audit({ userId: user.id, entity: 'settings', entityId: BUY_BOX_ID, action: 'buy-box', summary: `changed the buy box: ${changed.map((f) => `${f.label} ${before[f.key]} → ${next[f.key]}`).join('; ')}`, before, after: next }, tx);
+  });
+  revalidateTag(ZONES_TAG, 'max');
+  revalidatePath('/market/buy-box');
+  return { ok: 'Saved: every zone is worked out again with these numbers.' };
+}
+const BUY_BOX_ID = '00000000-0000-0000-0000-00000000b001';
