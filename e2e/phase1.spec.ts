@@ -614,3 +614,48 @@ test('agents: the areas they specialize in', async ({ page }) => {
   await page.goto(`/people?roles=agent&q=Agent${s}`);
   await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText('Specializes in Five Points, Oakwood');
 });
+
+test('the market map: filters and layer buttons, sales in view, neighborhoods and the trend by price', async ({ page }) => {
+  // Made-up sales (the counties are never called in tests).
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const s = Date.now().toString().slice(-6);
+  const hood = `Testwood ${s}`;
+  for (let i = 0; i < 6; i++) {
+    const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, neighborhood, land_use, heated_sf, lat, lng, last_sale_price, last_sale_on)
+      values ('wake', $1, $2, 'TESTWOOD LN', 'Raleigh', $3, 'condo', 2000, $4, $5, $6, current_date - ($7 || ' days')::interval) returning id`,
+      [`T${s}${i}`, `${i + 1} TESTWOOD LN`, hood, 35.70 + i * 0.001, -78.70, 2600000 + i * 10000, 20 + i * 10]);
+    await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - ($2 || ' days')::interval, $3, 2000)`, [r.rows[0].id, 20 + i * 10, 2600000 + i * 10000]);
+  }
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.getByRole('link', { name: 'Market Map' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Market Map' })).toBeVisible();
+  await expect(page.locator('.tile', { hasText: '$400k–700k' })).toBeVisible();
+  // Condos at $1.5M and up: the made-up neighborhood is the busiest.
+  await page.locator('.market-filters').getByRole('link', { name: 'Condo' }).click();
+  await expect(page).toHaveURL(/use=condo/);
+  await expect(page.locator('.market-filters').getByRole('link', { name: 'Condo' })).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.market-filters').getByRole('link', { name: '$1.5M and Up' }).click();
+  await expect(page).toHaveURL(/use=condo.*band=15m|band=15m.*use=condo/);
+  await expect(page.locator('table', { hasText: hood }).first()).toBeVisible();
+  await expect(page.locator('.trend-sentence')).not.toBeEmpty();
+
+  // Layer buttons add and take away.
+  const dots = page.getByRole('button', { name: 'Each Sale' });
+  await expect(dots).toHaveAttribute('aria-pressed', 'false');
+  await dots.click();
+  await expect(dots).toHaveAttribute('aria-pressed', 'true');
+  // The sales in the view come from our own records.
+  const r = await page.request.get('/api/market/points?bbox=-78.71,35.69,-78.69,35.72&band=15m&use=condo');
+  const body = await r.json();
+  expect(body.points.filter((p: { h: string }) => p.h === hood).length).toBe(6);
+  expect(body.points.find((p: { h: string }) => p.h === hood).psf).toBeGreaterThan(1000);
+
+  // Filters are buttons in the address.
+  await page.locator('.market-filters').getByRole('link', { name: 'Durham' }).click();
+  await expect(page).toHaveURL(/county=durham/);
+  await expect(page.locator('table', { hasText: hood })).toHaveCount(0);
+});
