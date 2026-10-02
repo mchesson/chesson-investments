@@ -105,7 +105,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
                 {photos.length ? (
                   <div className="photos">{photos.map((f) => (
                     <figure key={f.id}>
-                      {f.contentType.startsWith('image/') ? <a href={`/files/${f.id}`}><img src={`/files/${f.id}`} alt={f.caption ?? f.name} loading="lazy" /></a> : <a href={`/files/${f.id}`}>{f.name}</a>}
+                      {f.contentType.startsWith('image/') ? <a href={`/documents/${f.id}`}><img src={`/files/${f.id}`} alt={f.caption ?? f.name} loading="lazy" /></a> : <a href={`/documents/${f.id}`}>{f.name}</a>}
                       <figcaption>{f.caption ?? f.name}</figcaption>
                     </figure>
                   ))}</div>

@@ -67,7 +67,7 @@ export function BudgetBids({ projectId, codes, bids, heatedSf, companies, canEdi
             {shown.map((b) => (
               <li key={b.id}>
                 <div><strong>{b.who}</strong> {statusChip(b.status)} <span className="small muted">{[b.kind === 'ours' ? 'Our Estimate' : 'GC Bid', contractTypeLabel(b.contractType), b.feePct ? `${Number(b.feePct)}% fee` : null, b.validUntil ? `good until ${formatDate(b.validUntil)}` : null].filter(Boolean).join(' · ')}</span></div>
-                {b.files.map((f) => <div key={f.id} className="small"><a href={`/files/${f.id}`} target="_blank">{f.name}</a></div>)}
+                {b.files.map((f) => <div key={f.id} className="small"><a href={`/documents/${f.id}`}>{f.name}</a></div>)}
                 {b.notes ? <div className="small muted" style={{ whiteSpace: 'pre-wrap' }}>{b.notes}</div> : null}
                 {b.decidedReason ? <div className="small">Why: {b.decidedReason}</div> : null}
                 {canChoose && b.status !== 'selected' ? (

@@ -338,8 +338,20 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
   const code = async (c: string) => form.locator('.bid-grid label', { hasText: new RegExp(`^${c} `) }).locator('input');
   await (await code('08')).fill('72,000');
   await (await code('21')).fill('30,000');
+  await form.locator('input[name=file]').setInputFiles({ name: `estimate-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
   await form.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByText('Estimate added.')).toBeVisible();
+
+  // Every saved document opens in the app, or downloads.
+  const budgetUrl = page.url();
+  await page.getByRole('link', { name: `estimate-${s}.pdf` }).click();
+  await expect(page.locator('.page-head .eyebrow')).toHaveText(/Document/i);
+  await expect(page.locator('iframe.doc-frame')).toBeVisible();
+  const dl = await page.request.get(await page.getByRole('link', { name: 'Download' }).getAttribute('href') ?? '');
+  expect(dl.status()).toBe(200);
+  expect(dl.headers()['content-disposition']).toContain('attachment');
+  expect((await page.request.get((await page.locator('iframe.doc-frame').getAttribute('src'))!)).headers()['content-disposition']).toContain('inline');
+  await page.goto(budgetUrl);
   const table = page.locator('table.bids');
   await expect(table).toContainText(`Ours ${s}`);
   // Ours at $30,000 is flagged against the GC's $47,000, and the GC's against ours.
