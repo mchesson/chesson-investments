@@ -5,6 +5,7 @@ import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
 import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
+import { RecordManage } from '@/components/RecordManage';
 import { isUuid } from '@/lib/forms';
 import { formatDate } from '@/lib/format';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
@@ -37,6 +38,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             ]} />
           </Section>
           <DoNotUseSection companyId={id} on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} canEdit={edit} />
+          <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user.role, 'users.manage')} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />

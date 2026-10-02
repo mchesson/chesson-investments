@@ -260,3 +260,51 @@ test('bills under a longer name link to the company, which shows every invoice a
   await expect(page.getByRole('cell', { name: `A${s}` })).toBeVisible();
   await expect(page.getByRole('cell', { name: `B${s}` })).toBeVisible();
 });
+
+test('archive, restore and delete permanently; a company with bills can only be archived', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  await page.goto('/people/new');
+  await page.getByLabel('First Name', { exact: true }).fill('Gone');
+  await page.getByLabel('Last Name', { exact: true }).fill(`Soon${s}`);
+  await page.getByLabel('General Contractor', { exact: true }).check();
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Gone Soon${s}`);
+  const url = page.url();
+
+  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  await page.waitForURL('**/people');
+  await page.goto(`/people?q=Soon${s}`);
+  await expect(page.getByText('No one matches')).toBeVisible();
+
+  await page.goto('/admin/archived');
+  const row = page.locator('li', { hasText: `Gone Soon${s}` });
+  await row.getByRole('button', { name: 'Restore' }).click();
+  await page.goto(`/people?q=Soon${s}`);
+  await expect(page.getByRole('link', { name: `Gone Soon${s}` })).toBeVisible();
+
+  await page.goto(url);
+  await page.getByRole('link', { name: 'Delete Permanently…' }).click();
+  await expect(page.getByText('1 roles')).toBeVisible();
+  await page.getByLabel(/Type the name to confirm/).fill('wrong name');
+  await page.getByRole('button', { name: 'Delete Permanently' }).click();
+  await expect(page.getByText(`Type the name exactly: Gone Soon${s}`)).toBeVisible();
+  await page.getByLabel(/Type the name to confirm/).fill(`gone soon${s}`);
+  await page.getByRole('button', { name: 'Delete Permanently' }).click();
+  await expect(page.getByText(`Deleted Gone Soon${s} permanently`)).toBeVisible();
+  expect((await page.goto(url))?.status()).toBe(404);
+
+  // Money history blocks a delete.
+  const file = JSON.stringify({ companies: [{ name: `Keep${s} Lumber`, role: 'supplier', supplierTypes: ['materials'] }],
+    bills: [{ project: '109 Plainview Ave', vendor: `Keep${s} Lumber`, date: '2026-09-02', lines: [{ kind: 'build', costCode: '01', amount: '99.00' }] }] });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'keep.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/Imported .* 1 bills/)).toBeVisible();
+  await page.goto(`/companies?q=Keep${s}`);
+  await page.getByRole('link', { name: `Keep${s} Lumber`, exact: true }).click();
+  await page.getByRole('link', { name: 'Delete Permanently…' }).click();
+  await expect(page.getByText(/It has 1 bills from them/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete Permanently' })).toHaveCount(0);
+});
