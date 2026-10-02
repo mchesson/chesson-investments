@@ -64,6 +64,13 @@
       "when": 1790966265649,
       "tag": "0008_bids_project_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790968371522,
+      "tag": "0009_rentals",
+      "breakpoints": true
     }
   ]
 }

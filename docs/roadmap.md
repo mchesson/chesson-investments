@@ -56,7 +56,9 @@ In this order, before phase 2:
    receipt with its file. Later Claude reads the vendor, date, lines and tax
    and proposes the cost codes for one-tap confirm (phase 2 invoice reading).
 
-7. **Rentals (owner, Oct 2, 2026; moved up from phase 4).** 420 Peyton is a
+7. **Rentals (owner, Oct 2, 2026; moved up from phase 4). Built Oct 2, 2026** (the Rental
+   tab); still to come: reading the manager's monthly statements, and actual expenses
+   replacing the monthly estimates. 420 Peyton is a
    rental now. A rental gets:
    - a **status**: Getting Ready, On the Market (asking rent, listed on, where),
      Application Pending, Leased, Notice Given, Vacant;

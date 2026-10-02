@@ -577,3 +577,86 @@ export const projectUtilities = pgTable('project_utilities', {
   created: created(),
   removed: timestamp('removed_at', { withTimezone: true }),
 }, (t) => [index('project_utilities_project').on(t.projectId), index('project_utilities_company').on(t.companyId)]).enableRLS();
+
+// Rentals (owner, Oct 2, 2026; docs/roadmap.md "Next" item 7). One row per
+// rented property: its status on the market, the property manager and their
+// terms, and the monthly costs we expect (for cash flow before actuals exist).
+export const rentals = pgTable('rentals', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  status: text('status').notNull().default('getting_ready'), // getting_ready | on_market | application | leased | notice | vacant
+  askingRent: money('asking_rent'),
+  listedOn: date('listed_on'),
+  listedWhere: text('listed_where'),
+  managerCompanyId: uuid('manager_company_id').references(() => companies.id),
+  managerPersonId: uuid('manager_person_id').references(() => people.id),
+  managementFeePct: numeric('management_fee_pct', { precision: 5, scale: 2 }),
+  leasingFee: money('leasing_fee'),
+  managementTerms: text('management_terms'),
+  taxesMonthly: money('taxes_monthly'),
+  insuranceMonthly: money('insurance_monthly'),
+  hoaMonthly: money('hoa_monthly'),
+  utilitiesMonthly: money('utilities_monthly'),
+  repairsReservePct: numeric('repairs_reserve_pct', { precision: 5, scale: 2 }),
+  vacancyPct: numeric('vacancy_pct', { precision: 5, scale: 2 }),
+  notes: text('notes'),
+  created: created(),
+  updated: updated(),
+}, (t) => [uniqueIndex('rentals_project').on(t.projectId)]).enableRLS();
+
+export const leases = pgTable('leases', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  tenants: text('tenants').notNull(),
+  rent: money('rent').notNull(),
+  dueDay: integer('due_day'),
+  startsOn: date('starts_on').notNull(),
+  endsOn: date('ends_on'),
+  renewalTerms: text('renewal_terms'),
+  decideBy: date('decide_by'),
+  deposit: money('deposit'),
+  depositHeldBy: text('deposit_held_by'),
+  depositReturned: money('deposit_returned'),
+  pets: text('pets'),
+  utilitiesPaidBy: text('utilities_paid_by'),
+  terms: text('terms'),
+  status: text('status').notNull().default('active'), // active | ended
+  endedOn: date('ended_on'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+}, (t) => [index('leases_project').on(t.projectId)]).enableRLS();
+
+// Money in: rent and the rest, as the manager's statements or the bank show it.
+export const rentReceipts = pgTable('rent_receipts', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  leaseId: uuid('lease_id').references(() => leases.id),
+  receivedOn: date('received_on').notNull(),
+  forMonth: date('for_month'),
+  kind: text('kind').notNull().default('rent'), // rent | late_fee | deposit | other
+  amount: money('amount').notNull(),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('rent_receipts_project').on(t.projectId, t.receivedOn)]).enableRLS();
+
+// The bank loan against a property. No account numbers, ever.
+export const loans = pgTable('loans', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  lenderCompanyId: uuid('lender_company_id').references(() => companies.id),
+  lenderName: text('lender_name'),
+  originalAmount: money('original_amount'),
+  balance: money('balance'),
+  balanceOn: date('balance_on'),
+  ratePct: numeric('rate_pct', { precision: 6, scale: 3 }),
+  monthlyPayment: money('monthly_payment'),
+  escrowIncluded: boolean('escrow_included').notNull().default(false),
+  startedOn: date('started_on'),
+  maturesOn: date('matures_on'),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('loans_project').on(t.projectId)]).enableRLS();
