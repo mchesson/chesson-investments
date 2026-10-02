@@ -120,6 +120,13 @@
       "when": 1790974102313,
       "tag": "0016_vendor_issue_note",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790975914315,
+      "tag": "0017_user_types",
+      "breakpoints": true
     }
   ]
 }

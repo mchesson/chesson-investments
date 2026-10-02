@@ -100,3 +100,15 @@ test('Do Not Use needs a reason', () => {
   assert.equal(doNotUseProblem(true, 'Walked off the job'), null);
   assert.equal(doNotUseProblem(false, null), null);
 });
+
+test('admins run the app but not restricted records; only the owner manages owners and admins', async () => {
+  const { can, mayManage } = await import('./permissions');
+  assert.equal(can('admin', 'users.manage'), true);
+  assert.equal(can('admin', 'sensitive.view'), false);
+  const owner = { id: 'o', role: 'owner' as const }, admin = { id: 'a', role: 'admin' as const }, staff = { id: 's', role: 'staff' as const };
+  assert.equal(mayManage(owner, admin, 'staff'), null);
+  assert.match(mayManage(admin, owner)!, /Only the owner/);
+  assert.match(mayManage(admin, staff, 'admin')!, /Only the owner/);
+  assert.match(mayManage(admin, admin)!, /your own/);
+  assert.equal(mayManage(admin, staff, 'accountant'), null);
+});

@@ -4,6 +4,7 @@ import { isUuid } from '@/lib/forms';
 import { guestMay, guestProject } from '@/lib/guest-data';
 import { formatDate, today } from '@/lib/format';
 import { issueStatusLabel } from '@/lib/issues';
+import { rentalStatusLabel } from '@/lib/rentals';
 import { ActionForm } from '@/components/ActionForm';
 import { Choice } from '@/components/Choice';
 import { StageChips } from '@/components/StageChips';
@@ -51,6 +52,20 @@ export default async function GuestProject({ params }: { params: Promise<{ id: s
               ) : <Empty>No schedule yet.</Empty>}
             </Section>
           </>
+        ) : null}
+
+        {d.rental ? (
+          <Section title="The Rental" kind="blue">
+            <p style={{ margin: '0 0 8px' }}>Status: <strong>{d.rental.status ? rentalStatusLabel(d.rental.status) : 'Not set up yet'}</strong></p>
+            {d.rental.leases.length ? (
+              <div className="table-wrap"><table className="t">
+                <thead><tr><th>Lease</th><th>Starts</th><th>Ends</th><th>Decide on Renewal By</th><th>Renewal</th></tr></thead>
+                <tbody>{d.rental.leases.map((l) => (
+                  <tr key={l.id}><td>{l.status === 'active' ? 'Current' : 'Ended'}</td><td>{formatDate(l.startsOn)}</td><td>{l.endsOn ? formatDate(l.endsOn) : '—'}</td><td>{l.decideBy ? formatDate(l.decideBy) : '—'}</td><td>{l.renewalTerms ?? '—'}</td></tr>
+                ))}</tbody>
+              </table></div>
+            ) : <Empty>No lease on file yet.</Empty>}
+          </Section>
         ) : null}
 
         {guestMay(a, 'issues') ? (

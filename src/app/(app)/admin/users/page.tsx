@@ -3,16 +3,17 @@ import { db } from '@/db';
 import { guestAccess, projects, users } from '@/db/schema';
 import { requirePage } from '@/lib/session';
 import { allPermissions, effectivePermissions, permissionGroups, roleNames, type Role } from '@/lib/permissions';
-import { defaultAbilities, guestAbilities, isLive } from '@/lib/guests';
+import { guestAbilities, guestTypeLabel, isGuestType, isLive } from '@/lib/guests';
+import { GuestTypeFields } from '@/components/GuestTypeFields';
 import { companyOptions, peopleOptions } from '@/lib/contacts';
 import { mailReady } from '@/lib/mail';
 import { formatDate, formatDateTime, today } from '@/lib/format';
 import { Empty, PageHead, Section } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
-import { addUser, inviteGuest, newGuestLink, setGuestAccess, setUserPermissions, setUserRole } from '../../admin-actions';
+import { addUser, inviteGuest, newGuestLink, setGuestAccess, setGuestType, setUserPermissions, setUserRole } from '../../admin-actions';
 
 export const metadata = { title: 'Users and Access' };
-const assignable: Role[] = ['owner', 'staff', 'accountant', 'pending'];
+const assignable: Role[] = ['owner', 'admin', 'staff', 'accountant', 'pending'];
 
 function PermissionBoxes({ id, role, own }: { id: string; role: Role; own: string[] | null }) {
   const on = effectivePermissions(role, own);
@@ -59,7 +60,7 @@ export default async function Users() {
   const t = today();
   return (
     <>
-      <PageHead title="Users and Access" sub="Each person’s access is a set of checkboxes. Technical Source staff sign in with Microsoft; outside people (contractors, partners) are guests who see only the projects you invite them to." />
+      <PageHead title="Users and Access" sub="Owner: everything. Admin: runs the app with you (users, imports, cleanup, approvals) but not restricted records. Staff and Accountant: their standard set. Each person’s access is a set of checkboxes. Outside partners (contractors, agents, lenders and the rest) see only what you invite them to." />
       {!mailReady() ? <div className="notice warn"><strong>Email isn’t set up yet.</strong> Invitations and sign-in links are shown here to copy and send yourself (by text or your own email) until the app’s email is connected.</div> : null}
       <div className="stack">
         <Section title="People Who Can Sign In" kind="blue" hint={`${staff.length}`}>
@@ -73,8 +74,8 @@ export default async function Users() {
                   <label className="check"><input type="checkbox" name="active" defaultChecked={u.active} /> Can sign in</label>
                 </ActionForm>
               </div>
-              {(u.role === 'staff' || u.role === 'owner') && !u.email.endsWith('@technicalsource.com') && !u.email.endsWith('@example.com') ? (
-                <p className="notice warn" style={{ margin: 0 }}>This isn’t a Technical Source account, so they can’t sign in with Microsoft. If they’re a contractor or partner, invite them below under <strong>Invite a Guest</strong> with this same email: they become a guest and get a sign-in link.</p>
+              {(u.role === 'staff' || u.role === 'owner' || u.role === 'admin') && !u.email.endsWith('@technicalsource.com') && !u.email.endsWith('@example.com') ? (
+                <p className="notice warn" style={{ margin: 0 }}>This isn’t a Technical Source account, so they can’t sign in with Microsoft. If they’re a contractor or partner, invite them below under <strong>Invite an Outside Partner</strong> with this same email: they become an outside partner and get a sign-in link.</p>
               ) : null}
               {u.role === 'owner' ? <p className="small muted" style={{ margin: 0 }}>Owner: everything, always.</p>
                 : u.role === 'pending' ? <p className="small muted" style={{ margin: 0 }}>Waiting for access: pick a role, then tick what they can do.</p> : (
@@ -89,13 +90,13 @@ export default async function Users() {
           ))}</ul>
         </Section>
 
-        <Section title="Guests (Outside People)" kind="aqua" hint={`${guests.length}`}>
+        <Section title="Outside Partners" kind="aqua" hint={`${guests.length}`}>
           {guests.length ? <ul className="user-list">{guests.map((g) => {
             const mine = access.filter((x) => x.a.userId === g.id);
             return (
               <li key={g.id} className="user-card">
                 <div className="user-head">
-                  <div className="user-who"><strong>{g.name ?? g.email}</strong><div className="small muted">{g.email} · last sign-in {formatDateTime(g.lastSignIn) || 'never'}</div></div>
+                  <div className="user-who"><strong>{g.name ?? g.email}</strong> <span className="chip aqua">{guestTypeLabel(g.guestType)}</span>{g.guestExtras?.includes('deals') ? <span className="chip"> Sees deals they sent</span> : null}<div className="small muted">{g.email} · last sign-in {formatDateTime(g.lastSignIn) || 'never'}</div></div>
                   <ActionForm action={setUserRole} className="inline-form" submit="Save" submitClass="btn small">
                     <input type="hidden" name="id" value={g.id} /><input type="hidden" name="role" value="guest" />
                     <label className="check"><input type="checkbox" name="active" defaultChecked={g.active} /> Can sign in</label>
@@ -116,13 +117,19 @@ export default async function Users() {
                     </details>
                   </li>
                 ))}</ul> : <p className="small muted">No projects right now.</p>}
+                <details className="fold"><summary>Kind of Partner</summary>
+                  <ActionForm action={setGuestType} submit="Save">
+                    <input type="hidden" name="id" value={g.id} />
+                    <GuestTypeFields initialType={isGuestType(g.guestType) ? g.guestType : 'other'} withAbilities={false} initialExtras={g.guestExtras ?? []} />
+                  </ActionForm>
+                </details>
                 <ActionForm action={newGuestLink} submit="Send a New Sign-In Link" submitClass="btn small secondary"><input type="hidden" name="id" value={g.id} /></ActionForm>
               </li>
             );
           })}</ul> : <Empty>No guests yet.</Empty>}
         </Section>
 
-        <Section title="Invite a Guest" kind="energy" hint="A GC, a sub or a partner: they see only the projects you pick">
+        <Section title="Invite an Outside Partner" kind="energy" hint="A GC, sub, supplier, designer, property manager, agent, wholesaler, lender, attorney or investor: they see only what you pick">
           <ActionForm action={inviteGuest} submit="Invite Them">
             <div className="fields">
               <label className="f">Their Email<input name="email" type="email" required /></label>
@@ -138,9 +145,7 @@ export default async function Users() {
                 <label key={p.id} className="role-btn"><input type="checkbox" name="project" value={p.id} /><span>{p.number ? `P-${p.number} ` : ''}{p.name}</span></label>
               ))}</div>
             </fieldset>
-            <fieldset className="f choice"><legend>What They Can Do There<span className="h">They never see budgets, other vendors’ prices, profit or contacts</span></legend>
-              <AbilityBoxes picked={defaultAbilities} />
-            </fieldset>
+            <GuestTypeFields />
           </ActionForm>
         </Section>
 

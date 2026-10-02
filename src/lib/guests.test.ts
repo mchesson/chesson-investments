@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanAbilities, hashToken, isLive, looksLikeToken, mayGuest, newToken, sessionHours } from './guests';
+import { guestTypes, cleanExtras, cleanAbilities, hashToken, isLive, looksLikeToken, mayGuest, newToken, sessionHours } from './guests';
 
 test('what a guest may do on a project', () => {
   assert.deepEqual(cleanAbilities(['daily_log.add', 'bogus']), ['overview', 'daily_log', 'daily_log.add']);
@@ -25,4 +25,13 @@ test('sign-in links: random tokens, only the hash kept', () => {
 test('guests stay signed in 30 days, staff 12 hours', () => {
   assert.equal(sessionHours('guest', 'link'), 720);
   assert.equal(sessionHours('staff', 'microsoft-entra-id'), 12);
+});
+
+test('every outside type starts with abilities that exist, and only agents and wholesalers see deals', () => {
+  for (const t of guestTypes) {
+    assert.deepEqual(cleanAbilities([...t.can]), [...t.can].length ? cleanAbilities([...t.can]) : []);
+    assert.ok(t.can.includes('overview'), t.key);
+  }
+  assert.deepEqual(guestTypes.filter((t) => t.extras.length).map((t) => t.key), ['agent', 'wholesaler']);
+  assert.deepEqual(cleanExtras(['deals', 'bogus']), ['deals']);
 });

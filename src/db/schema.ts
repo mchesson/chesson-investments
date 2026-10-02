@@ -22,7 +22,7 @@ const archived = () => timestamp('archived_at', { withTimezone: true });
 // accountant: projects' money only (banking, bills, loans, exports in later phases).
 // guest: an outside person (a GC, a sub, a partner) who sees only the projects
 // they're invited to, through /guest (guest_access says what on each).
-export const userRole = pgEnum('user_role', ['pending', 'owner', 'staff', 'accountant', 'guest']);
+export const userRole = pgEnum('user_role', ['pending', 'owner', 'staff', 'accountant', 'guest', 'admin']);
 
 export const users = pgTable('users', {
   id: id(),
@@ -32,6 +32,10 @@ export const users = pgTable('users', {
   active: boolean('active').notNull().default(true),
   // The owner's ticks for this person (src/lib/permissions.ts); empty = the role's.
   permissions: text('permissions').array(),
+  // What kind of outside person a guest is (src/lib/guests.ts guestTypes) and
+  // what they may do beyond their projects (the deals they sent us).
+  guestType: text('guest_type'),
+  guestExtras: text('guest_extras').array(),
   // A guest's own record and company, when they're on file.
   personId: uuid('person_id'),
   companyId: uuid('company_id'),

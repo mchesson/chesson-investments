@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dailyLogs, guestAccess, milestones, projects, rentals, users, vendorIssues } from '@/db/schema';
+import { dailyLogs, guestAccess, leases, milestones, projects, properties, rentals, users, vendorIssues } from '@/db/schema';
 import { isLive, mayGuest, type GuestAbility } from './guests';
 import { scheduleFor } from './schedule-data';
 import { today } from './format';
@@ -51,6 +51,21 @@ export async function guestProject(u: SessionUser, projectId: string) {
     }).from(vendorIssues).where(and(eq(vendorIssues.projectId, projectId), isNull(vendorIssues.archived),
       or(u.companyId ? eq(vendorIssues.companyId, u.companyId) : sql`false`, u.personId ? eq(vendorIssues.personId, u.personId) : sql`false`)))
       .orderBy(desc(vendorIssues.reportedOn)) : [],
+    // A property manager's view of the rental: where it stands and the lease's dates (no money).
+    rental: guestMay(a, 'rental') ? {
+      status: rental?.status ?? null,
+      leases: await db.select({ id: leases.id, startsOn: leases.startsOn, endsOn: leases.endsOn, decideBy: leases.decideBy, renewalTerms: leases.renewalTerms, status: leases.status })
+        .from(leases).where(eq(leases.projectId, projectId)).orderBy(desc(leases.startsOn)).limit(5),
+    } : null,
     milestoneCount: (await db.select({ n: sql<number>`count(*)::int` }).from(milestones).where(eq(milestones.projectId, projectId)))[0]?.n ?? 0,
   };
+}
+
+/** The watchlist leads an agent or wholesaler sent us (address and where it stands only: never our offer or notes). */
+export async function guestDeals(u: SessionUser & { guestExtras?: string[] | null }) {
+  if (!u.personId) return [];
+  const [me] = await db.select({ extras: users.guestExtras }).from(users).where(eq(users.id, u.id));
+  if (!me?.extras?.includes('deals')) return [];
+  return db.select({ id: properties.id, address: properties.address, city: properties.city, stage: properties.stage, created: properties.created })
+    .from(properties).where(and(eq(properties.sourcePersonId, u.personId), isNull(properties.archived))).orderBy(desc(properties.created)).limit(200);
 }

@@ -7,8 +7,8 @@ import { db } from '@/db';
 import { guestAccess, projects, users } from '@/db/schema';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
-import { effectivePermissions, isPermission, isRole, permissionLabel, roleNames } from '@/lib/permissions';
-import { cleanAbilities, guestAbilities } from '@/lib/guests';
+import { effectivePermissions, isPermission, isRole, mayManage, permissionLabel, roleNames } from '@/lib/permissions';
+import { cleanAbilities, cleanExtras, guestAbilities, guestTypeLabel, isGuestType } from '@/lib/guests';
 import { appUrl, createLink } from '@/lib/sign-in-links';
 import { linkEmail, mailReady, sendMail } from '@/lib/mail';
 import { isDay, normalizeEmail } from '@/lib/format';
@@ -22,10 +22,11 @@ export async function addUser(_: FormResult, d: FormData): Promise<FormResult> {
   const role = str(d, 'role') ?? '';
   if (!email || !email.includes('@')) return { error: 'Enter their email.' };
   if (!isRole(role) || role === 'pending') return { error: 'Pick a role.' };
-  if (role === 'guest') return { error: 'Invite outside people under Invite a Guest, with the projects they can see.' };
+  if (role === 'guest') return { error: 'Invite outside people under Invite an Outside Partner, with the projects they can see.' };
+  if ((role === 'owner' || role === 'admin') && me.role !== 'owner') return { error: 'Only the owner can make someone an Owner or an Admin.' };
   // Microsoft sign-in only takes Technical Source accounts (owner, Oct 2, 2026: a contractor got no email and couldn't sign in).
   const outside = !email.endsWith('@technicalsource.com');
-  if (outside && role !== 'accountant') return { error: `${email} isn’t a Technical Source account, so they can’t sign in with Microsoft. Use Invite a Guest for a contractor or partner (they sign in with an emailed link), or pick Accountant for an outside bookkeeper.` };
+  if (outside && role !== 'accountant') return { error: `${email} isn’t a Technical Source account, so they can’t sign in with Microsoft. Use Invite an Outside Partner for a contractor, agent, lender or other partner (they sign in with a link), or pick Accountant for an outside bookkeeper.` };
   const [exists] = await db.select().from(users).where(eq(users.email, email));
   if (exists) return { error: 'They’re already listed.' };
   const id = await db.transaction(async (tx) => {
@@ -48,8 +49,10 @@ export async function setUserRole(_: FormResult, d: FormData): Promise<FormResul
   if (id === me.id && (role !== 'owner' || !active)) return { error: 'You can’t remove your own Owner access.' };
   const [u] = await db.select().from(users).where(eq(users.id, id));
   if (!u) return { error: 'Not found.' };
-  if ((u.role === 'guest') !== (role === 'guest')) return { error: 'Guests stay guests: invite a Technical Source account as staff instead.' };
-  if ((role === 'owner' || role === 'staff') && !u.email.endsWith('@technicalsource.com')) return { error: `${u.email} can’t sign in with Microsoft, so they can be a Guest or an Accountant only.` };
+  const guard = mayManage(me, u, role);
+  if (guard) return { error: guard };
+  if ((u.role === 'guest') !== (role === 'guest')) return { error: 'Outside partners stay outside partners: invite a Technical Source account as staff instead.' };
+  if ((role === 'owner' || role === 'admin' || role === 'staff') && !u.email.endsWith('@technicalsource.com')) return { error: `${u.email} can’t sign in with Microsoft, so they can be an Outside Partner or an Accountant only.` };
   if (u.role === role && u.active === active) return { ok: 'No changes.' };
   await db.transaction(async (tx) => {
     await tx.update(users).set({ role, active }).where(eq(users.id, id));
@@ -71,8 +74,11 @@ export async function setUserPermissions(_: FormResult, d: FormData): Promise<Fo
   const [u] = await db.select().from(users).where(eq(users.id, id));
   if (!u) return { error: 'Not found.' };
   if (u.role === 'owner') return { error: 'An Owner always has everything.' };
+  const guard = mayManage(me, u);
+  if (guard) return { error: guard };
   const standard = d.get('standard') === '1';
   const picked = standard ? null : d.getAll('perm').map(String).filter(isPermission);
+  if (me.role !== 'owner' && picked?.includes('sensitive.view') && !effectivePermissions(u.role, u.permissions).includes('sensitive.view')) return { error: 'Only the owner gives access to restricted records.' };
   const before = effectivePermissions(u.role, u.permissions);
   const after = effectivePermissions(u.role, picked);
   await db.transaction(async (tx) => {
@@ -106,21 +112,24 @@ export async function inviteGuest(_: FormResult, d: FormData): Promise<FormResul
   if (!email || !email.includes('@')) return { error: 'Enter their email.' };
   if (msAccount(email)) return { error: 'That’s a Technical Source account: add them under People Who Can Sign In instead.' };
   const projectIds = d.getAll('project').map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
-  if (!projectIds.length) return { error: 'Pick at least one project they can see.' };
+  if (!projectIds.length && !d.getAll('extra').length) return { error: 'Pick at least one project they can see.' };
   const can = cleanAbilities(d.getAll('can').map(String));
   if (!can.length) return { error: 'Tick at least one thing they can do.' };
   const endsOn = str(d, 'endsOn');
   if (endsOn && !isDay(endsOn)) return { error: 'The last day needs to be a date.' };
+  const guestType = str(d, 'guestType');
+  if (!isGuestType(guestType)) return { error: 'Pick what kind of partner they are.' };
+  const extras = cleanExtras(d.getAll('extra').map(String));
   const personId = str(d, 'personId');
   const companyId = str(d, 'companyId');
   const [exists] = await db.select().from(users).where(eq(users.email, email));
   // An outside email added earlier as staff could never sign in (Microsoft takes only Technical Source accounts): it becomes a guest.
   if (exists && exists.role !== 'guest' && exists.role !== 'pending' && exists.role !== 'staff') return { error: `${email} already signs in as ${roleNames[exists.role]}.` };
-  const names = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
+  const names = projectIds.length ? await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds)) : [];
   const userId = await db.transaction(async (tx) => {
-    const [u] = exists ? [exists] : await tx.insert(users).values({ email, name: str(d, 'name'), role: 'guest', personId: personId || null, companyId: companyId || null }).returning();
+    const [u] = exists ? [exists] : await tx.insert(users).values({ email, name: str(d, 'name'), role: 'guest', guestType, guestExtras: extras, personId: personId || null, companyId: companyId || null }).returning();
     if (exists) {
-      await tx.update(users).set({ role: 'guest', permissions: null, active: true, ...(personId ? { personId } : {}), ...(companyId ? { companyId } : {}) }).where(eq(users.id, u.id));
+      await tx.update(users).set({ role: 'guest', guestType, guestExtras: extras, permissions: null, active: true, ...(personId ? { personId } : {}), ...(companyId ? { companyId } : {}) }).where(eq(users.id, u.id));
       if (exists.role !== 'guest') await audit({ userId: me.id, entity: 'user', entityId: u.id, action: 'update', summary: `changed ${email} from ${roleNames[exists.role]} to a guest (an outside email can't sign in with Microsoft)`, before: { role: exists.role }, after: { role: 'guest' } }, tx);
     }
     for (const p of names) {
@@ -128,10 +137,10 @@ export async function inviteGuest(_: FormResult, d: FormData): Promise<FormResul
       await tx.insert(guestAccess).values({ userId: u.id, projectId: p.id, can, endsOn, createdBy: me.id });
       await audit({ userId: me.id, entity: 'project', entityId: p.id, action: 'guest-add', summary: `let ${email} (guest) see it: ${can.map(abilityLabel).join(', ')}${endsOn ? ` until ${endsOn}` : ''}` }, tx);
     }
-    await audit({ userId: me.id, entity: 'user', entityId: u.id, action: exists ? 'guest-update' : 'create', summary: `invited ${email} as a guest to ${names.map((p) => p.name).join(', ')}` }, tx);
+    await audit({ userId: me.id, entity: 'user', entityId: u.id, action: exists ? 'guest-update' : 'create', summary: `invited ${email} as ${guestTypeLabel(guestType)}${names.length ? ` to ${names.map((p) => p.name).join(', ')}` : ''}${extras.includes('deals') ? ' (sees the deals they sent)' : ''}` }, tx);
     return u.id;
   });
-  const { url, sent } = await inviteLink(userId, email, me.id, `Matthew Chesson has invited you to see ${names.map((p) => p.name).join(', ')} in Chesson Investments: the schedule, the daily log and anything we need from you.`);
+  const { url, sent } = await inviteLink(userId, email, me.id, names.length ? `Matthew Chesson has invited you to see ${names.map((p) => p.name).join(', ')} in Chesson Investments.` : 'Matthew Chesson has invited you to Chesson Investments, where you can follow the deals you sent us.');
   revalidatePath('/admin/users');
   return sent.sent
     ? { ok: `Invited. The email is on its way to ${email}. You can also send them this link:`, link: url }
@@ -169,4 +178,21 @@ export async function setGuestAccess(_: FormResult, d: FormData): Promise<FormRe
   });
   revalidatePath('/admin/users');
   return { ok: remove ? 'Taken off.' : 'Saved.' };
+}
+
+/** What kind of partner an outside person is, and whether they see the deals they sent. */
+export async function setGuestType(_: FormResult, d: FormData): Promise<FormResult> {
+  const me = await requireAction('users.manage');
+  const id = str(d, 'id');
+  const [u] = id ? await db.select().from(users).where(eq(users.id, id)) : [];
+  if (!u || u.role !== 'guest') return { error: 'Not found.' };
+  const guestType = str(d, 'guestType');
+  if (!isGuestType(guestType)) return { error: 'Pick what kind of partner they are.' };
+  const extras = cleanExtras(d.getAll('extra').map(String));
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ guestType, guestExtras: extras }).where(eq(users.id, u.id));
+    await audit({ userId: me.id, entity: 'user', entityId: u.id, action: 'guest-type', summary: `set ${u.email} as ${guestTypeLabel(guestType)}${extras.includes('deals') ? ', seeing the deals they sent' : ''}`, before: { guestType: u.guestType, extras: u.guestExtras }, after: { guestType, extras } }, tx);
+  });
+  revalidatePath('/admin/users');
+  return { ok: 'Saved.' };
 }

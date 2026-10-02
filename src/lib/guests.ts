@@ -11,11 +11,38 @@ export const guestAbilities = [
   { key: 'daily_log', label: 'See the daily log' },
   { key: 'daily_log.add', label: 'Add to the daily log' },
   { key: 'issues', label: 'See and answer the issues with them' },
+  { key: 'rental', label: 'See the rental: its status and the lease dates (no money)' },
 ] as const;
 export type GuestAbility = (typeof guestAbilities)[number]['key'];
 export const isGuestAbility = (v: string): v is GuestAbility => guestAbilities.some((a) => a.key === v);
-/** A GC usually gets all of it. */
+/** A GC usually gets all of the building side. */
 export const defaultAbilities: GuestAbility[] = ['overview', 'schedule', 'daily_log', 'daily_log.add', 'issues'];
+
+/**
+ * The kinds of outside people (owner, Oct 2, 2026: "create one for all
+ * types"), matching the roles on people and companies. Each starts with what
+ * that kind usually needs; the owner ticks or unticks per project. `extras` are
+ * not per project (the deals a wholesaler or agent sent us).
+ */
+export const guestTypes = [
+  { key: 'gc', label: 'General Contractor', can: ['overview', 'schedule', 'daily_log', 'daily_log.add', 'issues'], extras: [] },
+  { key: 'sub', label: 'Subcontractor', can: ['overview', 'schedule', 'daily_log', 'daily_log.add', 'issues'], extras: [] },
+  { key: 'supplier', label: 'Supplier', can: ['overview', 'schedule', 'issues'], extras: [] },
+  { key: 'designer', label: 'Designer / Engineer / Surveyor', can: ['overview', 'schedule', 'daily_log', 'issues'], extras: [] },
+  { key: 'property_manager', label: 'Property Manager', can: ['overview', 'rental', 'daily_log', 'daily_log.add', 'issues'], extras: [] },
+  { key: 'agent', label: 'Real Estate Agent / Broker', can: ['overview', 'schedule'], extras: ['deals'] },
+  { key: 'wholesaler', label: 'Wholesaler / Deal Source', can: ['overview'], extras: ['deals'] },
+  { key: 'lender', label: 'Lender / Loan Officer', can: ['overview', 'schedule', 'daily_log'], extras: [] },
+  { key: 'attorney', label: 'Attorney / Title', can: ['overview'], extras: [] },
+  { key: 'investor', label: 'Investor', can: ['overview', 'schedule', 'daily_log'], extras: [] },
+  { key: 'other', label: 'Other Outside Partner', can: ['overview'], extras: [] },
+] as const satisfies readonly { key: string; label: string; can: readonly GuestAbility[]; extras: readonly string[] }[];
+export type GuestType = (typeof guestTypes)[number]['key'];
+export const isGuestType = (v: string | null | undefined): v is GuestType => guestTypes.some((t) => t.key === v);
+export const guestTypeLabel = (v: string | null | undefined) => guestTypes.find((t) => t.key === v)?.label ?? 'Outside Partner';
+
+export const guestExtraOptions = [{ key: 'deals', label: 'See the deals they sent us (watchlist leads: address, where it stands)' }] as const;
+export const cleanExtras = (xs: string[]) => guestExtraOptions.map((o) => o.key).filter((k) => xs.includes(k));
 
 /** Clean the ticked list; adding to the daily log means seeing it; anything means seeing the project. */
 export function cleanAbilities(xs: string[]): GuestAbility[] {
