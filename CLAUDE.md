@@ -73,6 +73,25 @@ tested); "Different person / company" saves anyway (History). The import
 preview flags them; admins see every pair at /admin/duplicates (Not the Same).
 `ActionForm` keeps what was typed when a save shows an error.
 Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
+**Market Map** (/market, owner Oct 2, 2026: "an interactive heat map ... buttons
+at the top to add in or subtract what is showing"): county public records of
+sales, read-only from the counties' ArcGIS services (Wake
+maps.wakegov.com Property/Parcels; Durham services2.arcgis.com Parcels_NEW;
+`src/lib/market-sources.ts`, tested). **Update Market Data** on the page reads
+a county a page (1,000 records) at a time (`market-sync.ts`, `market-actions.ts`;
+first load 3 years of sales over $50k, later ones from a month before the
+last) into `market_parcels` (one per parcel: address, street, town,
+neighborhood (Durham's, Wake's subdivision from PROPDESC), kind, heated sf,
+owner, absentee, centroid, last sale) and `market_sales` (every sale seen; the
+history grows with each update). Our projects and the watchlist get `lat`/`lng`
+from their address on the parcels. The map (Leaflet, OpenStreetMap tiles,
+`MarketMap.tsx`) loads the sales in view from `/api/market/points` (newest
+4,000); layer buttons (Sales Heat, Each Sale, Neighborhoods, Our Projects,
+Watchlist) and filter buttons (county, kind, price band, sold within) in the
+address. Trends by price band (`market-stats.ts`, tested): sales per month in
+the last 6 months against the 12 before. **Time on market and listings aren't
+in county records**: they need an MLS feed or a paid listings service (the
+owner's decision; Zillow has no public feed).
 **Grades and Issues** (owner, Oct 2, 2026) for every contractor and vendor
 (company, or a person with a vendor role: `vendorRoleKeys` in roles.ts): a
 grade per job (A–F, optional parts) with a **required justification**

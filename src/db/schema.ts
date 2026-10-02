@@ -226,6 +226,9 @@ export const properties = pgTable('properties', {
   state: text('state').default('NC'),
   zip: text('zip'),
   neighborhood: text('neighborhood'),
+  // Where it is on the map, found from the county's parcel records (src/lib/market-sync.ts).
+  lat: numeric('lat', { precision: 9, scale: 6 }),
+  lng: numeric('lng', { precision: 9, scale: 6 }),
   sourcePersonId: uuid('source_person_id').references(() => people.id),
   askingPrice: money('asking_price'),
   lotSf: integer('lot_sf'),
@@ -263,6 +266,9 @@ export const projects = pgTable('projects', {
   state: text('state').default('NC'),
   zip: text('zip'),
   neighborhood: text('neighborhood'),
+  // Where it is on the map, found from the county's parcel records (src/lib/market-sync.ts).
+  lat: numeric('lat', { precision: 9, scale: 6 }),
+  lng: numeric('lng', { precision: 9, scale: 6 }),
   propertyId: uuid('property_id').references(() => properties.id),
   // Which entity holds title (Chesson Investments, LLC; WJ Invest Group…).
   // Later phases make entities their own records (investors, banking).
@@ -745,3 +751,64 @@ export const issuePeople = pgTable('issue_people', {
   role: text('role'), // what they did: reported it, fixed it, signed off
   created: created(),
 }, (t) => [index('issue_people_issue').on(t.issueId), index('issue_people_person').on(t.personId)]).enableRLS();
+
+// County parcel records with a recent sale (owner, Oct 2, 2026: "we are
+// connecting to Wake County public data but we need to look at Durham and
+// other surrounding areas"): what sold, where, for how much and how big, for
+// the market map and the buy box. Public records, refreshed by Update Market
+// Data (src/lib/market-sync.ts). Never edited by hand.
+export const marketParcels = pgTable('market_parcels', {
+  id: id(),
+  county: text('county').notNull(), // wake / durham
+  parcelKey: text('parcel_key').notNull(), // the county's REID
+  address: text('address'),
+  street: text('street'), // "PEYTON ST"
+  city: text('city'),
+  zip: text('zip'),
+  neighborhood: text('neighborhood'), // Durham's neighborhood, Wake's subdivision
+  landUse: text('land_use'), // single_family / townhouse / condo / multi_family / land / other
+  heatedSf: integer('heated_sf'),
+  yearBuilt: integer('year_built'),
+  acres: numeric('acres', { precision: 10, scale: 3 }),
+  assessedValue: money('assessed_value'),
+  ownerName: text('owner_name'),
+  absentee: boolean('absentee'), // mailing address isn't the property
+  lat: numeric('lat', { precision: 9, scale: 6 }),
+  lng: numeric('lng', { precision: 9, scale: 6 }),
+  lastSalePrice: money('last_sale_price'),
+  lastSaleOn: date('last_sale_on'),
+  updated: updated(),
+}, (t) => [
+  uniqueIndex('market_parcels_key').on(t.county, t.parcelKey),
+  index('market_parcels_sale').on(t.lastSaleOn),
+  index('market_parcels_latlng').on(t.lat, t.lng),
+  index('market_parcels_hood').on(t.neighborhood),
+  index('market_parcels_street').on(t.street, t.city),
+]).enableRLS();
+
+// Every sale we've seen on a parcel (the county shows only the latest, so the
+// history grows each time we refresh).
+export const marketSales = pgTable('market_sales', {
+  id: id(),
+  parcelId: uuid('parcel_id').notNull().references(() => marketParcels.id),
+  soldOn: date('sold_on').notNull(),
+  price: money('price').notNull(),
+  heatedSf: integer('heated_sf'),
+  created: created(),
+}, (t) => [uniqueIndex('market_sales_once').on(t.parcelId, t.soldOn, t.price), index('market_sales_on').on(t.soldOn)]).enableRLS();
+
+// Each refresh of a county's data: how far it got, what it added.
+export const marketSyncs = pgTable('market_syncs', {
+  id: id(),
+  county: text('county').notNull(),
+  status: text('status').notNull().default('running'), // running / done / failed
+  since: date('since').notNull(),
+  offset: integer('offset').notNull().default(0),
+  total: integer('total'),
+  parcels: integer('parcels').notNull().default(0),
+  newSales: integer('new_sales').notNull().default(0),
+  error: text('error'),
+  startedBy: uuid('started_by').references(() => users.id),
+  started: created(),
+  finished: timestamp('finished_at', { withTimezone: true }),
+}, (t) => [index('market_syncs_county').on(t.county, t.started)]).enableRLS();

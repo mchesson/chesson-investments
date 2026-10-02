@@ -328,3 +328,32 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .chip.status { background: #e5f0f9; border-color: #b9d6ee; color: #0a5a95; }
 .specialty { color: var(--aqua-deep); }
 .sub-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Market map */
+.market-filters { display: grid; gap: 6px; }
+.market-filters .role-pick { margin: 0; align-items: center; }
+.filter-label { width: 64px; flex: none; text-transform: uppercase; letter-spacing: .07em; font-size: .72rem; font-weight: 700; color: var(--muted); }
+.market-map-wrap { display: grid; gap: 8px; }
+.map-layers { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.map-layers-label { text-transform: uppercase; letter-spacing: .07em; font-size: .72rem; font-weight: 700; color: var(--muted); margin-right: 4px; }
+.layer-btn { font: inherit; font-weight: 600; font-size: .86rem; padding: 6px 13px; border-radius: 999px; border: 1.5px solid #b5e6e3; background: #fff; color: var(--aqua-deep); cursor: pointer; }
+.layer-btn:hover { background: #d5f3f1; }
+.layer-btn[aria-pressed='true'] { background: var(--aqua-deep); border-color: var(--aqua-deep); color: #fff; }
+.layer-btn[aria-pressed='true']::before { content: '✓ '; }
+.layer-btn:focus-visible { outline: 3px solid var(--aqua); outline-offset: 2px; }
+.market-map { height: min(70vh, 640px); min-height: 360px; border-radius: 10px; border: 1px solid var(--hair); z-index: 0; }
+.map-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.map-legend { display: inline-flex; align-items: center; gap: 6px; }
+.legend-bar { display: inline-block; width: 120px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #00BAB4, #0D71BA, #C0D961, #b3261e); }
+.map-pin { display: grid !important; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.map-pin.pin-project { background: var(--near-black); }
+.map-pin.pin-watch { background: var(--energy-deep); }
+.trend-sentence { margin: 0 0 12px; font-size: 1.05rem; }
+.pace { font-size: 1.05rem; }
+.pace-faster { color: var(--aqua-deep); }
+.pace-slower { color: var(--red); }
+.pace-steady, .pace-thin { color: var(--muted); }
+.sync-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.sync-name { flex: 1; min-width: 220px; }
+.sync-progress { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.sync-progress progress { flex: 1; max-width: 360px; }
