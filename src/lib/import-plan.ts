@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { formatName, normalizeEmail, storePhone } from './format';
 import { roleDef } from './roles';
 import { isHowMet } from './how-met';
+import { allowedPhotoUrl, isPhotoKind, isSiteStatus } from './site';
 
 const money = z.union([z.number(), z.string()]).transform((v) => String(v).replace(/[$,\s]/g, ''));
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -42,6 +43,22 @@ export const importSchema = z.object({
     lotCost: money.nullish(), marketValue: money.nullish(), notes: z.string().max(4000).nullish(),
     purchasedOn: day.nullish(), completedOn: day.nullish(), originalEstimate: money.nullish(), plannedExit: z.string().max(200).nullish(), actualExit: z.string().max(200).nullish(),
     closingCostAtSale: money.nullish(), sellingCostPct: z.string().nullish(), reviewNotes: z.string().max(8000).nullish(),
+    lotAcres: z.number().nullish(),
+    // The website page (filled only where the project's own is empty).
+    site: z.object({
+      status: z.string().nullish(), slug: z.string().max(80).nullish(), price: money.nullish(), tagline: z.string().max(160).nullish(),
+      description: z.string().max(8000).nullish(), beds: z.number().nullish(), baths: z.number().nullish(),
+      details: z.string().max(20000).nullish(), team: z.string().max(8000).nullish(), featured: z.boolean().nullish(),
+    }).nullish(),
+  })).default([]),
+  // Photos copied from our old website (https://chessoninvestments.com only).
+  photos: z.array(z.object({
+    project: z.string().min(1),
+    url: z.string().max(500),
+    kind: z.string(),
+    caption: z.string().max(120).nullish(),
+    onSite: z.boolean().default(true),
+    sort: z.number().int().min(0).max(999).default(0),
   })).default([]),
   bills: z.array(z.object({
     project: z.string().min(1),
@@ -72,6 +89,7 @@ export type Existing = {
   projects: { id: string; name: string; address: string }[];
   bills: { projectId: string; vendor: string; number: string | null; date: string; amount: string }[];
   costCodes: { id: string; code: string }[];
+  photos?: { projectId: string; sourceUrl: string }[];
 };
 
 /** A credit's lines are stored negative whatever sign was typed; other bills keep their sign (credits inside a GC invoice). */
@@ -93,6 +111,7 @@ export type Plan = {
   people: { name: string; match: string | null; matchedBy: string | null; row: ImportFile['people'][number] }[];
   projects: { name: string; match: string | null; row: ImportFile['projects'][number] }[];
   bills: { label: string; projectKey: string; duplicate: boolean; total: string; problem: string | null; row: ImportFile['bills'][number] }[];
+  photos: { label: string; projectKey: string; duplicate: boolean; problem: string | null; row: ImportFile['photos'][number] }[];
   problems: string[];
 };
 
@@ -142,5 +161,20 @@ export function planImport(file: ImportFile, ex: Existing): Plan {
     inFile.add(k);
     return { label: `${b.vendor}${b.number ? ` #${b.number}` : ''} (${b.date})`, projectKey: pk, duplicate, total: totalStr, problem, row: b };
   });
-  return { companies, people, projects, bills, problems };
+  for (const pj of file.projects) if (pj.site?.status && !isSiteStatus(pj.site.status)) problems.push(`${pj.name}: unknown website status "${pj.site.status}"`);
+  const photoKeys = new Set((ex.photos ?? []).map((f) => `${f.projectId}|${f.sourceUrl}`));
+  const photoSeen = new Set<string>();
+  const photos = file.photos.map((f) => {
+    const pk = key(f.project);
+    const projectId = projKeys.get(pk) ?? null;
+    let problem: string | null = null;
+    if (!projectId && !fileProjects.has(pk)) problem = `project "${f.project}" isn't in the app or the file`;
+    else if (!allowedPhotoUrl(f.url)) problem = 'photos are copied only from https://chessoninvestments.com';
+    else if (!isPhotoKind(f.kind)) problem = `unknown kind "${f.kind}"`;
+    const k = `${projectId ?? pk}|${f.url}`;
+    const duplicate = (projectId !== null && photoKeys.has(`${projectId}|${f.url}`)) || photoSeen.has(k);
+    photoSeen.add(k);
+    return { label: f.url.replace(/^https:\/\/[^/]+/, ''), projectKey: pk, duplicate, problem, row: f };
+  });
+  return { companies, people, projects, bills, photos, problems };
 }

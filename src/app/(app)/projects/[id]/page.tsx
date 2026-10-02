@@ -15,6 +15,7 @@ import { scheduleFor } from '@/lib/schedule-data';
 import { responsibleLabel } from '@/lib/schedule';
 import { BudgetStages, ScheduleTab } from '@/components/ProjectSchedule';
 import { ProjectReview } from '@/components/ProjectReview';
+import { ProjectWebsite } from '@/components/ProjectWebsite';
 import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
@@ -45,7 +46,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
-    { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
+    { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
     <>
@@ -82,6 +83,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
+          {tab === 'website' ? <ProjectWebsite p={p} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}
           {tab === 'tasks' ? (
             <div className="stack">

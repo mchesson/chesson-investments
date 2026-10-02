@@ -274,12 +274,27 @@ export const projects = pgTable('projects', {
   actualExit: text('actual_exit'),
   reviewNotes: text('review_notes'),
   reviewUpdatedAt: timestamp('review_updated_at', { withTimezone: true }),
+  // The public website (chessoninvestments.com), served by this app. Nothing
+  // shows until a website status is chosen; only these fields and the photos
+  // marked for the website ever go out (src/lib/site.ts toPublicProject).
+  siteStatus: text('site_status'),
+  siteSlug: text('site_slug'),
+  sitePrice: money('site_price'),
+  siteTagline: text('site_tagline'),
+  siteDescription: text('site_description'),
+  siteBeds: numeric('site_beds', { precision: 4, scale: 1 }),
+  siteBaths: numeric('site_baths', { precision: 4, scale: 1 }),
+  siteDetails: text('site_details'),
+  siteTeam: text('site_team'),
+  siteFeatured: boolean('site_featured').notNull().default(false),
+  siteSort: integer('site_sort').notNull().default(0),
+  siteUpdatedAt: timestamp('site_updated_at', { withTimezone: true }),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),
   updated: updated(),
   archived: archived(),
-}).enableRLS();
+}, (t) => [uniqueIndex('projects_site_slug').on(t.siteSlug)]).enableRLS();
 
 export const costCodes = pgTable('cost_codes', {
   id: id(),
@@ -437,6 +452,12 @@ export const files = pgTable('files', {
   data: bytea('data'),
   storagePath: text('storage_path'),
   caption: text('caption'),
+  // Project photos: before / after / plan / progress; only those marked for the
+  // website are ever served without a sign-in (/photos/<id>).
+  photoKind: text('photo_kind'),
+  onSite: boolean('on_site').notNull().default(false),
+  sort: integer('sort').notNull().default(0),
+  sourceUrl: text('source_url'),
   uploadedBy: uuid('uploaded_by').references(() => users.id),
   created: created(),
   archived: archived(),

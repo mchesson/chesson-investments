@@ -3,7 +3,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db, type Tx } from '@/db';
-import { billLines, bills, budgetLines, companies, costCodes, partyRoles, people, personCompanies, projects, touches } from '@/db/schema';
+import { billLines, bills, budgetLines, companies, costCodes, files, partyRoles, people, personCompanies, projects, touches } from '@/db/schema';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { importSchema, lineCents, planImport, splitFull, type Existing, type ImportFile, type Plan } from '@/lib/import-plan';
@@ -12,6 +12,9 @@ import { firstStage, roleDef } from '@/lib/roles';
 import { isHowMet } from '@/lib/how-met';
 import { isProjectStage } from '@/lib/project-stages';
 import { DEFAULT_PERCENTS } from '@/lib/cost-codes';
+import { allowedPhotoUrl, isSiteStatus, photoKindLabel, slugify } from '@/lib/site';
+import { saveFile } from '@/lib/files';
+import { detectFile, MAX_FILE } from '@/lib/file-rules';
 
 const VIA = 'import from email and folders';
 
@@ -21,6 +24,7 @@ export type Summary = {
   counts?: { label: string; add: number; match: number }[];
   people?: { name: string; role: string | null; match: string | null }[];
   bills?: { label: string; total: string; status: string }[];
+  photos?: { label: string; status: string }[];
   problems?: string[];
 };
 
@@ -33,14 +37,15 @@ function parse(text: string): { file: ImportFile } | { error: string } {
 }
 
 async function existing(x: Tx | typeof db): Promise<Existing> {
-  const [ps, cs, pj, bs, codes] = await Promise.all([
+  const [ps, cs, pj, bs, codes, ph] = await Promise.all([
     x.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, email: people.email, phone: people.phone }).from(people).where(isNull(people.archived)),
     x.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived)),
     x.select({ id: projects.id, name: projects.name, address: projects.address }).from(projects).where(isNull(projects.archived)),
     x.select({ projectId: bills.projectId, vendor: sql<string>`coalesce(${bills.vendorName}, (select c.name from companies c where c.id = ${bills.vendorCompanyId}), '')`, number: bills.invoiceNumber, date: bills.invoiceOn, amount: bills.amount }).from(bills).where(isNull(bills.archived)),
     x.select({ id: costCodes.id, code: costCodes.code }).from(costCodes),
+    x.select({ projectId: files.entityId, sourceUrl: sql<string>`${files.sourceUrl}` }).from(files).where(and(eq(files.entity, 'project'), isNull(files.archived), sql`${files.sourceUrl} is not null`)),
   ]);
-  return { people: ps, companies: cs, projects: pj, bills: bs, costCodes: codes };
+  return { people: ps, companies: cs, projects: pj, bills: bs, costCodes: codes, photos: ph };
 }
 
 function summarize(plan: Plan): Summary {
@@ -50,7 +55,9 @@ function summarize(plan: Plan): Summary {
       { label: 'People', add: plan.people.filter((p) => !p.match).length, match: plan.people.filter((p) => p.match).length },
       { label: 'Projects', add: plan.projects.filter((p) => !p.match).length, match: plan.projects.filter((p) => p.match).length },
       { label: 'Bills', add: plan.bills.filter((b) => !b.duplicate && !b.problem).length, match: plan.bills.filter((b) => b.duplicate).length },
+      ...(plan.photos.length ? [{ label: 'Photos', add: plan.photos.filter((f) => !f.duplicate && !f.problem).length, match: plan.photos.filter((f) => f.duplicate).length }] : []),
     ],
+    photos: plan.photos.map((f) => ({ label: f.label, status: f.problem ? `skipped: ${f.problem}` : f.duplicate ? 'already on file' : 'will add' })),
     people: plan.people.map((p) => ({ name: p.name, role: p.row.role ?? null, match: p.match ? `already on file (${p.matchedBy})` : null })),
     bills: plan.bills.map((b) => ({ label: b.label, total: b.total, status: b.problem ? `skipped: ${b.problem}` : b.duplicate ? 'already on file' : 'will add' })),
     problems: plan.problems,
@@ -70,6 +77,30 @@ export async function applyImport(text: string): Promise<Summary> {
   const p = parse(text);
   if ('error' in p) return { error: p.error };
   const file = p.file;
+  // Photos are read from our old website first, outside the transaction.
+  const before = planImport(file, await existing(db));
+  const fetched = new Map<string, File>();
+  const photoErrors: string[] = [];
+  const wanted = [...new Map(before.photos.filter((f) => !f.duplicate && !f.problem && allowedPhotoUrl(f.row.url)).map((f) => [f.row.url, f])).values()];
+  const readOne = async (f: (typeof wanted)[number]) => {
+    // GoDaddy sometimes answers with a "please wait" page instead of the photo: try again.
+    let got: ArrayBuffer | null = null, why = 'couldn’t be read from the old website';
+    for (let attempt = 0; attempt < 3 && !got; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 4_000));
+      try {
+        const r = await fetch(f.row.url, { redirect: 'error', signal: AbortSignal.timeout(15_000) });
+        const buf = r.ok ? await r.arrayBuffer() : null;
+        if (!buf) why = `the old website answered ${r.status}`;
+        else if (buf.byteLength > MAX_FILE) { why = 'over 4 MB'; break; }
+        else if (!detectFile(new Uint8Array(buf))?.image) why = 'the old website sent a page, not a photo';
+        else got = buf;
+      } catch { /* try again */ }
+    }
+    if (got) fetched.set(f.row.url, new File([got], f.row.url.split('/').pop() || 'photo.jpg'));
+    else photoErrors.push(`${f.label}: ${why} (import the file again to retry)`);
+  };
+  // Four at a time keeps a full house (about 30 photos) well under a minute.
+  for (let n = 0; n < wanted.length; n += 4) await Promise.all(wanted.slice(n, n + 4).map(readOne));
   const result = await db.transaction(async (tx) => {
     const plan = planImport(file, await existing(tx));
     const log = (entity: string, entityId: string, action: string, summary: string) => audit({ userId: user.id, entity, entityId, action, summary, via: VIA }, tx);
@@ -152,8 +183,26 @@ export async function applyImport(text: string): Promise<Summary> {
     const projectId = new Map<string, string>();
     for (const r of await tx.select({ id: projects.id, name: projects.name, address: projects.address }).from(projects).where(isNull(projects.archived))) { projectId.set(k(r.name), r.id); projectId.set(k(r.address), r.id); }
     const codes = await tx.select().from(costCodes).where(isNull(costCodes.archived));
+    const fillSite = async (pid: string, r: ImportFile['projects'][number]) => {
+      const st = r.site;
+      if (!st) return;
+      const [old] = await tx.select().from(projects).where(eq(projects.id, pid));
+      const slug = slugify(st.slug ?? r.name);
+      const [taken] = await tx.select({ id: projects.id }).from(projects).where(and(eq(projects.siteSlug, slug), sql`${projects.id} <> ${pid}`));
+      const f = {
+        siteStatus: old.siteStatus ?? (isSiteStatus(st.status) ? st.status : null),
+        siteSlug: old.siteSlug ?? (taken ? null : slug), sitePrice: old.sitePrice ?? st.price ?? null, siteTagline: old.siteTagline ?? st.tagline ?? null,
+        siteDescription: old.siteDescription ?? st.description ?? null,
+        siteBeds: old.siteBeds ?? (st.beds != null ? st.beds.toFixed(1) : null), siteBaths: old.siteBaths ?? (st.baths != null ? st.baths.toFixed(1) : null),
+        siteDetails: old.siteDetails ?? st.details ?? null, siteTeam: old.siteTeam ?? st.team ?? null, siteFeatured: old.siteFeatured || !!st.featured,
+        lotAcres: old.lotAcres ?? (r.lotAcres != null ? String(r.lotAcres) : null), heatedSf: old.heatedSf ?? r.heatedSf ?? null,
+      };
+      if (Object.entries(f).every(([k2, v]) => String(v) === String((old as Record<string, unknown>)[k2]))) return;
+      await tx.update(projects).set({ ...f, siteUpdatedAt: new Date() }).where(eq(projects.id, pid));
+      await log('project', pid, 'site', `filled in its website page from the old website${f.siteStatus && f.siteStatus !== old.siteStatus ? ` (status ${f.siteStatus.replace('_', ' ')})` : ''}`);
+    };
     for (const pj of plan.projects) {
-      if (pj.match) continue;
+      if (pj.match) { await fillSite(pj.match, pj.row); continue; }
       const r = pj.row;
       const [row] = await tx.insert(projects).values({
         name: r.name, address: r.address, city: r.city ?? null, state: formatState(r.state) ?? 'NC', zip: r.zip ?? null,
@@ -165,6 +214,7 @@ export async function applyImport(text: string): Promise<Summary> {
       await tx.insert(budgetLines).values(codes.map((c) => ({ projectId: row.id, costCodeId: c.id, percentOfConstruction: null as string | null, amount: null })));
       projectId.set(k(r.name), row.id); projectId.set(k(r.address), row.id);
       await log('project', row.id, 'create', `added the project ${r.name} from the folders`);
+      await fillSite(row.id, r);
       added.projects++;
     }
     void DEFAULT_PERCENTS; // imported past projects have no budget percents: their real costs are the bills
@@ -197,9 +247,24 @@ export async function applyImport(text: string): Promise<Summary> {
       const gc = billIdByNumber.get(`${bk.project}|${k(bk.backupFor)}`);
       if (gc) await tx.update(bills).set({ includedInBillId: gc }).where(eq(bills.id, bk.id));
     }
-    await audit({ userId: user.id, entity: 'import', entityId: null, action: 'apply', summary: `imported ${added.people} people, ${added.companies} companies, ${added.projects} projects and ${added.bills} bills (${file.source ?? 'file'})`, via: VIA }, tx);
-    return { plan, added };
+    let photosAdded = 0;
+    const byProject = new Map<string, number>();
+    for (const f of plan.photos) {
+      if (f.duplicate || f.problem) continue;
+      const pid = projectId.get(f.projectKey);
+      const got = fetched.get(f.row.url);
+      if (!pid || !got) continue;
+      const saved = await saveFile(got, { entity: 'project', entityId: pid }, user.id, { imagesOnly: true, caption: f.row.caption ?? null }, tx);
+      if ('error' in saved) { photoErrors.push(`${f.label}: ${saved.error}`); continue; }
+      await tx.update(files).set({ photoKind: f.row.kind, onSite: f.row.onSite, sort: f.row.sort, sourceUrl: f.row.url }).where(eq(files.id, saved.id));
+      byProject.set(pid, (byProject.get(pid) ?? 0) + 1);
+      photosAdded++;
+    }
+    for (const [pid, n] of byProject) await log('project', pid, 'photo-add', `added ${n} ${n === 1 ? 'photo' : 'photos'} from the old website (${[...new Set(plan.photos.filter((f) => projectId.get(f.projectKey) === pid).map((f) => photoKindLabel(f.row.kind).toLowerCase()))].join(', ')})`);
+    await audit({ userId: user.id, entity: 'import', entityId: null, action: 'apply', summary: `imported ${added.people} people, ${added.companies} companies, ${added.projects} projects, ${added.bills} bills and ${photosAdded} photos (${file.source ?? 'file'})`, via: VIA }, tx);
+    return { plan, added, photosAdded };
   });
   revalidatePath('/', 'layout');
-  return { ...summarize(result.plan), done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects and ${result.added.bills} bills.` };
+  const sum = summarize(result.plan);
+  return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos.` };
 }
