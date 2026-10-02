@@ -23,6 +23,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'commitments', column: 'vendor_person_id', does: 'block', label: 'commitments with them' },
     { table: 'budget_versions', column: 'person_id', does: 'block', label: 'bids from them' },
     { table: 'rentals', column: 'manager_person_id', does: 'clear', label: 'rentals they manage (who only)' },
+    { table: 'rental_contacts', column: 'person_id', does: 'delete', label: 'places as a rental’s manager contact' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },

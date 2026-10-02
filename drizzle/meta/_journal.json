@@ -71,6 +71,13 @@
       "when": 1790968371522,
       "tag": "0009_rentals",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790969315242,
+      "tag": "0010_rental_contacts",
+      "breakpoints": true
     }
   ]
 }

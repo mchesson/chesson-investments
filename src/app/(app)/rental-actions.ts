@@ -1,9 +1,9 @@
 'use server';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { leases, loans, rentals, rentReceipts } from '@/db/schema';
+import { companies, leases, loans, people, personCompanies, rentalContacts, rentals, rentReceipts } from '@/db/schema';
 import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { bool, str, uuidOrNull } from '@/lib/forms';
@@ -31,13 +31,33 @@ export async function saveRental(_: FormResult, d: FormData): Promise<FormResult
     if (!isRentalStatus(status)) throw new Bad('Pick a status.');
     const f = {
       status, askingRent: money(d, 'askingRent', 'Asking rent'), listedOn: day(d, 'listedOn', 'Listed on'), listedWhere: str(d, 'listedWhere'),
-      managerCompanyId: uuidOrNull(d, 'managerCompanyId'), managerPersonId: uuidOrNull(d, 'managerPersonId'),
+      managerCompanyId: uuidOrNull(d, 'managerCompanyId'), managerPersonId: null as string | null,
       managementFeePct: pct(d, 'managementFeePct', 'Management fee'), leasingFee: money(d, 'leasingFee', 'Leasing fee'), managementTerms: str(d, 'managementTerms'),
       taxesMonthly: money(d, 'taxesMonthly', 'Taxes'), insuranceMonthly: money(d, 'insuranceMonthly', 'Insurance'), hoaMonthly: money(d, 'hoaMonthly', 'HOA'),
       utilitiesMonthly: money(d, 'utilitiesMonthly', 'Utilities'), repairsReservePct: pct(d, 'repairsReservePct', 'Repairs reserve'), vacancyPct: pct(d, 'vacancyPct', 'Vacancy'),
       notes: str(d, 'notes'),
     };
+    // The manager's people: only from that company; one is the main contact.
+    const contactIds = [...new Set(d.getAll('managerContacts').map(String))].filter((x) => /^[0-9a-f-]{36}$/i.test(x));
+    if (contactIds.length && !f.managerCompanyId) throw new Bad('Pick the property management company first.');
+    if (contactIds.length) {
+      const ok = await db.select({ id: people.id }).from(people).leftJoin(personCompanies, and(eq(personCompanies.personId, people.id), isNull(personCompanies.endedOn)))
+        .where(and(inArray(people.id, contactIds), or(eq(people.companyId, f.managerCompanyId!), eq(personCompanies.companyId, f.managerCompanyId!))));
+      if (new Set(ok.map((x) => x.id)).size !== contactIds.length) throw new Bad('Pick people from that company only.');
+    }
+    const mainId = contactIds.includes(str(d, 'managerMain') ?? '') ? str(d, 'managerMain')! : contactIds[0] ?? null;
+    f.managerPersonId = mainId;
     await db.transaction(async (tx) => {
+      const before = await tx.select({ personId: rentalContacts.personId, main: rentalContacts.main }).from(rentalContacts).where(eq(rentalContacts.projectId, projectId));
+      const sameContacts = before.length === contactIds.length && before.every((b) => contactIds.includes(b.personId) && b.main === (b.personId === mainId));
+      if (!sameContacts) {
+        await tx.delete(rentalContacts).where(eq(rentalContacts.projectId, projectId));
+        if (contactIds.length) await tx.insert(rentalContacts).values(contactIds.map((personId) => ({ projectId, personId, main: personId === mainId })));
+        const names = contactIds.length ? await tx.select({ id: people.id, f: people.firstName, l: people.lastName }).from(people).where(inArray(people.id, contactIds)) : [];
+        const [co] = f.managerCompanyId ? await tx.select({ n: companies.name }).from(companies).where(eq(companies.id, f.managerCompanyId)) : [];
+        const label = names.map((n) => `${n.f} ${n.l}${n.id === mainId ? ' (main)' : ''}`).join(', ');
+        await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-contacts', summary: contactIds.length ? `set ${co?.n ?? 'the manager'}’s people on this property: ${label}` : 'cleared the property manager’s people', before: { contacts: before }, after: { contacts: contactIds, main: mainId } }, tx);
+      }
       const [old] = await tx.select().from(rentals).where(eq(rentals.projectId, projectId));
       if (!old) {
         await tx.insert(rentals).values({ projectId, ...f });

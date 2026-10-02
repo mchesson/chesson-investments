@@ -373,7 +373,11 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
 test('a rental: status and manager, the lease, rent in, the loan, and whether it makes money', async ({ page }) => {
   await signIn(page, 'Sample Owner');
   const s = Date.now().toString().slice(-6);
-  const file = JSON.stringify({ projects: [{ name: `Rent Test ${s}`, address: `${s} Rent Rd`, city: 'Raleigh', stage: 'rental', lotCost: 200000 }] });
+  const file = JSON.stringify({
+    projects: [{ name: `Rent Test ${s}`, address: `${s} Rent Rd`, city: 'Raleigh', stage: 'rental', lotCost: 200000 }],
+    companies: [{ name: `Manage${s} Realty`, role: 'property_manager' }, { name: `Other${s} Builders`, role: 'gc' }],
+    people: [{ name: `Ann Lead${s}`, company: `Manage${s} Realty`, title: 'Broker' }, { name: `Ben Agent${s}`, company: `Manage${s} Realty` }, { name: `Cal Elsewhere${s}`, company: `Other${s} Builders` }],
+  });
   await page.goto('/admin/import');
   await page.locator('input[type=file]').setInputFiles({ name: 'rent.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
@@ -389,8 +393,18 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await setup.locator('input[name=managementFeePct]').fill('8');
   await setup.locator('input[name=taxesMonthly]').fill('300');
   await setup.locator('input[name=insuranceMonthly]').fill('150');
+  // Only property management companies; then only their people.
+  await expect(setup.locator('select[name=managerCompanyId] option', { hasText: `Other${s} Builders` })).toHaveCount(0);
+  await setup.locator('select[name=managerCompanyId]').selectOption({ label: `Manage${s} Realty` });
+  await expect(setup.getByText(`Cal Elsewhere${s}`)).toHaveCount(0);
+  await setup.getByLabel(`Ann Lead${s}`).check();
+  await setup.getByLabel(`Ben Agent${s}`).check();
+  await setup.locator(`.contact-row:has-text("Ben Agent${s}") input[type=radio]`).check();
   await setup.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Making money each month')).toBeVisible();
+  const people = page.locator('section', { hasText: 'Status and Property Manager' }).first();
+  await expect(people.locator('li', { hasText: `Ben Agent${s}` })).toContainText('Main');
+  await expect(people.locator('li', { hasText: `Ann Lead${s}` })).not.toContainText('Main');
 
   await page.locator('summary', { hasText: 'Add the Lease' }).click();
   const lf = page.locator('form:has(input[name=tenants])');
