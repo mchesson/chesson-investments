@@ -2,13 +2,14 @@
 
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { db } from '@/db';
-import { guestAccess, projects, users } from '@/db/schema';
+import { appSettings, guestAccess, projects, users } from '@/db/schema';
+import { readStandards, STANDARDS_KEY, STANDARDS_TAG } from '@/lib/access-standards';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
-import { effectivePermissions, isPermission, isRole, mayManage, permissionLabel, roleNames } from '@/lib/permissions';
-import { cleanAbilities, cleanExtras, guestAbilities, guestTypeLabel, isGuestType } from '@/lib/guests';
+import { editableRoles, effectivePermissions, isPermission, isRole, mayManage, permissionLabel, roleNames, roleStandard } from '@/lib/permissions';
+import { cleanAbilities, cleanExtras, guestAbilities, guestTypeLabel, isGuestType, partnerStandard } from '@/lib/guests';
 import { appUrl, createLink } from '@/lib/sign-in-links';
 import { linkEmail, mailReady, sendMail } from '@/lib/mail';
 import { isDay, normalizeEmail } from '@/lib/format';
@@ -79,8 +80,9 @@ export async function setUserPermissions(_: FormResult, d: FormData): Promise<Fo
   const standard = d.get('standard') === '1';
   const picked = standard ? null : d.getAll('perm').map(String).filter(isPermission);
   if (me.role !== 'owner' && picked?.includes('sensitive.view') && !effectivePermissions(u.role, u.permissions).includes('sensitive.view')) return { error: 'Only the owner gives access to restricted records.' };
-  const before = effectivePermissions(u.role, u.permissions);
-  const after = effectivePermissions(u.role, picked);
+  const std = (await readStandards()).roles;
+  const before = effectivePermissions(u.role, u.permissions, std);
+  const after = effectivePermissions(u.role, picked, std);
   await db.transaction(async (tx) => {
     await tx.update(users).set({ permissions: picked }).where(eq(users.id, id));
     const added = after.filter((p) => !before.includes(p)), taken = before.filter((p) => !after.includes(p));
@@ -195,4 +197,67 @@ export async function setGuestType(_: FormResult, d: FormData): Promise<FormResu
   });
   revalidatePath('/admin/users');
   return { ok: 'Saved.' };
+}
+
+const STANDARDS_ID = '00000000-0000-0000-0000-00000000a001';
+
+
+/** A role's standard set (Admin, Staff, Accountant): everyone of that type without their own ticks follows it. Owner only. */
+export async function saveRoleStandard(_: FormResult, d: FormData): Promise<FormResult> {
+  const me = await requireAction('users.manage');
+  if (me.role !== 'owner') return { error: 'Only the owner sets the standard for a type.' };
+  const role = str(d, 'role');
+  if (!editableRoles.includes(role as (typeof editableRoles)[number])) return { error: 'Pick a type.' };
+  const r = role as (typeof editableRoles)[number];
+  const reset = d.get('reset') === '1';
+  const picked = d.getAll('perm').map(String).filter(isPermission);
+  const cur = await readStandards();
+  const before = roleStandard(r, cur.roles);
+  const roles = { ...cur.roles };
+  if (reset) delete roles[r]; else roles[r] = picked;
+  const after = roleStandard(r, roles);
+  await db.transaction(async (tx) => {
+    await tx.insert(appSettings).values({ key: STANDARDS_KEY, value: { ...cur, roles } }).onConflictDoUpdate({ target: appSettings.key, set: { value: { ...cur, roles }, updated: new Date() } });
+    const added = after.filter((p) => !before.includes(p)), taken = before.filter((p) => !after.includes(p));
+    await audit({ userId: me.id, entity: 'settings', entityId: STANDARDS_ID, action: 'role-standard',
+      summary: reset ? `set the ${roleNames[r]} standard back to the built-in set` : `changed the ${roleNames[r]} standard${added.length ? `; added: ${added.map(permissionLabel).join(', ')}` : ''}${taken.length ? `; took off: ${taken.map(permissionLabel).join(', ')}` : ''}`,
+      before: { [r]: before }, after: { [r]: after } }, tx);
+  });
+  revalidateTag(STANDARDS_TAG, 'max');
+  revalidatePath('/admin/users');
+  return { ok: `Saved. Everyone who is ${roleNames[r]} without their own ticks has this now.` };
+}
+
+/** What a kind of outside partner starts with; optionally applied to everyone of that kind now. Owner only. */
+export async function savePartnerStandard(_: FormResult, d: FormData): Promise<FormResult> {
+  const me = await requireAction('users.manage');
+  if (me.role !== 'owner') return { error: 'Only the owner sets the standard for a type.' };
+  const type = str(d, 'guestType');
+  if (!isGuestType(type)) return { error: 'Pick a type.' };
+  const reset = d.get('reset') === '1';
+  const cur = await readStandards();
+  const partners = { ...cur.partners };
+  if (reset) delete partners[type]; else partners[type] = { can: cleanAbilities(d.getAll('can').map(String)), extras: cleanExtras(d.getAll('extra').map(String)) };
+  const std = partnerStandard(type, partners);
+  const applyNow = d.get('applyNow') === 'on';
+  let applied = 0;
+  await db.transaction(async (tx) => {
+    await tx.insert(appSettings).values({ key: STANDARDS_KEY, value: { ...cur, partners } }).onConflictDoUpdate({ target: appSettings.key, set: { value: { ...cur, partners }, updated: new Date() } });
+    if (applyNow) {
+      const who = await tx.select({ id: users.id }).from(users).where(and(eq(users.role, 'guest'), eq(users.guestType, type)));
+      if (who.length) {
+        const ids = who.map((w) => w.id);
+        await tx.update(users).set({ guestExtras: std.extras }).where(inArray(users.id, ids));
+        const rows = await tx.update(guestAccess).set({ can: std.can }).where(and(inArray(guestAccess.userId, ids), isNull(guestAccess.removed))).returning({ id: guestAccess.id });
+        applied = who.length;
+        await audit({ userId: me.id, entity: 'settings', entityId: STANDARDS_ID, action: 'partner-standard-apply', summary: `applied the ${guestTypeLabel(type)} standard to ${who.length} ${who.length === 1 ? 'person' : 'people'} (${rows.length} project ${rows.length === 1 ? 'access' : 'accesses'})`, after: { userIds: ids } }, tx);
+      }
+    }
+    await audit({ userId: me.id, entity: 'settings', entityId: STANDARDS_ID, action: 'partner-standard',
+      summary: reset ? `set the ${guestTypeLabel(type)} standard back to the built-in set` : `changed the ${guestTypeLabel(type)} standard: ${[...std.can.map(abilityLabel), ...std.extras].join(', ') || 'nothing'}`,
+      before: { [type]: cur.partners[type] ?? null }, after: { [type]: std } }, tx);
+  });
+  revalidateTag(STANDARDS_TAG, 'max');
+  revalidatePath('/admin/users');
+  return { ok: applyNow ? `Saved, and applied to ${applied} ${applied === 1 ? 'person' : 'people'} of this type.` : 'Saved. New invitations of this type start with it; tick “apply to everyone” to change the ones already invited.' };
 }

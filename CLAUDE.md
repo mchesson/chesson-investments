@@ -90,6 +90,17 @@ managers see the rental (status, lease dates, no money); agents and
 wholesalers can see the deals they sent us (`guest_extras` 'deals': address
 and stage only, never our offer). Landowners, personal and networking contacts
 aren't users.
+**Standard access by type** (owner, Oct 2, 2026): on the Users page the owner
+sets each type's standard (Admin, Staff, Accountant: permission checkboxes;
+each outside partner type: its abilities and extras), saved in app_settings
+`access_standards` (src/lib/access-standards.ts, cached, tag
+`access-standards`). People without their own ticks follow their role's
+standard at once; for partners it's what an invitation starts with, and "apply
+to everyone of this type" rewrites their live project access. Built-in sets
+stay in code (`roleDefaults`, `guestTypes`). Agents get the **Market Map**
+(`guest_extras` 'market': /guest/market, county sales, trends and
+neighborhoods only, never our projects or watchlist).
+
 **Access is checkboxes** (owner, Oct 2, 2026): every permission is listed in
 `permissionGroups` (src/lib/permissions.ts); each role has a standard set
 (`roleDefaults`) and the Users page ticks or unticks any of them per person

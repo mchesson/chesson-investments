@@ -2,21 +2,22 @@ import { asc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { guestAccess, projects, users } from '@/db/schema';
 import { requirePage } from '@/lib/session';
-import { allPermissions, effectivePermissions, permissionGroups, roleNames, type Role } from '@/lib/permissions';
-import { guestAbilities, guestTypeLabel, isGuestType, isLive } from '@/lib/guests';
+import { allPermissions, editableRoles, effectivePermissions, permissionGroups, roleNames, roleStandard, type Role, type RoleStandards } from '@/lib/permissions';
+import { readStandards } from '@/lib/access-standards';
+import { guestAbilities, guestTypeLabel, guestTypes, isGuestType, isLive, partnerStandard } from '@/lib/guests';
 import { GuestTypeFields } from '@/components/GuestTypeFields';
 import { companyOptions, peopleOptions } from '@/lib/contacts';
 import { mailReady } from '@/lib/mail';
 import { formatDate, formatDateTime, today } from '@/lib/format';
 import { Empty, PageHead, Section } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
-import { addUser, inviteGuest, newGuestLink, setGuestAccess, setGuestType, setUserPermissions, setUserRole } from '../../admin-actions';
+import { addUser, inviteGuest, newGuestLink, savePartnerStandard, saveRoleStandard, setGuestAccess, setGuestType, setUserPermissions, setUserRole } from '../../admin-actions';
 
 export const metadata = { title: 'Users and Access' };
 const assignable: Role[] = ['owner', 'admin', 'staff', 'accountant', 'pending'];
 
-function PermissionBoxes({ id, role, own }: { id: string; role: Role; own: string[] | null }) {
-  const on = effectivePermissions(role, own);
+function PermissionBoxes({ id, role, own, std }: { id: string; role: Role; own: string[] | null; std: RoleStandards }) {
+  const on = effectivePermissions(role, own, std);
   return (
     <>
       <ActionForm action={setUserPermissions} submit="Save Access" submitClass="btn small">
@@ -34,7 +35,7 @@ function PermissionBoxes({ id, role, own }: { id: string; role: Role; own: strin
         <ActionForm action={setUserPermissions} submit={`Back to the ${roleNames[role]} Standard Set`} submitClass="link-btn small">
           <input type="hidden" name="id" value={id} /><input type="hidden" name="standard" value="1" />
         </ActionForm>
-      ) : <p className="small muted" style={{ margin: '6px 0 0' }}>Using the {roleNames[role]} standard set.</p>}
+      ) : <p className="small muted" style={{ margin: '6px 0 0' }}>Using the {roleNames[role]} standard set (change it under Standard Access by Type).</p>}
     </>
   );
 }
@@ -47,8 +48,20 @@ function AbilityBoxes({ picked }: { picked: readonly string[] }) {
   );
 }
 
+function Boxes({ on }: { on: readonly string[] }) {
+  return (
+    <div className="perm-groups">{permissionGroups.map((g) => (
+      <fieldset key={g.label} className="perm-group">
+        <legend>{g.label}</legend>
+        {g.items.map((p) => <label key={p.key} className="check"><input type="checkbox" name="perm" value={p.key} defaultChecked={on.includes(p.key)} /> {p.label}</label>)}
+      </fieldset>
+    ))}</div>
+  );
+}
+
 export default async function Users() {
-  await requirePage('users.manage');
+  const me = await requirePage('users.manage');
+  const standards = await readStandards();
   const [rows, access, ps, people, cos] = await Promise.all([
     db.select().from(users).orderBy(asc(users.email)),
     db.select({ a: guestAccess, project: projects.name }).from(guestAccess).leftJoin(projects, eq(projects.id, guestAccess.projectId)).where(isNull(guestAccess.removed)),
@@ -79,8 +92,8 @@ export default async function Users() {
               ) : null}
               {u.role === 'owner' ? <p className="small muted" style={{ margin: 0 }}>Owner: everything, always.</p>
                 : u.role === 'pending' ? <p className="small muted" style={{ margin: 0 }}>Waiting for access: pick a role, then tick what they can do.</p> : (
-                  <details className="fold"><summary>What They Can Do ({effectivePermissions(u.role, u.permissions).length} of {allPermissions.length})</summary>
-                    <PermissionBoxes id={u.id} role={u.role} own={u.permissions} />
+                  <details className="fold"><summary>What They Can Do ({effectivePermissions(u.role, u.permissions, standards.roles).length} of {allPermissions.length})</summary>
+                    <PermissionBoxes id={u.id} role={u.role} own={u.permissions} std={standards.roles} />
                   </details>
                 )}
               {u.role === 'accountant' && !u.email.endsWith('@technicalsource.com') ? (
@@ -120,7 +133,7 @@ export default async function Users() {
                 <details className="fold"><summary>Kind of Partner</summary>
                   <ActionForm action={setGuestType} submit="Save">
                     <input type="hidden" name="id" value={g.id} />
-                    <GuestTypeFields initialType={isGuestType(g.guestType) ? g.guestType : 'other'} withAbilities={false} initialExtras={g.guestExtras ?? []} />
+                    <GuestTypeFields initialType={isGuestType(g.guestType) ? g.guestType : 'other'} withAbilities={false} initialExtras={g.guestExtras ?? []} standards={standards.partners} />
                   </ActionForm>
                 </details>
                 <ActionForm action={newGuestLink} submit="Send a New Sign-In Link" submitClass="btn small secondary"><input type="hidden" name="id" value={g.id} /></ActionForm>
@@ -145,8 +158,49 @@ export default async function Users() {
                 <label key={p.id} className="role-btn"><input type="checkbox" name="project" value={p.id} /><span>{p.number ? `P-${p.number} ` : ''}{p.name}</span></label>
               ))}</div>
             </fieldset>
-            <GuestTypeFields />
+            <GuestTypeFields standards={standards.partners} />
           </ActionForm>
+        </Section>
+
+        <Section title="Standard Access by Type" kind="blue" hint={me.role === 'owner' ? 'What each type gets unless you tick something different for one person' : 'Only the owner changes these'}>
+          <p className="small muted" style={{ marginTop: 0 }}>Change a type’s standard and everyone of that type who doesn’t have their own ticks gets it at once. For outside partners it’s what a new invitation starts with; tick “apply to everyone” to change the ones already invited.</p>
+          <h3 className="std-head">Our Team</h3>
+          <ul className="user-list">{editableRoles.map((r) => {
+            const using = staff.filter((u) => u.role === r && !u.permissions).length, own = staff.filter((u) => u.role === r && u.permissions).length;
+            return (
+              <li key={r} className="user-card">
+                <div className="user-head"><div className="user-who"><strong>{roleNames[r]}</strong><div className="small muted">{roleStandard(r, standards.roles).length} of {allPermissions.length} · {using} {using === 1 ? 'person follows' : 'people follow'} it{own ? ` · ${own} with their own ticks` : ''}{standards.roles[r] ? ' · your own standard' : ' · built-in standard'}</div></div></div>
+                {me.role === 'owner' ? (
+                  <details className="fold"><summary>Change the {roleNames[r]} Standard</summary>
+                    <ActionForm action={saveRoleStandard} submit={`Save the ${roleNames[r]} Standard`}>
+                      <input type="hidden" name="role" value={r} />
+                      <Boxes on={roleStandard(r, standards.roles)} />
+                    </ActionForm>
+                    {standards.roles[r] ? <ActionForm action={saveRoleStandard} submit="Back to the Built-In Standard" submitClass="link-btn small"><input type="hidden" name="role" value={r} /><input type="hidden" name="reset" value="1" /></ActionForm> : null}
+                  </details>
+                ) : null}
+              </li>
+            );
+          })}</ul>
+          <h3 className="std-head">Outside Partners</h3>
+          <ul className="user-list">{guestTypes.map((t) => {
+            const st = partnerStandard(t.key, standards.partners);
+            const n = guests.filter((g) => g.guestType === t.key).length;
+            return (
+              <li key={t.key} className="user-card">
+                <div className="user-head"><div className="user-who"><strong>{t.label}</strong><div className="small muted">{[...st.can.map((k) => guestAbilities.find((a) => a.key === k)?.label.split(' (')[0]), ...st.extras.map((k) => (k === 'deals' ? 'Deals they sent' : 'Market Map'))].join(' · ')}{n ? ` · ${n} invited` : ''}{standards.partners[t.key] ? ' · your own standard' : ''}</div></div></div>
+                {me.role === 'owner' ? (
+                  <details className="fold"><summary>Change the {t.label} Standard</summary>
+                    <ActionForm action={savePartnerStandard} submit={`Save the ${t.label} Standard`}>
+                      <GuestTypeFields initialType={t.key} standards={standards.partners} fixedType />
+                      <label className="check"><input type="checkbox" name="applyNow" /> Also apply it now to everyone of this type{n ? ` (${n})` : ''}, on all their projects</label>
+                    </ActionForm>
+                    {standards.partners[t.key] ? <ActionForm action={savePartnerStandard} submit="Back to the Built-In Standard" submitClass="link-btn small"><input type="hidden" name="guestType" value={t.key} /><input type="hidden" name="reset" value="1" /></ActionForm> : null}
+                  </details>
+                ) : null}
+              </li>
+            );
+          })}</ul>
         </Section>
 
         <Section title="Add Staff or an Accountant" kind="grey" hint="Technical Source Microsoft accounts sign in with Microsoft; an outside accountant gets a sign-in link">

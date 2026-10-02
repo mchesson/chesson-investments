@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { can, effectivePermissions, type Permission, type Role } from './permissions';
 import { sessionHours } from './guests';
+import { readStandards } from './access-standards';
 
 export type SessionUser = { id: string; email: string; name: string | null; role: Role; permissions: Permission[]; personId: string | null; companyId: string | null };
 
@@ -21,7 +22,7 @@ export async function currentUser(): Promise<SessionUser | null> {
   if (meta.signedInAt && Date.now() / 1000 - meta.signedInAt > sessionHours(u.role, meta.provider) * 3600) return null;
   // Someone who signed in by link is a guest page user only, whatever their role.
   if (meta.provider === 'link' && u.role !== 'guest' && u.role !== 'accountant') return null;
-  return { id: u.id, email: u.email, name: u.name, role: u.role, permissions: effectivePermissions(u.role, u.permissions), personId: u.personId, companyId: u.companyId };
+  return { id: u.id, email: u.email, name: u.name, role: u.role, permissions: effectivePermissions(u.role, u.permissions, u.permissions ? null : (await readStandards()).roles), personId: u.personId, companyId: u.companyId };
 }
 
 /** For pages: signed in, with a role, and the permission (else "not found"). */

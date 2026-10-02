@@ -19,13 +19,14 @@ export const layerDefs = [
   { key: 'projects', label: 'Our Projects' },
   { key: 'watch', label: 'Watchlist' },
 ] as const;
-type LayerKey = (typeof layerDefs)[number]['key'];
+export type LayerKey = (typeof layerDefs)[number]['key'];
 const STORE = 'ci-market-layers';
 
 const money = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${Math.round(n / 1000)}k`);
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-export function MarketMap({ query, projects, watch, areas }: { query: string; projects: Place[]; watch: Place[]; areas: Area[] }) {
+export function MarketMap({ query, projects, watch, areas, only }: { query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[] }) {
+  const shown = layerDefs.filter((d) => !only || only.includes(d.key));
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<Leaflet.Map | null>(null);
   const L = useRef<typeof Leaflet | null>(null);
@@ -117,7 +118,7 @@ export function MarketMap({ query, projects, watch, areas }: { query: string; pr
     <div className="market-map-wrap">
       <nav className="map-layers" aria-label="What the map shows">
         <span className="map-layers-label">Show</span>
-        {layerDefs.map((d) => (
+        {shown.map((d) => (
           <button key={d.key} type="button" className="layer-btn" data-k={d.key} aria-pressed={on[d.key]} onClick={() => setOn((o) => ({ ...o, [d.key]: !o[d.key] }))}>{d.label}</button>
         ))}
       </nav>

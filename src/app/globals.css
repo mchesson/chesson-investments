@@ -372,3 +372,5 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .guest-body main { max-width: 1000px; margin: 0 auto; padding: 20px 16px 48px; }
 .guest-who { margin-right: 8px; }
 .dup-actions { display: inline-flex; gap: 6px; align-items: center; }
+.std-head { font-size: 1rem; margin: 14px 0 8px; color: var(--ink); }
+.guest-nav { display: flex; gap: 14px; margin-left: 18px; font-weight: 600; } .guest-nav a { text-decoration: none; }

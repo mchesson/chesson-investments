@@ -69,3 +69,9 @@ export async function guestDeals(u: SessionUser & { guestExtras?: string[] | nul
   return db.select({ id: properties.id, address: properties.address, city: properties.city, stage: properties.stage, created: properties.created })
     .from(properties).where(and(eq(properties.sourcePersonId, u.personId), isNull(properties.archived))).orderBy(desc(properties.created)).limit(200);
 }
+
+/** An outside partner given the Market Map (county sales only). */
+export async function guestHasMarket(userId: string) {
+  const [me] = await db.select({ extras: users.guestExtras, role: users.role }).from(users).where(eq(users.id, userId));
+  return me?.role === 'guest' && !!me.extras?.includes('market');
+}

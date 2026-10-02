@@ -62,11 +62,23 @@ export const roleNames: Record<Role, string> = {
   pending: 'Waiting for Access', owner: 'Owner', admin: 'Admin', staff: 'Staff', accountant: 'Accountant', guest: 'Outside Partner',
 };
 
-/** A person's permissions: their own ticked list if the owner set one, else their role's. */
-export function effectivePermissions(role: Role, own: string[] | null | undefined): Permission[] {
+/** The owner's own standard sets per role (Users page → Standard Access by Type), saved in app_settings. */
+export type RoleStandards = Partial<Record<'admin' | 'staff' | 'accountant', string[]>>;
+export const editableRoles = ['admin', 'staff', 'accountant'] as const;
+
+/** A role's standard set: the owner's if saved, else the built-in one. */
+export function roleStandard(role: Role, standards?: RoleStandards | null): Permission[] {
+  if (role === 'owner') return allPermissions;
+  if (role === 'pending' || role === 'guest') return [];
+  const saved = standards?.[role];
+  return saved ? saved.filter(isPermission) : roleDefaults[role];
+}
+
+/** A person's permissions: their own ticked list if the owner set one, else their role's standard. */
+export function effectivePermissions(role: Role, own: string[] | null | undefined, standards?: RoleStandards | null): Permission[] {
   if (role === 'pending' || role === 'guest') return [];
   if (role === 'owner') return allPermissions; // the owner can never lock themselves out
-  return own ? own.filter(isPermission) : roleDefaults[role];
+  return own ? own.filter(isPermission) : roleStandard(role, standards);
 }
 
 type Who = Role | { role: Role; permissions?: Permission[] } | null | undefined;
