@@ -1,30 +1,38 @@
 import 'server-only';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
+import { attachDatabasePool } from '@vercel/functions';
 import * as schema from './schema';
 
-// Production goes through Supabase's pooler. Its transaction mode (port 6543)
-// froze the app (Oct 2, 2026): queries started together left database
-// connections "active, waiting for the client" with a transaction open, and
-// every page waiting behind them hung. max_pipeline: 1 didn't stop it. So the
-// app uses the pooler's session mode (same host, port 5432): each app
-// connection keeps its own database connection, nothing is split between them.
-// sessionUrl() (src/lib/db-url.ts) switches a 6543 pooler address to 5432.
-// Back on the transaction pooler (6543): session mode's 15-client limit was
-// used up by Vercel's many server instances and every page failed (Oct 2, 2026).
+// The database, through Supabase's transaction pooler (port 6543) in production.
+//
+// Driver: node-postgres (pg), with Vercel's attachDatabasePool (Oct 2, 2026).
+// With postgres.js the app froze again and again: queries left pooler
+// connections "active, waiting for the client" with a transaction open
+// (pg_stat_activity), and every page waiting behind them hung. max_pipeline: 1
+// didn't stop it, and the session pooler (5432) ran out of its 15 clients on
+// Vercel's many server instances. pg sends each query as one complete message,
+// and attachDatabasePool keeps a paused Vercel instance alive long enough to
+// close its idle connections, so none is left half-used on the pooler.
+// Every statement also gives up after 25 seconds (client side), so one stuck
+// query fails that page instead of hanging it.
 const url = process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci';
-const g = globalThis as unknown as { __ciSql?: ReturnType<typeof postgres> };
-// max_pipeline is a real postgres.js option (default 100) missing from its types.
-// Session mode allows 15 connections in all (pool_size), so each server
-// instance keeps at most 2 and frees them after 5 idle seconds; the public
-// website reads from a cache (src/lib/site-data.ts).
-const options = {
-  max: 3, prepare: false, idle_timeout: 5, connect_timeout: 15, max_pipeline: 1,
-} as postgres.Options<{}>;
-const client = g.__ciSql ?? postgres(url, options);
-if (process.env.NODE_ENV !== 'production') g.__ciSql = client;
+const g = globalThis as unknown as { __ciPool?: Pool };
+const pool = g.__ciPool ?? new Pool({
+  connectionString: url,
+  max: 3,
+  idleTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 15_000,
+  query_timeout: 25_000,
+});
+if (!g.__ciPool) {
+  // A connection that drops while idle mustn't crash the server.
+  pool.on('error', (e) => console.error('[db] idle connection error', e.message));
+  attachDatabasePool(pool);
+}
+if (process.env.NODE_ENV !== 'production') g.__ciPool = pool;
 
-export const db = drizzle(client, { schema });
+export const db = drizzle(pool, { schema });
 export type Db = typeof db;
 export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 export type Reader = Db | Tx;
