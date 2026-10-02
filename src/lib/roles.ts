@@ -2,7 +2,7 @@
 // Data, not screens: a new role is one entry here. Pure, tested in roles.test.ts.
 
 export type RoleKey =
-  | 'gc' | 'sub' | 'supplier' | 'agent' | 'wholesaler' | 'lender' | 'attorney'
+  | 'personal' | 'gc' | 'sub' | 'supplier' | 'agent' | 'wholesaler' | 'lender' | 'attorney'
   | 'designer' | 'property_manager' | 'investor' | 'landowner' | 'networking';
 
 export type RoleDef = {
@@ -82,6 +82,16 @@ export const roles: readonly RoleDef[] = [
       { key: 'not_selling', label: 'Not Selling' },
     ],
     quietStages: ['sold_to_us', 'not_selling'],
+  },
+  {
+    // Friends and family who introduce us to people but aren't in the business
+    // themselves (owner, Oct 2, 2026). Kept apart with "Business Contacts Only".
+    key: 'personal', label: 'Personal Connection', plural: 'Personal Connections', coldDays: 180,
+    stages: [
+      { key: 'friend', label: 'Friend' },
+      { key: 'family', label: 'Family' },
+      { key: 'acquaintance', label: 'Acquaintance' },
+    ],
   },
   {
     key: 'networking', label: 'Networking Contact', plural: 'Networking Contacts', coldDays: 90,

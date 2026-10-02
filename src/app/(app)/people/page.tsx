@@ -14,7 +14,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const role = sp.role && roleDef(sp.role) ? sp.role : undefined;
   const stage = role && sp.stage ? sp.stage : undefined;
-  const { rows, total, page, pageSize } = await listPeople({ q: sp.q, role, stage, page: Number(sp.page) || 1 });
+  const business = sp.business === '1';
+  const { rows, total, page, pageSize } = await listPeople({ q: sp.q, role, stage, page: Number(sp.page) || 1, business });
   return (
     <>
       <PageHead title="People" sub="Everyone we know: builders, subs, agents, lenders, investors, sellers." actions={<Link className="btn" href="/people/new">Add Person</Link>} />
@@ -35,8 +36,9 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
               </select>
             </label>
           ) : null}
+          <label className="check"><input type="checkbox" name="business" value="1" defaultChecked={business} /> Business contacts only</label>
           <button className="btn" type="submit">Search</button>
-          {sp.q || role ? <Link href="/people">Clear</Link> : null}
+          {sp.q || role || business ? <Link href="/people">Clear</Link> : null}
         </form>
       </Section>
       <Section title={role ? roleDef(role)!.plural : 'Everyone'} hint={`${total} ${total === 1 ? 'person' : 'people'}`}>
@@ -58,7 +60,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             </table>
           </div>
         ) : <Empty>No one matches. Try fewer words, or add them.</Empty>}
-        <Pager base="/people" page={page} total={total} pageSize={pageSize} params={{ q: sp.q, role, stage }} />
+        <Pager base="/people" page={page} total={total} pageSize={pageSize} params={{ q: sp.q, role, stage, business: business ? '1' : undefined }} />
       </Section>
     </>
   );
