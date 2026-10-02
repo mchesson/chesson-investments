@@ -14,10 +14,11 @@ import { sessionUrl } from '@/lib/db-url';
 const url = sessionUrl(process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci');
 const g = globalThis as unknown as { __ciSql?: ReturnType<typeof postgres> };
 // max_pipeline is a real postgres.js option (default 100) missing from its types.
-// Few connections per server instance: session mode holds one database
-// connection per app connection, and they're freed after 20 idle seconds.
+// Session mode allows 15 connections in all (pool_size), so each server
+// instance keeps at most 2 and frees them after 5 idle seconds; the public
+// website reads from a cache (src/lib/site-data.ts).
 const options = {
-  max: 3, prepare: false, idle_timeout: 20, connect_timeout: 15, max_pipeline: 1,
+  max: 2, prepare: false, idle_timeout: 5, connect_timeout: 15, max_pipeline: 1,
 } as postgres.Options<{}>;
 const client = g.__ciSql ?? postgres(url, options);
 if (process.env.NODE_ENV !== 'production') g.__ciSql = client;

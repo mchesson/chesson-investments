@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { unstable_cache } from 'next/cache';
 import { db } from '@/db';
 import { files, projects } from '@/db/schema';
 import { sortProjects, toPublicProject, type PublicProject } from './site';
@@ -25,7 +26,7 @@ async function photosFor(ids: string[]) {
   return m;
 }
 
-export async function publishedProjects(): Promise<PublicProject[]> {
+async function readPublishedProjects(): Promise<PublicProject[]> {
   const rows = await db.select(cols).from(projects).where(and(isNotNull(projects.siteStatus), isNull(projects.archived)));
   const ph = await photosFor(rows.map((r) => r.id));
   const out = rows.flatMap((r) => {
@@ -35,20 +36,33 @@ export async function publishedProjects(): Promise<PublicProject[]> {
   return sortProjects(out);
 }
 
-export async function publishedProject(slug: string): Promise<PublicProject | null> {
+async function readPublishedProject(slug: string): Promise<PublicProject | null> {
   const [r] = await db.select(cols).from(projects).where(and(eq(projects.siteSlug, slug), isNotNull(projects.siteStatus), isNull(projects.archived)));
   if (!r) return null;
   return toPublicProject(r, (await photosFor([r.id])).get(r.id) ?? []);
 }
 
 /** A photo, only if it's marked for the website and its project is published. */
-export async function publicPhoto(id: string) {
+async function readPublicPhoto(id: string) {
   const [f] = await db.select().from(files).where(and(eq(files.id, id), eq(files.entity, 'project'), eq(files.onSite, true), isNull(files.archived)));
   if (!f || !f.contentType.startsWith('image/')) return null;
   const [p] = await db.select(cols).from(projects).where(and(eq(projects.id, f.entityId), isNull(projects.archived)));
   if (!p || !toPublicProject(p, [{ id: f.id, photoKind: f.photoKind, caption: f.caption, onSite: true }])) return null;
   return f;
 }
+
+// The website is read from a cache (5 minutes; Website tab saves and imports
+// clear it at once with SITE_TAG), so visitors don't each open a database
+// connection: the pooler's session mode allows only 15 at a time.
+export const SITE_TAG = 'site';
+const cached = { tags: [SITE_TAG], revalidate: 300 };
+export const publishedProjects = unstable_cache(readPublishedProjects, ['site-projects'], cached);
+export const publishedProject = unstable_cache(readPublishedProject, ['site-project'], cached);
+/** The photo's record (its bytes come from storage, or the row when storage is off). */
+export const publicPhoto = unstable_cache(async (id: string) => {
+  const f = await readPublicPhoto(id);
+  return f ? { contentType: f.contentType, storagePath: f.storagePath, data: f.data ? f.data.toString('base64') : null } : null;
+}, ['site-photo'], cached);
 
 /** Every photo on a project, for its Website tab (signed-in staff). */
 export function projectPhotos(projectId: string) {

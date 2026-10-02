@@ -1,7 +1,8 @@
 'use server';
 
 import { and, eq, isNull, ne } from 'drizzle-orm';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SITE_TAG } from '@/lib/site-data';
 import { db } from '@/db';
 import { files, projects } from '@/db/schema';
 import { audit, diff } from '@/lib/audit';
@@ -13,7 +14,7 @@ import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
 
 const VIA = 'Website tab';
-const refresh = (id: string) => { revalidatePath(`/projects/${id}`); revalidatePath('/site', 'layout'); };
+const refresh = (id: string) => { revalidatePath(`/projects/${id}`); revalidatePath('/site', 'layout'); revalidateTag(SITE_TAG, 'max'); };
 const decimal = (v: string | null) => (v === null ? null : Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) < 100 ? Number(v).toFixed(1) : undefined);
 
 /** The project's website words: status, price, description, specs, finishes, team. */
