@@ -5,6 +5,28 @@ built. What follows is the order from the owner's spec (Oct 2, 2026), with what
 his past deal documents showed we need (read Oct 2, 2026; no account numbers,
 tax IDs or ID documents are copied anywhere).
 
+## Next: the post-project review says where, why, how and with what
+Owner (Oct 2, 2026): "Telling me we should have spent less doesn't help, but
+having the info and then telling me where we should have spent less and why
+and how we could have done it and for what products is different." The
+review's findings become specific, from the project's own bills and lines:
+- **Where:** each cost code over what the house's value supported (our own
+  cost per heated sf on comparable houses, the market value, the target
+  profit), ranked by dollars over.
+- **Why:** what drove it, from the lines themselves: the finish level picked
+  (e.g. quartz vs laminate, custom vs stock cabinets), change orders, GC fee
+  and allowance gaps, rework, holding months, items bought twice.
+- **How and with what products:** the cheaper path for each, with the
+  product or trade named (stock shaker cabinets from a named supplier instead
+  of custom; owner-supplied appliances, as on Plainview: $30,000 vs the GC's
+  $47,000 allowance; LVP instead of white oak in secondary rooms), the price
+  difference from our own bills on other projects where we have them, else
+  marked as an estimate with its source. Never a made-up number.
+- **The buy decision:** the most we could have paid (already built), and
+  whether we should have bought at all at that value.
+- A **Lessons** list carried into the next project's budget stages (a
+  warning when a rough estimate picks a finish that over-built before).
+
 ## Phase 2: contracts, closings, title, invoices
 - **Contracts with a date engine.** NC Offer to Purchase (Form 2-T): effective
   date (last signature), due diligence fee and period end (warn when blank),
@@ -145,6 +167,27 @@ build − soft and holding − target profit) ÷ (1 + financing per $ of land);
 neighborhood map; teardown finder. Comps dated and re-checked at listing (the
 420 Peyton comps were a year old by the time it listed). Track record by
 neighborhood and size: cost per heated sf, profit or loss, over-building.
+
+## Phase 5b: off-market sourcing (owner, Oct 2, 2026)
+"Off-market properties are the best way we have found to identify good
+prospective properties." Built on Wake County data and the watchlist:
+- **Target lists** from county parcels: owner name and mailing address,
+  absentee owners, long ownership, older houses on big lots (teardown
+  candidates), vacant land, estates, by neighborhood and buy box.
+- **Outreach log** per property and owner: calls, door knocks (with the
+  date, who went, what was said, follow-up), letters and postcards; status
+  from Not Contacted → Talked → Interested → Offer → Under Contract / Not
+  Selling, and Going Cold reminders. Owners become Landowner / Seller people.
+- **Lead sources and results:** each lead's source (door knock, call, mail,
+  web, referral, agent, wholesaler) carried to offers, contracts and profit,
+  so we see which channel finds the deals that pay.
+- **Web marketing to that audience later:** a "Sell Us Your House or Lot"
+  page on chessoninvestments.com with a form that creates the lead here, and
+  targeted online ads to owners on our lists.
+- Rules to check before calling: the National Do Not Call Registry and NC
+  telemarketing rules (scrub phone lists, record consent and opt-outs);
+  phone numbers from public records or a skip-trace service (a paid service
+  goes in Vendors first).
 
 ## Phase 6: investor group
 Profiles, accreditation, commitments, capital in and out, distributions,
