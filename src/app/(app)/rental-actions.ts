@@ -174,3 +174,16 @@ export async function saveLoan(_: FormResult, d: FormData): Promise<FormResult> 
     return 'Saved.';
   });
 }
+
+/** One tap from the stage bar: the rental's sub-stage (Getting Ready … Vacant). */
+export async function setRentalStatus(projectId: string, status: string) {
+  const user = await requireAction('projects.edit');
+  if (!isRentalStatus(status)) return;
+  await db.transaction(async (tx) => {
+    const [old] = await tx.select({ status: rentals.status }).from(rentals).where(eq(rentals.projectId, projectId));
+    if (old?.status === status) return;
+    await tx.insert(rentals).values({ projectId, status }).onConflictDoUpdate({ target: rentals.projectId, set: { status, updated: new Date() } });
+    await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-update', summary: old ? `moved the rental from ${rentalStatusLabel(old.status)} to ${rentalStatusLabel(status)}` : `set it up as a rental (${rentalStatusLabel(status)})`, via: 'stage bar' }, tx);
+  });
+  revalidatePath(`/projects/${projectId}`);
+}

@@ -437,3 +437,27 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await page.getByRole('link', { name: 'History' }).last().click();
   await expect(page.getByText(`added the lease with Pat Tenant ${s}: $2,500 a month from 2026-09-01 to 2027-08-31`)).toBeVisible();
 });
+
+test('the stage bar at the top: move the stage, then the rental sub-stage, both in History', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({ projects: [{ name: `Stage Test ${s}`, address: `${s} Stage St`, city: 'Raleigh', stage: 'building' }] });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'stage.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await page.goto('/projects');
+  await page.getByRole('link', { name: `Stage Test ${s}` }).first().click();
+
+  const bar = page.getByRole('navigation', { name: 'Stage' });
+  await expect(bar.locator('[aria-current=step]')).toHaveText('Building');
+  await expect(bar.getByRole('button', { name: 'On the Market' })).toHaveCount(0);
+  await bar.getByRole('button', { name: 'Rental' }).click();
+  await expect(bar.locator('[aria-current=step]')).toHaveText('Rental');
+  await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('Getting Ready');
+  await bar.getByRole('button', { name: 'On the Market' }).click();
+  await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('On the Market');
+  await page.getByRole('link', { name: 'History', exact: true }).click();
+  await expect(page.getByText(/set it up as a rental \(On the Market\)|moved the rental from .* to On the Market/).first()).toBeVisible();
+});

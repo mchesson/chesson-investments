@@ -55,6 +55,11 @@ text on white: `--aqua-deep`, `--energy-deep`). Vollkorn headings, Open Sans bod
 Title Case for headings and buttons. White top bar with the "Chesson
 Investments" wordmark; Near Black left menu with line icons that collapses to a
 rail (remembered in localStorage `ci-sidenav`) and is a drawer under 768px.
+**Stage bar** (owner, Oct 2, 2026): every project page starts with its stages
+as steps across the top (`src/components/StageBar.tsx`; done ones ticked, the
+current one True Blue, tap to move) and, for a Rental, its sub-stage as aqua
+buttons beneath (Getting Ready … Vacant; History "via stage bar"). Sections
+are framed in their own color (left edge, border, deeper heading tint, shadow).
 Every page is framed sections with a colored heading band (`<Section kind>` in
 `src/components/ui.tsx`): **blue** details and money, **aqua** places,
 properties and documents, **energy** notes, touches and follow-ups, **grey**
