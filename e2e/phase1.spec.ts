@@ -683,10 +683,18 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   // An outside email can't be added as staff: it says to invite a guest.
   await page.goto('/admin/users');
   const add = page.locator('form:has(button:text("Add"))').last();
-  await add.locator('input[name=email]').fill(`jo${s}@contractor.example`);
+  await add.locator('input[name=email]').fill(`other${s}@contractor.example`);
   await add.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByText(/isn’t a Technical Source account/)).toBeVisible();
 
+  // Added as staff before this check existed: inviting them as a guest turns them into one.
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`insert into users (email, name, role) values ($1, 'Jo (added as staff)', 'staff')`, [`jo${s}@contractor.example`]);
+  await db.end();
+  await page.reload();
+  await expect(page.locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('isn’t a Technical Source account');
   // Invite them: one project, the standard things; the page gives the link (no email here).
   const inv = page.locator('form:has(button:text("Invite Them"))');
   await inv.locator('input[name=email]').fill(`jo${s}@contractor.example`);
@@ -697,6 +705,8 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   await expect(inv.getByText(/Invited\. Email isn’t set up yet/)).toBeVisible();
   const link = await inv.locator('.copy-link input').inputValue();
   expect(link).toMatch(/\/signin\/link\?t=[A-Za-z0-9_-]{40,}/);
+  await page.reload();
+  await expect(page.locator('section', { hasText: 'Guests (Outside People)' }).locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('109 Plainview Ave');
 
   // The guest signs in with the link (in their own browser).
   const ctx = await browser.newContext();

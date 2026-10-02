@@ -114,11 +114,15 @@ export async function inviteGuest(_: FormResult, d: FormData): Promise<FormResul
   const personId = str(d, 'personId');
   const companyId = str(d, 'companyId');
   const [exists] = await db.select().from(users).where(eq(users.email, email));
-  if (exists && exists.role !== 'guest') return { error: `${email} already signs in as ${roleNames[exists.role]}.` };
+  // An outside email added earlier as staff could never sign in (Microsoft takes only Technical Source accounts): it becomes a guest.
+  if (exists && exists.role !== 'guest' && exists.role !== 'pending' && exists.role !== 'staff') return { error: `${email} already signs in as ${roleNames[exists.role]}.` };
   const names = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
   const userId = await db.transaction(async (tx) => {
     const [u] = exists ? [exists] : await tx.insert(users).values({ email, name: str(d, 'name'), role: 'guest', personId: personId || null, companyId: companyId || null }).returning();
-    if (exists) await tx.update(users).set({ active: true, ...(personId ? { personId } : {}), ...(companyId ? { companyId } : {}) }).where(eq(users.id, u.id));
+    if (exists) {
+      await tx.update(users).set({ role: 'guest', permissions: null, active: true, ...(personId ? { personId } : {}), ...(companyId ? { companyId } : {}) }).where(eq(users.id, u.id));
+      if (exists.role !== 'guest') await audit({ userId: me.id, entity: 'user', entityId: u.id, action: 'update', summary: `changed ${email} from ${roleNames[exists.role]} to a guest (an outside email can't sign in with Microsoft)`, before: { role: exists.role }, after: { role: 'guest' } }, tx);
+    }
     for (const p of names) {
       await tx.update(guestAccess).set({ removed: new Date() }).where(and(eq(guestAccess.userId, u.id), eq(guestAccess.projectId, p.id), isNull(guestAccess.removed)));
       await tx.insert(guestAccess).values({ userId: u.id, projectId: p.id, can, endsOn, createdBy: me.id });

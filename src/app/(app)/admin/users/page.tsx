@@ -73,6 +73,9 @@ export default async function Users() {
                   <label className="check"><input type="checkbox" name="active" defaultChecked={u.active} /> Can sign in</label>
                 </ActionForm>
               </div>
+              {(u.role === 'staff' || u.role === 'owner') && !u.email.endsWith('@technicalsource.com') && !u.email.endsWith('@example.com') ? (
+                <p className="notice warn" style={{ margin: 0 }}>This isn’t a Technical Source account, so they can’t sign in with Microsoft. If they’re a contractor or partner, invite them below under <strong>Invite a Guest</strong> with this same email: they become a guest and get a sign-in link.</p>
+              ) : null}
               {u.role === 'owner' ? <p className="small muted" style={{ margin: 0 }}>Owner: everything, always.</p>
                 : u.role === 'pending' ? <p className="small muted" style={{ margin: 0 }}>Waiting for access: pick a role, then tick what they can do.</p> : (
                   <details className="fold"><summary>What They Can Do ({effectivePermissions(u.role, u.permissions).length} of {allPermissions.length})</summary>
