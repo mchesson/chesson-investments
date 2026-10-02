@@ -24,6 +24,7 @@ export function ImportTool({ preview, apply }: { preview: (t: string) => Promise
             <tbody>{sum.counts.map((c) => <tr key={c.label}><td>{c.label}</td><td className="num">{c.add}</td><td className="num">{c.match}</td></tr>)}</tbody></table>
           {sum.problems?.length ? <div className="notice warn"><strong>Check:</strong><ul>{sum.problems.map((p, i) => <li key={i}>{p}</li>)}</ul></div> : null}
           <details className="fold"><summary>People ({sum.people?.length ?? 0})</summary><ul className="small">{sum.people?.map((p, i) => <li key={i}>{p.name}{p.role ? ` · ${p.role}` : ''}{p.match ? ` · ${p.match}` : ''}</li>)}</ul></details>
+          {sum.photos?.length ? <details className="fold"><summary>Photos ({sum.photos.length})</summary><ul className="small">{sum.photos.map((f, i) => <li key={i}>{f.label} · {f.status}</li>)}</ul></details> : null}
           <details className="fold"><summary>Bills ({sum.bills?.length ?? 0})</summary><ul className="small">{sum.bills?.map((b, i) => <li key={i}>{b.label}: ${Number(b.total).toLocaleString('en-US', { minimumFractionDigits: 2 })} · {b.status}</li>)}</ul></details>
           {!sum.done && text ? (
             <div className="form-actions">

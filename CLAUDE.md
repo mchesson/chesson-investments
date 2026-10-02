@@ -167,6 +167,47 @@ address). Styles: `src/app/globals.css`.
   Plainview: construction $818,710, total build $973,200.58; five items not yet
   priced). `npm run db:seed` adds made-up sample people, locally only.
 
+## Public website (chessoninvestments.com; built Oct 2, 2026)
+Owner: project photos "under each project in here and then use this app to
+display those items or projects professionally". The website is served by
+this app; GoDaddy keeps only the domain and email.
+- **Each project's Website tab** (`src/components/ProjectWebsite.tsx`, saves
+  `src/app/(app)/site-actions.ts`, History "via Website tab"): website status
+  (In Progress, Coming Soon, For Sale, Under Contract, Sold, Leased, Completed;
+  blank = not on the website), price (shown only for Coming Soon / For Sale /
+  Under Contract), web address (`site_slug`, unique), one line, description,
+  bedrooms, bathrooms, order, Feature First, Finishes and Selections (plain
+  text: `## Heading`, then `Label: value` lines) and Project Team (`Role |
+  Company | What they did`; a general contractor first is shown large). Square
+  feet and acres come from the project's own facts. Photos: Add Photos (many,
+  sent one at a time to stay under 4 MB a request), each Before / After /
+  Progress / Floor Plan, caption, order, On the Website.
+- **The allowlist** is `toPublicProject` in `src/lib/site.ts` (tested in
+  site.test.ts): nothing else about a project ever reaches a visitor (no
+  costs, bills, budget, notes, review). A project shows only with a status, a
+  description and at least one photo marked for the website.
+- **Pages** (`src/app/site/`, own look kept from the GoDaddy site: Outfit,
+  Chesson blue, `site.css` scoped under `.ci-site`): home (hero, services,
+  projects, contact), `/projects/<slug>` (stats, After / Before / In Progress
+  galleries with a lightbox, floor plan, finishes, team), `robots.txt`,
+  `sitemap.xml`, `mark.svg`. Fixed words (services, phone) in
+  `src/lib/site-content.ts`. Reads in `src/lib/site-data.ts`.
+- **Photos** without sign-in only through `/photos/<id>` (`site/photos/[id]`):
+  marked for the website, on a published project, an image; else 404.
+- **Hosts** (`next.config.ts`, `PUBLIC_HOSTS` in site.ts): on
+  chessoninvestments.com and www every path is rewritten to `/site/...`, so
+  the app (sign-in, records, /api) can't be reached there at all; links use
+  `siteHref` (`siteBase()` in `src/lib/site-host.ts`). On the app's address
+  the website is at `/site` and is noindex like the rest of the app; only the
+  public host is indexable (no `X-Robots-Tag` there, robots metadata index).
+- **Moving photos in:** the Import file takes `projects[].site` (filled only
+  where empty) and `photos[]` (`url` only from https://chessoninvestments.com,
+  `allowedPhotoUrl`; read four at a time, retried when GoDaddy answers with a
+  "please wait" page; `files.source_url` stops a second copy).
+- Tests: site.test.ts, import-plan.test.ts (photos), `e2e/website.spec.ts`.
+- Locally, server-side fetches through the sandbox proxy need
+  `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`.
+
 ## Environment variables (Vercel; never in the repo or chat)
 `DATABASE_URL` (Supabase transaction pooler, port 6543), `AUTH_SECRET`,
 `AUTH_MICROSOFT_ENTRA_ID_ID` / `_SECRET` / `_ISSUER`, `OWNER_EMAILS`,
@@ -183,6 +224,11 @@ Postgres with database `ci` (user/password `ci`); `cp .env.example .env.local`;
 (420 Peyton, WJ Investment Group and its beach condo) showed we need.
 
 ## Setup status (Oct 2, 2026)
+- [ ] **Website moved to this app**: import the website file (Import page),
+      check /site, then add chessoninvestments.com and www to the Vercel
+      project and change only the A record (@ → 76.76.21.21) and the www
+      CNAME (→ cname.vercel-dns.com) at GoDaddy. Never touch MX or the email
+      records. Then cancel GoDaddy's hosting plan (Vendors).
 - [x] GitHub repo `mchesson/chesson-investments` (private; created by the owner).
 - [x] Supabase project `chesson-investments` (ref `qzhepiymbanpsuspnjpq`, East US,
       Technical Source org); private storage bucket `files`. The database

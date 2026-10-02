@@ -59,3 +59,18 @@ test('names and credit signs', () => {
   assert.equal(lineCents('-135.73', 'credit'), -13573);
   assert.equal(lineCents('-5215', 'invoice'), -521500);
 });
+
+test('photos: only from our old website, once each, with a known kind', () => {
+  const file = importSchema.parse({
+    projects: [{ name: '420 Peyton Street', address: '420 Peyton St', site: { status: 'rented', description: 'x' } }],
+    photos: [
+      { project: '420 Peyton Street', url: 'https://chessoninvestments.com/images/after-01.jpg', kind: 'after' },
+      { project: '420 Peyton Street', url: 'https://chessoninvestments.com/images/after-01.jpg', kind: 'after' },
+      { project: '420 Peyton Street', url: 'https://example.com/a.jpg', kind: 'after' },
+      { project: '420 Peyton Street', url: 'https://chessoninvestments.com/images/b.jpg', kind: 'sideways' },
+      { project: '420 Peyton Street', url: 'https://chessoninvestments.com/images/before-01.jpg', kind: 'before' },
+    ],
+  });
+  const plan = planImport(file, { people: [], companies: [], projects: [{ id: 'p1', name: '420 Peyton Street', address: '420 Peyton St' }], bills: [], costCodes: [], photos: [{ projectId: 'p1', sourceUrl: 'https://chessoninvestments.com/images/before-01.jpg' }] });
+  assert.deepEqual(plan.photos.map((f) => [f.duplicate, !!f.problem]), [[false, false], [true, false], [false, true], [false, true], [true, false]]);
+});

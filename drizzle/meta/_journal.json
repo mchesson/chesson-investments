@@ -43,6 +43,13 @@
       "when": 1790958816223,
       "tag": "0005_project_review",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790959258856,
+      "tag": "0006_public_site",
+      "breakpoints": true
     }
   ]
 }

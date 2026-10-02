@@ -110,7 +110,7 @@ test('import a file: preview first, then people, a sub through the GC and a bill
   await expect(page.getByRole('button', { name: 'Import It' })).toBeVisible();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/Imported 1 people, 2 companies, 0 projects and 1 bills/)).toBeVisible();
+  await expect(page.getByText(/Imported 1 people, 2 companies, 0 projects, 1 bills and 0 photos/)).toBeVisible();
   await page.goto(`/people?q=Sub${stamp}`);
   await page.getByRole('link', { name: `Emma Sub${stamp}` }).click();
   await expect(page.getByText('Subcontractor · Hired')).toBeVisible();
