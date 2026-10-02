@@ -6,7 +6,8 @@ import { setArchived } from '@/app/(app)/delete-actions';
 export function RecordManage({ kind, id, canArchive, canDelete }: { kind: 'person' | 'company'; id: string; canArchive: boolean; canDelete: boolean }) {
   if (!canArchive && !canDelete) return null;
   return (
-    <Section title="Archive or Delete" kind="grey">
+    <Section title="Merge, Archive or Delete" kind="grey">
+      {canDelete ? <p style={{ margin: '0 0 8px' }}><Link className="btn small" href={`/admin/duplicates/merge?kind=${kind}&a=${id}`}>Merge With a Duplicate…</Link></p> : null}
       {canArchive ? (
         <form action={setArchived.bind(null, kind, id, true)}>
           <button className="btn secondary small" type="submit">Archive</button>

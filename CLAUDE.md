@@ -70,7 +70,12 @@ links); long lists (companies, people, cost codes) stay dropdowns.
 stops when the name looks like one on file (nicknames, typos, accents, Inc. /
 LLC, one name inside the other; numbers must agree; `src/lib/duplicates.ts`,
 tested); "Different person / company" saves anyway (History). The import
-preview flags them; admins see every pair at /admin/duplicates (Not the Same).
+preview flags them; admins see every pair at /admin/duplicates: **Merge…**
+(side by side, pick which to keep: `src/lib/merge.ts` moves every link in
+delete-rules.ts to the kept record, fills its empty fields, keeps both notes,
+carries Do Not Use over, archives the extra; History merge-in / merge-out with
+what moved) or **Not the Same**. Any person or company page also has **Merge
+With a Duplicate…**.
 `ActionForm` keeps what was typed when a save shows an error.
 Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
 **Access is checkboxes** (owner, Oct 2, 2026): every permission is listed in

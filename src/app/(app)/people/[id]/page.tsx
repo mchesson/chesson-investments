@@ -44,10 +44,10 @@ function Intros({ introduced, edit, id }: { introduced: Intro[]; edit: boolean; 
   );
 }
 
-export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string }> }) {
+export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; merged?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview', status } = await searchParams;
+  const { tab = 'overview', status, merged } = await searchParams;
   const data = isUuid(id) ? await getPerson(id) : null;
   if (!data || data.person.archived) notFound();
   const { person: p, company, introducedBy, roles, lastTouch, introduced, metAt } = data;
@@ -67,6 +67,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         sub={<span className="sub-row">{vendor ? <GradeBadge letter={gs.overall?.letter} size="sm" /> : null}<RoleChips items={roles} /></span>}
         actions={edit ? (<><Link className="btn" href={`${base}?tab=touches`}>Log a Touch</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null}
       />
+      {merged ? <div className="notice" role="status">Merged {merged} into this record: everything linked to it is here now, and it’s archived. History has the details.</div> : null}
       <DoNotUseBanner on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} />
       <div className="record">
         <div className="card-side">

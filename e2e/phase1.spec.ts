@@ -773,3 +773,47 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();
 });
+
+test('merging duplicates: everything moves to the one kept, the extra is archived', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({
+    companies: [{ name: `Mergeco${s}`, role: 'sub', phone: '9195550101' }, { name: `Mergeco${s} LLC`, role: 'sub', website: `mergeco${s}.example` }],
+    people: [{ name: `Samuel Pike${s}`, company: `Mergeco${s} LLC`, title: 'Owner' }, { name: `Sam Pike${s}`, email: `sam${s}@mergeco.example` }],
+    bills: [{ project: '109 Plainview Ave', vendor: `Mergeco${s}`, number: `M${s}`, date: '2026-09-01', lines: [{ kind: 'build', costCode: '01', amount: '250.00' }] }],
+  });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'm.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+
+  // Companies: keep the one with the bill; the LLC's person and website come over.
+  await page.goto('/admin/duplicates');
+  const pair = page.locator('.dup-rows li').filter({ has: page.getByRole('link', { name: `Mergeco${s}`, exact: true }) }).filter({ has: page.getByRole('link', { name: `Mergeco${s} LLC`, exact: true }) });
+  await pair.getByRole('link', { name: 'Merge…' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Merge Two Records' })).toBeVisible();
+  await page.locator('label.choice-opt', { hasText: new RegExp(`^.?\\s*Mergeco${s} \\(`) }).click();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Merge Them' }).click();
+  await expect(page.getByText(`Merged Mergeco${s} LLC into this record`)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Mergeco${s}`);
+  await expect(page.getByText(`mergeco${s}.example`)).toBeVisible();
+  await page.locator('.tabs').getByRole('link', { name: /People/ }).click();
+  await expect(page.getByRole('link', { name: `Samuel Pike${s}` })).toBeVisible();
+  await page.goto(`/companies?q=Mergeco${s}`);
+  await expect(page.getByRole('link', { name: `Mergeco${s} LLC`, exact: true })).toHaveCount(0);
+
+  // People, from a record page: Sam is Samuel; his email comes over.
+  await page.goto(`/people?q=Pike${s}`);
+  await page.getByRole('link', { name: `Samuel Pike${s}` }).click();
+  await page.getByRole('link', { name: 'Merge With a Duplicate…' }).click();
+  await page.locator('.role-pick').getByRole('link', { name: `Sam Pike${s}` }).click();
+  await page.locator('label.choice-opt', { hasText: `Samuel Pike${s} (left)` }).click();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Merge Them' }).click();
+  await expect(page.getByText(`Merged Sam Pike${s} into this record`)).toBeVisible();
+  await expect(page.getByText(`sam${s}@mergeco.example`).first()).toBeVisible();
+  await page.locator('.tabs').getByRole('link', { name: 'History', exact: true }).click();
+  await expect(page.getByText(new RegExp(`merged Sam Pike${s} into this record`)).first()).toBeVisible();
+});
