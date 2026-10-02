@@ -6,7 +6,7 @@ import { activeStaff, companyOptions, historyFor, peopleOptions, tasksForRecord,
 import { Utilities } from '@/components/Utilities';
 import { BudgetBids } from '@/components/BudgetBids';
 import { RentalTab } from '@/components/RentalTab';
-import { rentalFor } from '@/lib/rental-data';
+import { managerOptions, rentalContactsFor, rentalFor } from '@/lib/rental-data';
 import { bidsFor } from '@/lib/bid-data';
 import { gcCompanyOptions } from '@/lib/contacts';
 import { dailyLogsFor, projectMoney } from '@/lib/projects';
@@ -89,7 +89,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
-          {tab === 'rental' ? <RentalTab projectId={id} data={await rentalFor(id)} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} canMoney={seeMoney} /> : null}
+          {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
           {tab === 'utilities' ? <Utilities projectId={id} rows={await utilitiesFor(id)} companies={await utilityCompanyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'website' ? <ProjectWebsite p={p} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}

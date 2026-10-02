@@ -6,7 +6,8 @@ import { addLease, addRentReceipt, endLease, saveLoan, saveRental } from '@/app/
 import { breakEvenRent, leaseAlerts, monthly, rentByMonth, rentalStatusLabel, rentalStatuses, verdict, yearly } from '@/lib/rentals';
 import { cents } from '@/lib/budget';
 import { formatCents, formatDate, today } from '@/lib/format';
-import type { rentalFor } from '@/lib/rental-data';
+import type { managerOptions, rentalContactsFor, rentalFor } from '@/lib/rental-data';
+import { ManagerPicker } from './ManagerPicker';
 
 type Data = Awaited<ReturnType<typeof rentalFor>>;
 type Opt = { id: string; name: string };
@@ -15,8 +16,9 @@ const pctText = (x: number | null) => (x === null ? '—' : `${(x * 100).toFixed
 const num = (v: string | null | undefined) => (v == null ? '' : String(Number(v)));
 
 /** A rented property: status, lease, manager, loan, rent in, and whether it makes money. */
-export function RentalTab({ projectId, data, allIn, marketValue, companies, people, canEdit, canMoney }: {
-  projectId: string; data: Data; allIn: number; marketValue: number | null; companies: Opt[]; people: (Opt & { companyName: string | null })[]; canEdit: boolean; canMoney: boolean;
+export function RentalTab({ projectId, data, allIn, marketValue, companies, managers, contacts, canEdit, canMoney }: {
+  projectId: string; data: Data; allIn: number; marketValue: number | null; companies: Opt[]; canEdit: boolean; canMoney: boolean;
+  managers: Awaited<ReturnType<typeof managerOptions>>; contacts: Awaited<ReturnType<typeof rentalContactsFor>>;
 }) {
   const r = data.rental?.r ?? null;
   const lease = data.leases.find((l) => l.status === 'active') ?? null;
@@ -77,7 +79,7 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, peop
             ['Asking Rent', r.askingRent ? m(cents(r.askingRent)) : null],
             ['Listed', r.listedOn ? `${formatDate(r.listedOn)}${r.listedWhere ? `, ${r.listedWhere}` : ''}` : r.listedWhere],
             ['Manager', data.rental?.managerCompany ? <Link key="m" href={`/companies/${r.managerCompanyId}`}>{data.rental.managerCompany}</Link> : null],
-            ['Contact', data.rental?.managerPerson ? <span key="p"><Link href={`/people/${r.managerPersonId}`}>{data.rental.managerPerson}</Link>{data.rental.managerPhone ? <> · <Phone value={data.rental.managerPhone} /></> : null}{data.rental.managerEmail ? <> · <a href={`mailto:${data.rental.managerEmail}`}>{data.rental.managerEmail}</a></> : null}</span> : null],
+            ['Their People', contacts.length ? <ul key="c" className="plain">{contacts.map((c) => <li key={c.personId}><Link href={`/people/${c.personId}`}>{c.name}</Link>{c.main ? <span className="chip blue" style={{ marginLeft: 6 }}>Main</span> : null}{c.title ? <span className="small muted"> · {c.title}</span> : null}{c.phone ? <> · <Phone value={c.phone} /></> : null}{c.email ? <> · <a href={`mailto:${c.email}`}>{c.email}</a></> : null}</li>)}</ul> : null],
             ['Their Fee', [r.managementFeePct ? `${Number(r.managementFeePct)}% of rent` : null, r.leasingFee ? `${m(cents(r.leasingFee))} leasing fee` : null].filter(Boolean).join(', ') || null],
             ['Their Terms', r.managementTerms],
           ]} />
@@ -91,11 +93,10 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, peop
                 <label className="f">Asking Rent<input name="askingRent" defaultValue={num(r?.askingRent)} placeholder="2,450" /></label>
                 <label className="f">Listed On<input type="date" name="listedOn" defaultValue={r?.listedOn ?? ''} /></label>
                 <label className="f">Listed Where<input name="listedWhere" defaultValue={r?.listedWhere ?? ''} placeholder="Zillow, the manager's site" /></label>
-                <label className="f">Property Manager{companyOpts('managerCompanyId', r?.managerCompanyId ?? null)}</label>
-                <label className="f">Contact There<select name="managerPersonId" defaultValue={r?.managerPersonId ?? ''}><option value="">None</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.companyName ? ` (${p.companyName})` : ''}</option>)}</select></label>
                 <label className="f">Management Fee %<input name="managementFeePct" defaultValue={num(r?.managementFeePct)} placeholder="8" /></label>
                 <label className="f">Leasing Fee<input name="leasingFee" defaultValue={num(r?.leasingFee)} /></label>
               </div>
+              <ManagerPicker companies={managers} companyId={r?.managerCompanyId ?? null} chosen={contacts.map((c) => c.personId)} main={contacts.find((c) => c.main)?.personId ?? null} />
               <label className="f">Their Terms<input name="managementTerms" defaultValue={r?.managementTerms ?? ''} placeholder="12-month agreement, 30 days' notice to cancel" /></label>
               <p className="small muted">Monthly costs we expect (until the manager’s statements give actuals):</p>
               <div className="fields">

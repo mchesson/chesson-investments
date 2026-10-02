@@ -660,3 +660,13 @@ export const loans = pgTable('loans', {
   created: created(),
   archived: archived(),
 }, (t) => [index('loans_project').on(t.projectId)]).enableRLS();
+
+// The property manager's people on a rental (owner, Oct 2, 2026): one or more
+// from the manager company, one of them the main contact for this property.
+export const rentalContacts = pgTable('rental_contacts', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  personId: uuid('person_id').notNull().references(() => people.id),
+  main: boolean('main').notNull().default(false),
+  created: created(),
+}, (t) => [uniqueIndex('rental_contacts_one').on(t.projectId, t.personId)]).enableRLS();
