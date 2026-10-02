@@ -144,3 +144,24 @@ Postgres with database `ci` (user/password `ci`); `cp .env.example .env.local`;
 ## Roadmap
 `docs/roadmap.md`: phases 2–7 and what the owner's past deal documents
 (420 Peyton, WJ Investment Group and its beach condo) showed we need.
+
+## Setup status (Oct 2, 2026)
+- [x] GitHub repo `mchesson/chesson-investments` (private; created by the owner).
+- [x] Supabase project `chesson-investments` (ref `qzhepiymbanpsuspnjpq`, East US,
+      Technical Source org); private storage bucket `files`. The database
+      password was set by Claude at creation and lives only in `DATABASE_URL`
+      (transaction pooler, port 6543). To change it: set a new one through the
+      Supabase Management API and replace `DATABASE_URL`.
+- [x] Vercel project `chesson-investments` (team TS ATS), linked to the repo,
+      deploys `main`; live at **https://chesson-investments.vercel.app**.
+      Production settings: `DATABASE_URL`, `AUTH_SECRET`, `OWNER_EMAILS`,
+      `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET` (set by
+      Claude), `AUTH_MICROSOFT_ENTRA_ID_ID` / `_ISSUER` (plain) and
+      `AUTH_MICROSOFT_ENTRA_ID_SECRET` (sensitive, entered by the owner).
+- [x] Entra app **Chesson Investments** (single tenant, Technical Source;
+      client ID `ea87cc04-15f6-4102-9f59-391ad570c5c0`; redirect URI
+      `https://chesson-investments.vercel.app/api/auth/callback/microsoft-entra-id`).
+      **The client secret expires about Oct 2, 2028**: before then, a new one
+      (Certificates & secrets) replaces `AUTH_MICROSOFT_ENTRA_ID_SECRET`.
+      A custom address later (e.g. app.chessoninvestments.com) needs its
+      redirect URI added in Entra and the domain in Vercel.
