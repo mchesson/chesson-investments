@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   if (!user || !can(user.role, 'users.manage')) return Response.json({ error: 'Only the owner can import.' }, { status: 403 });
   const mode = new URL(req.url).searchParams.get('mode');
   const text = await req.text();
-  console.info(`[import] ${mode} start: ${text.length} characters`);
+  console.info(`[import] ${mode} start: ${text.length} characters, signed in as ${user.role}`);
   try {
     const sum: Summary = mode === 'apply' ? await applyImport(text) : await previewImport(text);
     console.info(`[import] ${mode} done in ${Date.now() - t0} ms${sum.error ? `: ${sum.error}` : ''}`);
