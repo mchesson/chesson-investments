@@ -112,6 +112,28 @@ In this order, before phase 2:
     file), against the GC's schedule and ours, so a late permit or failed
     inspection shows as days behind.
 
+12. **Outside people in the app (owner, Oct 2, 2026: "invite people outside
+    the Chesson org like a GC to certain parts of the app").** A **Guest** role:
+    the owner invites someone by email to one or more projects and picks what
+    they see (the schedule and their commitments, the daily log, photos, their
+    own bills and change orders, documents shared with them); nothing else in
+    the app, never other vendors' prices, the budget, the P&L or contacts.
+    They sign in with an emailed one-time link (needs an email service: Resend's
+    free tier, recorded in Vendors first) instead of the Technical Source
+    Microsoft sign-in. Each guest's access is per project, ends on a date or when
+    the owner turns it off, and everything they see and change is in History.
+    Later: a GC posts its schedule updates and invoices there itself.
+13. **Security threat assessment (owner, Oct 2, 2026).** A written review like
+    TS Workspace's docs/security: every connection and who can reach what,
+    findings ranked with fixes, an incident runbook (the cyber insurer first),
+    key rotation, restore tests, and a check before guests (item 12) go live.
+    Then repeated yearly and before each big change.
+14. **Ask Claude inside the app.** Built once the owner creates the Anthropic
+    key: a workspace "Chesson Investments" with a $25/month limit, the key
+    saved in Vercel as ANTHROPIC_API_KEY (Production, sensitive). It answers
+    from the app's data with the same permissions as the person asking, and
+    proposes changes for a one-tap confirm, never saving silently.
+
 ## Next: the post-project review says where, why, how and with what
 Owner (Oct 2, 2026): "Telling me we should have spent less doesn't help, but
 having the info and then telling me where we should have spent less and why
