@@ -21,6 +21,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'project_utilities', column: 'person_id', does: 'clear', label: 'utility contacts (who only)' },
     { table: 'bills', column: 'vendor_person_id', does: 'block', label: 'bills from them' },
     { table: 'commitments', column: 'vendor_person_id', does: 'block', label: 'commitments with them' },
+    { table: 'budget_versions', column: 'person_id', does: 'block', label: 'bids from them' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },
@@ -32,6 +33,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'project_utilities', column: 'company_id', does: 'clear', label: 'property utilities (company only)' },
     { table: 'bills', column: 'vendor_company_id', does: 'block', label: 'bills from them' },
     { table: 'commitments', column: 'vendor_company_id', does: 'block', label: 'commitments with them' },
+    { table: 'budget_versions', column: 'company_id', does: 'block', label: 'bids from them' },
   ],
 };
 

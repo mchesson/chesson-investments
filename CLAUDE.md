@@ -208,6 +208,43 @@ this app; GoDaddy keeps only the domain and email.
 - Locally, server-side fetches through the sandbox proxy need
   `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`.
 
+## Added Oct 2, 2026 (afternoon)
+- **Project numbers** P-1001 and up (`projects.project_number`, sequence
+  `project_number`, migration 0008 numbered existing projects by creation).
+- **Bids and our estimate** (Budget tab, `src/components/BudgetBids.tsx`, rules
+  `src/lib/bids.ts`, saves `src/app/(app)/bid-actions.ts`, reads
+  `src/lib/bid-data.ts`): a budget version of kind `bid` (a GC's: company, date,
+  fixed / cost plus, fee %, good until, the proposal file, entity `bid`) or `ours`.
+  Side by side by cost code: a bid is flagged when it leaves out a code others
+  price, or is 25%+ above / below the middle of the others. **Select the Winning
+  Budget** (the owner, with a reason) makes an approved version from it, declines
+  the other open bids and, if ticked, sets the working budget to its numbers;
+  History keeps the old numbers. The import file takes `bids`. A company's page
+  lists the bids it sent. Jason's Plainview preliminary ($755,709) is mapped to
+  our codes in the corrections file.
+- **Supplier kinds** (`party_roles.supplier_types`, `supplierTypes` in roles.ts),
+  **companies have a type ("What They Do"), people have roles**, People list
+  columns Name / Title / Company (what it does) / Introduced By / Roles.
+- **Do Not Use** (people and companies: reason required, red banner and chip,
+  History); a grade of D or below will set it once grading exists.
+- **Utilities tab** per property (`project_utilities`: service, company, the
+  contact there).
+- **Bills linked to companies by name** (`src/lib/vendor-match.ts`; Import page →
+  Match Bills to Companies; imports use it too).
+- **Archive / Delete Permanently** (`src/lib/delete-rules.ts` with a test that
+  every column pointing at people or companies has a rule; bills, commitments and
+  bids block a delete; one History row keeps what was removed). Archived page in
+  the account menu.
+- **History of everything:** sign-ins are recorded; `history-coverage.test.ts`
+  fails when a Server Action saves without writing History.
+- **Database:** node-postgres through Supabase's **session pooler** (5432, pool size
+  40, set Oct 2, 2026 with the owner's OK), one connection per server instance,
+  `attachDatabasePool`. Transaction mode (6543) froze the app: see
+  `src/lib/db-url.ts`. Never use `db` inside a transaction. The website reads
+  through a 5-minute cache (tag `site`).
+- Claude can't write to production itself (a standing import door was refused by
+  the safety system, Oct 2, 2026): the owner runs imports from the Import page.
+
 ## Environment variables (Vercel; never in the repo or chat)
 `DATABASE_URL` (Supabase transaction pooler, port 6543), `AUTH_SECRET`,
 `AUTH_MICROSOFT_ENTRA_ID_ID` / `_SECRET` / `_ISSUER`, `OWNER_EMAILS`,

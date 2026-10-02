@@ -308,3 +308,52 @@ test('archive, restore and delete permanently; a company with bills can only be 
   await expect(page.getByText(/It has 1 bills from them/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Delete Permanently' })).toHaveCount(0);
 });
+
+test('GC bids next to our estimate, the gaps flagged, and Select the Winning Budget', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({
+    companies: [{ name: `Oak${s} Builders`, role: 'gc' }],
+    projects: [{ name: `Bid Test ${s}`, address: `${s} Bid Test Rd`, city: 'Raleigh', stage: 'design', heatedSf: 3000 }],
+    bids: [{ project: `Bid Test ${s}`, kind: 'bid', company: `Oak${s} Builders`, submittedOn: '2026-09-01', label: 'Preliminary',
+      lines: [{ costCode: '08', amount: 75300 }, { costCode: '21', amount: 47000 }, { costCode: '14', amount: 15000 }] }],
+  });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'bid.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+
+  await page.goto('/projects');
+  await page.getByRole('link', { name: `Bid Test ${s}` }).first().click();
+  await expect(page.locator('.page-head .eyebrow')).toContainText(/Project P-\d+/);
+  await page.getByRole('link', { name: 'Budget', exact: true }).click();
+  await expect(page.locator('table.bids')).toContainText(`Oak${s} Builders`);
+
+  // Our estimate: appliances owner-supplied at $30,000, nothing for siding/stone.
+  await page.locator('summary', { hasText: 'Add one' }).click();
+  const form = page.locator('form:has(select[name=bidKind])');
+  await form.locator('select[name=bidKind]').selectOption('ours');
+  await form.locator('input[name=label]').fill(`Ours ${s}`);
+  const code = async (c: string) => form.locator('.bid-grid label', { hasText: new RegExp(`^${c} `) }).locator('input');
+  await (await code('08')).fill('72,000');
+  await (await code('21')).fill('30,000');
+  await form.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByText('Estimate added.')).toBeVisible();
+  const table = page.locator('table.bids');
+  await expect(table).toContainText(`Ours ${s}`);
+  // Ours at $30,000 is flagged against the GC's $47,000, and the GC's against ours.
+  await expect(table.locator('tr', { hasText: '21 Appliances' })).toContainText(/\$47,000\s*high/);
+  await expect(table.locator('tr', { hasText: '21 Appliances' })).toContainText(/\$30,000\s*low/);
+  await expect(table).toContainText('Per Heated SF');
+  await expect(table.locator('tr', { hasText: '14 Siding' }).locator('td.amber').first()).toContainText('not in it');
+
+  const item = page.locator('li', { hasText: `Oak${s} Builders` }).first();
+  await item.locator('summary', { hasText: 'Select as the Winning Budget' }).click();
+  await item.getByLabel('Why this one').fill('Best scope; we supply the appliances');
+  page.once('dialog', (d) => d.accept());
+  await item.getByRole('button', { name: 'Select the Winning Budget' }).click();
+  await expect(page.locator('table.bids th', { hasText: `Oak${s} Builders` })).toContainText('Winner');
+  await page.getByRole('link', { name: 'History' }).last().click();
+  await expect(page.getByText(new RegExp(`chose Oak${s} Builders’s bid .* as the winning budget`)).first()).toBeVisible();
+});

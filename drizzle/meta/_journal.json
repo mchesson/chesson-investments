@@ -57,6 +57,13 @@
       "when": 1790964209597,
       "tag": "0007_suppliers_do_not_use_utilities",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790966265649,
+      "tag": "0008_bids_project_numbers",
+      "breakpoints": true
     }
   ]
 }

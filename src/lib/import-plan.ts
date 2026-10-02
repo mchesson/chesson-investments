@@ -39,6 +39,14 @@ export const importSchema = z.object({
     stage: z.string().nullish(), // the role's stage when it isn't the first
     removeRoles: z.array(z.string()).nullish(), // a correction: roles to take off
   })).default([]),
+  // GC bids and our own estimates, by cost code ("08"), on a project.
+  bids: z.array(z.object({
+    project: z.string().min(1), kind: z.enum(['bid', 'ours']).default('bid'), company: z.string().max(200).nullish(),
+    label: z.string().max(200).nullish(), submittedOn: day.nullish(), contractType: z.enum(['fixed', 'cost_plus']).nullish(),
+    feePct: z.union([z.number(), z.string()]).nullish(), validUntil: day.nullish(), preparedBy: z.string().max(200).nullish(),
+    notes: z.string().max(4000).nullish(),
+    lines: z.array(z.object({ costCode: z.string(), amount: money, note: z.string().max(300).nullish() })).min(1),
+  })).default([]),
   // Who supplies each utility at a property, and the contact there.
   utilities: z.array(z.object({
     project: z.string().min(1), service: z.string(), company: z.string().nullish(), person: z.string().nullish(),

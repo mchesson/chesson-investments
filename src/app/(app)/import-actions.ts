@@ -4,7 +4,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { SITE_TAG } from '@/lib/site-data';
 import { db, type Tx } from '@/db';
-import { billLines, bills, budgetLines, companies, costCodes, files, partyRoles, people, personCompanies, projects, projectUtilities, touches } from '@/db/schema';
+import { billLines, bills, budgetLines, budgetVersions, companies, costCodes, files, partyRoles, people, personCompanies, projects, projectUtilities, touches } from '@/db/schema';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { importSchema, lineCents, planImport, splitFull, type Existing, type ImportFile, type Plan } from '@/lib/import-plan';
@@ -263,7 +263,24 @@ export async function applyImport(text: string): Promise<Summary> {
       await log('project', pid, 'utility-add', `added ${utilityServiceLabel(u.service)}: ${[u.company, u.person].filter(Boolean).join(', contact ')}`);
       utilitiesAdded++;
     }
-    void utilitiesAdded;
+    // Bids and estimates: skipped when the same one (project, kind, GC, date, total) is already here.
+    let bidsAdded = 0;
+    const codeByNum = new Map((await tx.select({ id: costCodes.id, code: costCodes.code }).from(costCodes)).map((c) => [c.code, c.id]));
+    for (const b of file.bids) {
+      const pid = projectId.get(k(b.project));
+      if (!pid) continue;
+      const cid = b.company ? companyId.get(k(b.company)) ?? null : null;
+      if (b.kind === 'bid' && !cid) continue;
+      const lines = b.lines.flatMap((l) => { const id = codeByNum.get(l.costCode); const cents = Math.round(Number(l.amount) * 100); return id && cents ? [{ costCodeId: id, cents, note: l.note ?? null }] : []; });
+      if (!lines.length) continue;
+      const total = lines.reduce((x, l) => x + l.cents, 0);
+      const existingBids = await tx.select({ id: budgetVersions.id, companyId: budgetVersions.companyId, submittedOn: budgetVersions.submittedOn, totalCents: budgetVersions.totalCents }).from(budgetVersions).where(and(eq(budgetVersions.projectId, pid), eq(budgetVersions.kind, b.kind)));
+      if (existingBids.some((x) => x.companyId === cid && (x.submittedOn ?? null) === (b.submittedOn ?? null) && x.totalCents === total)) continue;
+      await tx.insert(budgetVersions).values({ projectId: pid, kind: b.kind, label: b.label ?? null, preparedBy: b.preparedBy ?? null, lines, totalCents: total, notes: b.notes ?? null, createdBy: user.id,
+        companyId: cid, submittedOn: b.submittedOn ?? null, contractType: b.contractType ?? null, feePct: b.feePct == null ? null : String(b.feePct), validUntil: b.validUntil ?? null, status: b.kind === 'bid' ? 'open' : null });
+      await log('project', pid, 'bid-add', b.kind === 'bid' ? `added ${b.company}’s bid${b.submittedOn ? ` of ${b.submittedOn}` : ''} at $${(total / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })} (from a file)` : `added our estimate “${b.label ?? 'Our Estimate'}” at $${(total / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })} (from a file)`);
+      bidsAdded++;
+    }
     void DEFAULT_PERCENTS; // imported past projects have no budget percents: their real costs are the bills
     const codeId = new Map(codes.map((c) => [c.code, c.id]));
     const billIdByNumber = new Map<string, string>();
@@ -309,13 +326,13 @@ export async function applyImport(text: string): Promise<Summary> {
     }
     for (const [pid, n] of byProject) await log('project', pid, 'photo-add', `added ${n} ${n === 1 ? 'photo' : 'photos'} from the old website (${[...new Set(plan.photos.filter((f) => projectId.get(f.projectKey) === pid).map((f) => photoKindLabel(f.row.kind).toLowerCase()))].join(', ')})`);
     await audit({ userId: user.id, entity: 'import', entityId: null, action: 'apply', summary: `imported ${added.people} people, ${added.companies} companies, ${added.projects} projects, ${added.bills} bills and ${photosAdded} photos (${file.source ?? 'file'})`, via: VIA }, tx);
-    return { plan, added, photosAdded };
+    return { plan, added, photosAdded, bidsAdded, utilitiesAdded };
   });
   revalidatePath('/', 'layout');
   revalidateTag(SITE_TAG, 'max');
   console.info('[import] apply saved');
   const sum = summarize(result.plan);
-  return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos.` };
+  return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos${result.bidsAdded ? `, ${result.bidsAdded} ${result.bidsAdded === 1 ? 'bid' : 'bids'}` : ''}${result.utilitiesAdded ? `, ${result.utilitiesAdded} ${result.utilitiesAdded === 1 ? 'utility' : 'utilities'}` : ''}.` };
 }
 
 export type BillMatch = { vendor: string; to: string | null; kind: 'company' | 'person' | null; how: string | null; count: number; total: string };

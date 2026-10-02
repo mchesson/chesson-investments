@@ -21,9 +21,10 @@ export default async function Projects() {
       <Section title="Projects" kind="aqua" hint={`${rows.length}`}>
         {rows.length ? (
           <div className="table-wrap"><table className="t">
-            <thead><tr><th>Project</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale (Pro Forma)</th></> : null}</tr></thead>
+            <thead><tr><th>No.</th><th>Project</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale (Pro Forma)</th></> : null}</tr></thead>
             <tbody>{rows.map((p) => (
               <tr key={p.id}>
+                <td className="small">{p.projectNumber ? `P-${p.projectNumber}` : ''}</td>
                 <td><Link href={`/projects/${p.id}`}>{p.name}</Link><div className="small muted">{p.city}</div></td>
                 <td><span className="chip blue">{projectStageLabel(p.stage)}</span></td>
                 <td className="num">{p.heatedSf?.toLocaleString() ?? '—'}</td>
