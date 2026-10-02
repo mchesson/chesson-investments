@@ -86,6 +86,7 @@ function IssueCard({ i, canEdit, showVendor, form }: { i: IssueRow; canEdit: boo
           <span key={k} className="chip">{p.personId ? <Link href={`/people/${p.personId}`}>{p.personName}</Link> : `${p.userName} (us)`}{p.role && p.role !== 'involved' ? ` · ${involvedRoles.find((r) => r.key === p.role)?.label ?? p.role}` : ''}</span>
         ))}</div>
       ) : null}
+      {i.vendorNote ? <p className="issue-details vendor-note"><span className="small muted">Their update ({i.vendorNoteAt ? formatDate(i.vendorNoteAt.toISOString()) : ''}):</span> {i.vendorNote}</p> : null}
       {i.resolution ? <p className="issue-details"><span className="small muted">How it ended:</span> {i.resolution}</p> : null}
       {canEdit ? (
         <div className="issue-actions">

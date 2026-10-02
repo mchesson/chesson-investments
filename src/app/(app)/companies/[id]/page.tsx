@@ -27,9 +27,9 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const data = isUuid(id) ? await getCompany(id) : null;
   if (!data || data.company.archived) notFound();
   const { company: c, roles, current, former, subs } = data;
-  const edit = can(user.role, 'contacts.edit');
+  const edit = can(user, 'contacts.edit');
   const base = `/companies/${id}`;
-  const seeMoney = can(user.role, 'money.view');
+  const seeMoney = can(user, 'money.view');
   return (
     <>
       <PageHead eyebrow="Company" title={c.name} sub={<span className="sub-row"><GradeBadge letter={gs.overall?.letter} size="sm" /><RoleChips items={roles} /></span>}
@@ -46,7 +46,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             ]} />
           </Section>
           <DoNotUseSection companyId={id} on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} canEdit={edit} />
-          <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user.role, 'users.manage')} />
+          <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user, 'records.delete')} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />

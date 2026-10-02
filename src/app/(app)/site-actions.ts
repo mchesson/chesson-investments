@@ -19,7 +19,7 @@ const decimal = (v: string | null) => (v === null ? null : Number.isFinite(Numbe
 
 /** The project's website words: status, price, description, specs, finishes, team. */
 export async function saveSite(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('projects.edit');
+  const user = await requireAction('website.edit');
   const id = uuidOrNull(d, 'projectId');
   if (!id) return { error: 'Not found.' };
   const [old] = await db.select().from(projects).where(eq(projects.id, id));
@@ -56,7 +56,7 @@ export async function saveSite(_: FormResult, d: FormData): Promise<FormResult> 
 
 /** One photo at a time (each request stays under the 4 MB limit). */
 export async function uploadSitePhoto(d: FormData): Promise<{ error?: string; ok?: boolean }> {
-  const user = await requireAction('projects.edit');
+  const user = await requireAction('website.edit');
   const id = uuidOrNull(d, 'projectId');
   const kind = str(d, 'kind');
   const f = d.get('file');
@@ -76,7 +76,7 @@ export async function uploadSitePhoto(d: FormData): Promise<{ error?: string; ok
 }
 
 export async function updatePhoto(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('projects.edit');
+  const user = await requireAction('website.edit');
   const id = uuidOrNull(d, 'fileId');
   if (!id) return { error: 'Not found.' };
   const [f] = await db.select().from(files).where(and(eq(files.id, id), eq(files.entity, 'project'), isNull(files.archived)));
@@ -96,7 +96,7 @@ export async function updatePhoto(_: FormResult, d: FormData): Promise<FormResul
 }
 
 export async function archivePhoto(fileId: string) {
-  const user = await requireAction('projects.edit');
+  const user = await requireAction('website.edit');
   const [f] = await db.select().from(files).where(and(eq(files.id, fileId), eq(files.entity, 'project'), isNull(files.archived)));
   if (!f) return;
   await db.transaction(async (tx) => {

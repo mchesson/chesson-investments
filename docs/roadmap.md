@@ -130,6 +130,11 @@ In this order, before phase 2:
     Microsoft sign-in. Each guest's access is per project, ends on a date or when
     the owner turns it off, and everything they see and change is in History.
     Later: a GC posts its schedule updates and invoices there itself.
+    **Built Oct 2, 2026:** guests, per-project checkboxes, sign-in links, the
+    /guest pages (schedule and commitments, daily log, issues). Email waits for
+    an email service; until then links are copied by hand. Still to come:
+    documents and photos shared with a guest, their bills, the security review
+    (item 13) before many guests use it.
 13. **Security threat assessment (owner, Oct 2, 2026).** A written review like
     TS Workspace's docs/security: every connection and who can reach what,
     findings ranked with fixes, an incident runbook (the cyber insurer first),

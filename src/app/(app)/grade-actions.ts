@@ -49,7 +49,7 @@ async function applyGradeRule(tx: Tx, w: Who, userId: string) {
 
 /** A grade for one job (or their work in general), always with a justification. */
 export async function saveGrade(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('contacts.edit');
+  const user = await requireAction('vendors.grade');
   const w = who(d);
   if (!w) return { error: 'Not found.' };
   const id = uuidOrNull(d, 'id');
@@ -78,7 +78,7 @@ export async function saveGrade(_: FormResult, d: FormData): Promise<FormResult>
 }
 
 export async function archiveGrade(personId: string | null, companyId: string | null, gradeId: string) {
-  const user = await requireAction('contacts.edit');
+  const user = await requireAction('vendors.grade');
   const w = { personId, companyId };
   if (!personId === !companyId) return;
   await db.transaction(async (tx) => {
@@ -92,7 +92,7 @@ export async function archiveGrade(personId: string | null, companyId: string | 
 
 /** Keep using them although their grade is D or below, with why (or take the override off). */
 export async function setGradeOverride(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('contacts.edit');
+  const user = await requireAction('vendors.grade');
   const w = who(d);
   if (!w) return { error: 'Not found.' };
   const on = d.get('on') === '1';
@@ -130,7 +130,7 @@ async function saveInvolved(tx: Tx, issueId: string, d: FormData) {
 
 /** A new issue, or edits to one. */
 export async function saveIssue(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('contacts.edit');
+  const user = await requireAction('vendors.grade');
   const w = who(d);
   if (!w) return { error: 'Not found.' };
   const id = uuidOrNull(d, 'id');
@@ -167,7 +167,7 @@ export async function saveIssue(_: FormResult, d: FormData): Promise<FormResult>
 
 /** Move an issue to another status; closing it records when it was fixed and how. */
 export async function setIssueStatus(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('contacts.edit');
+  const user = await requireAction('vendors.grade');
   const id = uuidOrNull(d, 'id');
   const to = str(d, 'status');
   if (!id || !isIssueStatus(to)) return { error: 'Pick a status.' };

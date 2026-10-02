@@ -44,8 +44,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const data = isUuid(id) ? await projectMoney(id) : null;
   if (!data || data.project.archived) notFound();
   const { project: p } = data;
-  const editProject = can(user.role, 'projects.edit');
-  const seeMoney = can(user.role, 'money.view');
+  const editProject = can(user, 'projects.edit');
+  const seeMoney = can(user, 'money.view');
   const base = `/projects/${id}`;
   const openItems = data.items.filter((i) => i.status === 'unpriced');
   const sched = await scheduleFor(id);
@@ -83,14 +83,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <Tabs base={base} current={tab} tabs={tabs} />
           {missed.length && tab !== 'schedule' ? <div className="notice error"><strong>{missed.length} missed {missed.length === 1 ? 'commitment' : 'commitments'}</strong>: {missed.map((a) => `${a.description} (${a.who ?? responsibleLabel(a.responsible)})`).join('; ')}. <Link href={`${base}?tab=schedule`}>Schedule</Link></div> : null}
           {tab === 'overview' ? <Overview data={data} seeMoney={seeMoney} openItems={openItems.length} edit={editProject} /> : null}
-          {tab === 'budget' && seeMoney ? <><BudgetBids projectId={id} codes={data.codes} bids={await bidsFor(id)} heatedSf={p.heatedSf} companies={await gcCompanyOptions()} canEdit={editProject} canChoose={can(user.role, 'users.manage')} /><BudgetStages projectId={id} codes={data.codes} current={new Map(data.codes.map((c) => [c.id, data.money.get(c.id)?.budget ?? 0]))} sched={sched} canEdit={editProject} canApprove={can(user.role, 'users.manage')} /><Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /></> : null}
+          {tab === 'budget' && seeMoney ? <><BudgetBids projectId={id} codes={data.codes} bids={await bidsFor(id)} heatedSf={p.heatedSf} companies={await gcCompanyOptions()} canEdit={editProject} canChoose={can(user, 'budgets.approve')} /><BudgetStages projectId={id} codes={data.codes} current={new Map(data.codes.map((c) => [c.id, data.money.get(c.id)?.budget ?? 0]))} sched={sched} canEdit={editProject} canApprove={can(user, 'budgets.approve')} /><Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /></> : null}
           {tab === 'commitments' && seeMoney ? <Commitments data={data} edit={editProject} /> : null}
-          {tab === 'bills' && seeMoney ? <Bills data={data} role={user.role} /> : null}
-          {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}
+          {tab === 'bills' && seeMoney ? <Bills data={data} role={user} /> : null}
+          {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
-          {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user.role, 'contacts.edit')} /> : null}
+          {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user, 'contacts.edit')} /> : null}
           {tab === 'utilities' ? <Utilities projectId={id} rows={await utilitiesFor(id)} companies={await utilityCompanyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'website' ? <ProjectWebsite p={p} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}

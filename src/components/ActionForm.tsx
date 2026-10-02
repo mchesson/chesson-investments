@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useRef, type ReactNode } from 'react';
 
-export type FormResult = { error?: string; ok?: string } | null | undefined | void;
+export type FormResult = { error?: string; ok?: string; link?: string } | null | undefined | void;
 type Action = (prev: FormResult, data: FormData) => Promise<FormResult>;
 
 /**
@@ -36,6 +36,12 @@ export function ActionForm(props: {
     >
       {state?.error ? <div className="notice error" role="alert">{state.error}</div> : null}
       {state?.ok ? <div className="notice" role="status">{state.ok}</div> : null}
+      {state?.link ? (
+        <div className="copy-link">
+          <input readOnly value={state.link} aria-label="Sign-in link" onFocus={(e) => e.currentTarget.select()} />
+          <button type="button" className="btn small" onClick={() => { navigator.clipboard?.writeText(state.link!).catch(() => {}); }}>Copy the Link</button>
+        </div>
+      ) : null}
       {props.children}
       {props.submit ? (
         <div className="form-actions">

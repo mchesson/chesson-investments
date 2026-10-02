@@ -59,7 +59,7 @@ export async function addBid(_: FormResult, d: FormData): Promise<FormResult> {
  * its numbers. Everything before is kept in History.
  */
 export async function selectBid(_: FormResult, d: FormData): Promise<FormResult> {
-  const user = await requireAction('users.manage');
+  const user = await requireAction('budgets.approve');
   const id = uuidOrNull(d, 'versionId');
   const reason = str(d, 'reason');
   if (!id) return { error: 'Not found.' };

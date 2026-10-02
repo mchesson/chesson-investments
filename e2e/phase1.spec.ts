@@ -659,3 +659,117 @@ test('the market map: filters and layer buttons, sales in view, neighborhoods an
   await expect(page).toHaveURL(/county=durham/);
   await expect(page.locator('table', { hasText: hood })).toHaveCount(0);
 });
+
+test('a contractor invited as a guest: a sign-in link, only their project, the daily log and their issues', async ({ page, browser }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  // Their company, with an issue on Plainview.
+  const file = JSON.stringify({ companies: [{ name: `Guest${s} Framing`, role: 'sub', trade: 'Framing' }],
+    bills: [{ project: '109 Plainview Ave', vendor: `Guest${s} Framing`, number: `G${s}`, date: '2026-09-01', lines: [{ kind: 'build', costCode: '01', amount: '100.00' }] }] });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'g.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await page.goto(`/companies?q=Guest${s}`);
+  await page.getByRole('link', { name: `Guest${s} Framing`, exact: true }).click();
+  await page.waitForURL(/\/companies\/[0-9a-f-]{36}/);
+  await page.goto(page.url().split('?')[0] + '?tab=issues');
+  await page.locator('input[name=title]').fill(`Header sagging ${s}`);
+  await page.locator('select[name=projectId]').selectOption({ label: '109 Plainview Ave' });
+  await page.getByRole('button', { name: 'Open the Issue' }).click();
+  await expect(page.locator('.issue-card', { hasText: `Header sagging ${s}` })).toBeVisible();
+
+  // An outside email can't be added as staff: it says to invite a guest.
+  await page.goto('/admin/users');
+  const add = page.locator('form:has(button:text("Add"))').last();
+  await add.locator('input[name=email]').fill(`other${s}@contractor.example`);
+  await add.getByRole('button', { name: 'Add' }).click();
+  await expect(page.getByText(/isn’t a Technical Source account/)).toBeVisible();
+
+  // Added as staff before this check existed: inviting them as a guest turns them into one.
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`insert into users (email, name, role) values ($1, 'Jo (added as staff)', 'staff')`, [`jo${s}@contractor.example`]);
+  await db.end();
+  await page.reload();
+  await expect(page.locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('isn’t a Technical Source account');
+  // Invite them: one project, the standard things; the page gives the link (no email here).
+  const inv = page.locator('form:has(button:text("Invite Them"))');
+  await inv.locator('input[name=email]').fill(`jo${s}@contractor.example`);
+  await inv.locator('input[name=name]').fill(`Jo Framer${s}`);
+  await inv.locator('select[name=companyId]').selectOption({ label: `Guest${s} Framing` });
+  await inv.locator('label.role-btn', { hasText: '109 Plainview Ave' }).click();
+  await inv.getByRole('button', { name: 'Invite Them' }).click();
+  await expect(inv.getByText(/Invited\. Email isn’t set up yet/)).toBeVisible();
+  const link = await inv.locator('.copy-link input').inputValue();
+  expect(link).toMatch(/\/signin\/link\?t=[A-Za-z0-9_-]{40,}/);
+  await page.reload();
+  await expect(page.locator('section', { hasText: 'Guests (Outside People)' }).locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('109 Plainview Ave');
+
+  // The guest signs in with the link (in their own browser).
+  const ctx = await browser.newContext();
+  const g = await ctx.newPage();
+  await g.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  await g.getByRole('button', { name: 'Sign In' }).click();
+  await g.waitForURL(/\/guest$/);
+  await g.getByRole('link', { name: /109 Plainview Ave/ }).click();
+  await expect(g.getByRole('heading', { name: 'Issues With You' })).toBeVisible();
+  // Staff pages are closed to them.
+  await g.goto('/people');
+  await expect(g).toHaveURL(/\/guest$/);
+  await g.goto('/projects');
+  await expect(g).toHaveURL(/\/guest$/);
+  // The link works once.
+  const g2 = await (await browser.newContext()).newPage();
+  await g2.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  await g2.getByRole('button', { name: 'Sign In' }).click();
+  await expect(g2.getByText(/That sign-in link has been used or has expired/)).toBeVisible();
+
+  // They add to the daily log and answer the issue.
+  await g.goto('/guest');
+  await g.getByRole('link', { name: /109 Plainview Ave/ }).click();
+  await g.getByText('Add to the Daily Log').click();
+  await g.locator('textarea[name=work]').fill(`Set the headers on the back wall ${s}`);
+  await g.getByRole('button', { name: 'Add It' }).click();
+  await expect(g.getByText(`Set the headers on the back wall ${s}`)).toBeVisible();
+  const card = g.locator('.issue-card', { hasText: `Header sagging ${s}` });
+  await card.getByText('Update It').click();
+  await choose(card, 'status', 'check');
+  await card.locator('textarea[name=note]').fill('Added a sister header and shimmed it level');
+  await card.getByRole('button', { name: 'Send' }).click();
+  await expect(card.locator('.chip.status')).toHaveText('Ready to Check');
+  await ctx.close();
+
+  // We see their update.
+  await page.goto('/projects');
+  await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
+  await page.locator('.tabs').getByRole('link', { name: 'Vendors and Issues' }).click();
+  await page.locator('.status-tab[data-k=check]').click();
+  await expect(page.locator('.issue-card', { hasText: `Header sagging ${s}` })).toContainText('Added a sister header');
+});
+
+test('access is a set of checkboxes per person', async ({ page, browser }) => {
+  await signIn(page, 'Sample Owner');
+  await page.goto('/admin/users');
+  const card = page.locator('.user-card', { hasText: 'accountant@example.com' });
+  await card.getByText(/What They Can Do/).click();
+  await card.getByLabel('See people and companies').check();
+  await card.getByRole('button', { name: 'Save Access' }).click();
+  await expect(card.getByText('Access saved.')).toBeVisible();
+
+  const ctx = await browser.newContext();
+  const a = await ctx.newPage();
+  await signIn(a, 'Sample Accountant');
+  await a.goto('/people');
+  await expect(a.getByRole('heading', { level: 1, name: 'People' })).toBeVisible();
+
+  await page.reload();
+  const again = page.locator('.user-card', { hasText: 'accountant@example.com' });
+  await again.getByText(/What They Can Do/).click();
+  await again.getByRole('button', { name: /Back to the Accountant Standard Set/ }).click();
+  await a.goto('/people');
+  await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
+  await ctx.close();
+});

@@ -12,12 +12,12 @@ export const metadata = { title: 'Projects' };
 export default async function Projects() {
   const user = await requirePage('projects.view');
   const rows = await listProjects();
-  const seeMoney = can(user.role, 'money.view');
+  const seeMoney = can(user, 'money.view');
   // Track record: few projects, so each is worked out in full (same math as its page).
   const money = seeMoney ? await Promise.all(rows.map((p) => projectMoney(p.id))) : [];
   return (
     <>
-      <PageHead title="Projects" actions={can(user.role, 'projects.edit') ? <Link className="btn" href="/projects/new">Add Project</Link> : null} />
+      <PageHead title="Projects" actions={can(user, 'projects.edit') ? <Link className="btn" href="/projects/new">Add Project</Link> : null} />
       <Section title="Projects" kind="aqua" hint={`${rows.length}`}>
         {rows.length ? (
           <div className="table-wrap"><table className="t">

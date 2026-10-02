@@ -42,7 +42,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   const [f] = await db.select({ id: files.id, entity: files.entity, entityId: files.entityId, name: files.name, contentType: files.contentType, size: files.size,
     caption: files.caption, created: files.created, archived: files.archived, by: sql<string | null>`(select coalesce(u.name, u.email) from ${users} u where u.id = ${files.uploadedBy})` })
     .from(files).where(eq(files.id, id));
-  if (!f || f.archived || !can(user.role, fileNeed(f.entity))) notFound();
+  if (!f || f.archived || !can(user, fileNeed(f.entity))) notFound();
   const kind = previewKind(f.contentType);
   const parent = await belongsTo(f.entity, f.entityId);
   const src = `/files/${f.id}`;

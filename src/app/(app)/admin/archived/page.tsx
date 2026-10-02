@@ -10,7 +10,7 @@ import { Empty, PageHead, Section } from '@/components/ui';
 export const metadata = { title: 'Archived' };
 
 export default async function ArchivedPage({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
-  await requirePage('users.manage');
+  await requirePage('records.delete');
   const { deleted } = await searchParams;
   const ps = await db.select({ id: people.id, f: people.firstName, l: people.lastName, at: people.archived }).from(people).where(isNotNull(people.archived)).orderBy(desc(people.archived)).limit(500);
   const cs = await db.select({ id: companies.id, name: companies.name, at: companies.archived }).from(companies).where(isNotNull(companies.archived)).orderBy(desc(companies.archived)).limit(500);

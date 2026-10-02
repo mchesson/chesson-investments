@@ -21,7 +21,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
   const data = isUuid(id) ? await getProperty(id) : null;
   if (!data || data.property.archived) notFound();
   const { property: p, source, project } = data;
-  const edit = can(user.role, 'properties.edit');
+  const edit = can(user, 'properties.edit');
   const base = `/watchlist/${id}`;
   const photos = await filesFor('property', id);
   const ppsf = pricePerLotSf(p.stage === 'sold' ? p.soldPrice : p.askingPrice, p.lotSf);
@@ -74,7 +74,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
                   </ActionForm>
                 </Section>
               ) : null}
-              {edit && !project && p.stage !== 'sold' && can(user.role, 'projects.edit') ? (
+              {edit && !project && p.stage !== 'sold' && can(user, 'projects.edit') ? (
                 <Section title="Under Contract?" kind="aqua">
                   <ActionForm action={convertToProject} submit="Make It a Project" confirm="Put this under contract and make it a project?">
                     <input type="hidden" name="id" value={id} />

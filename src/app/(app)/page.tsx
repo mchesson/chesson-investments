@@ -17,15 +17,15 @@ import { formatDate } from '@/lib/format';
 
 export default async function Home() {
   const user = await requirePage();
-  const contacts = can(user.role, 'contacts.view');
+  const contacts = can(user, 'contacts.view');
   const [tasks, cold, projects, watch] = await Promise.all([
     contacts ? myOpenTasks(user.id) : [],
     contacts ? goingCold() : [],
     listProjects(),
-    can(user.role, 'properties.view') ? listProperties({ view: 'active' }) : null,
+    can(user, 'properties.view') ? listProperties({ view: 'active' }) : null,
   ]);
   const due = tasks.filter((t) => t.dueOn <= today());
-  const missed = can(user.role, 'projects.view') ? await missedEverywhere() : [];
+  const missed = can(user, 'projects.view') ? await missedEverywhere() : [];
   return (
     <>
       <PageHead title={`Hello${user.name ? `, ${user.name.split(' ')[0]}` : ''}`} sub="Chesson Investments" />

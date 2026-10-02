@@ -20,8 +20,9 @@ const archived = () => timestamp('archived_at', { withTimezone: true });
 
 // owner: everything; staff: no tax returns / PFS / investor money (later phases);
 // accountant: projects' money only (banking, bills, loans, exports in later phases).
-// Later: invited outsiders (partner, investor, sub) scoped to their own records.
-export const userRole = pgEnum('user_role', ['pending', 'owner', 'staff', 'accountant']);
+// guest: an outside person (a GC, a sub, a partner) who sees only the projects
+// they're invited to, through /guest (guest_access says what on each).
+export const userRole = pgEnum('user_role', ['pending', 'owner', 'staff', 'accountant', 'guest']);
 
 export const users = pgTable('users', {
   id: id(),
@@ -29,9 +30,42 @@ export const users = pgTable('users', {
   name: text('name'),
   role: userRole('role').notNull().default('pending'),
   active: boolean('active').notNull().default(true),
+  // The owner's ticks for this person (src/lib/permissions.ts); empty = the role's.
+  permissions: text('permissions').array(),
+  // A guest's own record and company, when they're on file.
+  personId: uuid('person_id'),
+  companyId: uuid('company_id'),
   created: created(),
   lastSignIn: timestamp('last_sign_in', { withTimezone: true }),
 }, (t) => [uniqueIndex('users_email').on(t.email)]).enableRLS();
+
+// What a guest may see and do on one project (src/lib/guests.ts), until a day
+// or until the owner takes it off.
+export const guestAccess = pgTable('guest_access', {
+  id: id(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  can: text('can').array().notNull(),
+  endsOn: date('ends_on'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  removed: timestamp('removed_at', { withTimezone: true }),
+}, (t) => [index('guest_access_user').on(t.userId), index('guest_access_project').on(t.projectId)]).enableRLS();
+
+// Sign-in links for people without a Technical Source Microsoft account (an
+// invite or "email me a link"): only the SHA-256 is kept; one use; they expire.
+export const signInLinks = pgTable('sign_in_links', {
+  id: id(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  tokenHash: text('token_hash').notNull(),
+  purpose: text('purpose').notNull(), // invite / sign_in
+  expires: timestamp('expires_at', { withTimezone: true }).notNull(),
+  used: timestamp('used_at', { withTimezone: true }),
+  usedIp: text('used_ip'),
+  emailedTo: text('emailed_to'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+}, (t) => [uniqueIndex('sign_in_links_hash').on(t.tokenHash), index('sign_in_links_user').on(t.userId)]).enableRLS();
 
 // Who did what, when and how. Never edited or deleted. Sensitive views go here too.
 export const auditLog = pgTable('audit_log', {
@@ -736,6 +770,10 @@ export const vendorIssues = pgTable('vendor_issues', {
   resolvedOn: date('resolved_on'),
   resolution: text('resolution'),
   costToFix: money('cost_to_fix'),
+  // The vendor's own update, from the guest pages ("fixed, please check").
+  vendorNote: text('vendor_note'),
+  vendorNoteAt: timestamp('vendor_note_at', { withTimezone: true }),
+  vendorNoteBy: uuid('vendor_note_by').references(() => users.id),
   reportedBy: uuid('reported_by').references(() => users.id),
   statusChangedAt: timestamp('status_changed_at', { withTimezone: true }).notNull().defaultNow(),
   created: created(),

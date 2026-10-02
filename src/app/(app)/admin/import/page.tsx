@@ -9,7 +9,7 @@ export const metadata = { title: 'Import' };
 export const maxDuration = 120;
 
 export default async function ImportPage() {
-  await requirePage('users.manage');
+  await requirePage('import.run');
   return (
     <div className="stack">
       <PageHead title="Import" sub="Add people, companies, projects, bills and photos from a file Claude prepares (for example from your email and project folders). You see exactly what it adds before anything is saved." />
