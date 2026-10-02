@@ -30,7 +30,7 @@ export const guestTypes = [
   { key: 'supplier', label: 'Supplier', can: ['overview', 'schedule', 'issues'], extras: [] },
   { key: 'designer', label: 'Designer / Engineer / Surveyor', can: ['overview', 'schedule', 'daily_log', 'issues'], extras: [] },
   { key: 'property_manager', label: 'Property Manager', can: ['overview', 'rental', 'daily_log', 'daily_log.add', 'issues'], extras: [] },
-  { key: 'agent', label: 'Real Estate Agent / Broker', can: ['overview', 'schedule'], extras: ['deals'] },
+  { key: 'agent', label: 'Real Estate Agent / Broker', can: ['overview', 'schedule'], extras: ['deals', 'market'] },
   { key: 'wholesaler', label: 'Wholesaler / Deal Source', can: ['overview'], extras: ['deals'] },
   { key: 'lender', label: 'Lender / Loan Officer', can: ['overview', 'schedule', 'daily_log'], extras: [] },
   { key: 'attorney', label: 'Attorney / Title', can: ['overview'], extras: [] },
@@ -41,7 +41,19 @@ export type GuestType = (typeof guestTypes)[number]['key'];
 export const isGuestType = (v: string | null | undefined): v is GuestType => guestTypes.some((t) => t.key === v);
 export const guestTypeLabel = (v: string | null | undefined) => guestTypes.find((t) => t.key === v)?.label ?? 'Outside Partner';
 
-export const guestExtraOptions = [{ key: 'deals', label: 'See the deals they sent us (watchlist leads: address, where it stands)' }] as const;
+export const guestExtraOptions = [
+  { key: 'deals', label: 'See the deals they sent us (watchlist leads: address, where it stands)' },
+  { key: 'market', label: 'See the Market Map (county sales, trends, neighborhoods; never our projects or watchlist)' },
+] as const;
+
+/** The owner's own starting sets per partner type, saved in app_settings. */
+export type PartnerStandards = Partial<Record<string, { can: string[]; extras: string[] }>>;
+/** What a partner type starts with: the owner's if saved, else the built-in one. */
+export function partnerStandard(type: string | null | undefined, standards?: PartnerStandards | null): { can: GuestAbility[]; extras: string[] } {
+  const t = guestTypes.find((x) => x.key === type) ?? guestTypes[guestTypes.length - 1];
+  const saved = standards?.[t.key];
+  return saved ? { can: cleanAbilities(saved.can), extras: cleanExtras(saved.extras) } : { can: [...t.can], extras: [...t.extras] };
+}
 export const cleanExtras = (xs: string[]) => guestExtraOptions.map((o) => o.key).filter((k) => xs.includes(k));
 
 /** Clean the ticked list; adding to the daily log means seeing it; anything means seeing the project. */

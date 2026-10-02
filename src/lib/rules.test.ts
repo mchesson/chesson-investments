@@ -112,3 +112,12 @@ test('admins run the app but not restricted records; only the owner manages owne
   assert.match(mayManage(admin, admin)!, /your own/);
   assert.equal(mayManage(admin, staff, 'accountant'), null);
 });
+
+test('a role standard set: the owner one if saved; a person own ticks win', async () => {
+  const { effectivePermissions, roleStandard } = await import('./permissions');
+  assert.ok(roleStandard('staff').includes('contacts.edit'));
+  assert.deepEqual(roleStandard('staff', { staff: ['contacts.view', 'bogus'] }), ['contacts.view']);
+  assert.deepEqual(effectivePermissions('staff', null, { staff: ['projects.view'] }), ['projects.view']);
+  assert.deepEqual(effectivePermissions('staff', ['money.view'], { staff: ['projects.view'] }), ['money.view']);
+  assert.equal(effectivePermissions('owner', [], { staff: [] }).length > 10, true);
+});

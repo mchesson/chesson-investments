@@ -33,5 +33,13 @@ test('every outside type starts with abilities that exist, and only agents and w
     assert.ok(t.can.includes('overview'), t.key);
   }
   assert.deepEqual(guestTypes.filter((t) => t.extras.length).map((t) => t.key), ['agent', 'wholesaler']);
-  assert.deepEqual(cleanExtras(['deals', 'bogus']), ['deals']);
+  assert.deepEqual(cleanExtras(['market', 'deals', 'bogus']), ['deals', 'market']);
+});
+
+test('the owner standard per type wins over the built-in one', async () => {
+  const { partnerStandard } = await import('./guests');
+  assert.deepEqual(partnerStandard('agent'), { can: ['overview', 'schedule'], extras: ['deals', 'market'] });
+  assert.deepEqual(partnerStandard('agent', { agent: { can: ['overview'], extras: ['market'] } }), { can: ['overview'], extras: ['market'] });
+  assert.deepEqual(partnerStandard('gc', { agent: { can: [], extras: [] } }).can.length, 5);
+  assert.equal(partnerStandard('nonsense').can[0], 'overview');
 });

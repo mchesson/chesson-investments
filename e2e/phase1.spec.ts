@@ -769,7 +769,7 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
   const again = page.locator('.user-card', { hasText: 'accountant@example.com' });
   await again.getByText(/What They Can Do/).click();
   await again.getByRole('button', { name: /Back to the Accountant Standard Set/ }).click();
-  await expect(again.getByText('Using the Accountant standard set.')).toBeVisible();
+  await expect(again.getByText(/Using the Accountant standard set/)).toBeVisible();
   await a.goto('/people');
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();
@@ -849,4 +849,49 @@ test('outside partner types: a wholesaler sees only the deals they sent us', asy
   const deals = g.locator('section', { hasText: 'Deals You Sent Us' });
   await expect(deals).toContainText(`${s} Deal Rd`);
   await expect(g.locator('body')).not.toContainText('123,456'); // never our offer
+  // No Market Map for a wholesaler unless it's ticked.
+  expect((await g.request.get('/api/market/points?bbox=-79,35.5,-78.5,36.2')).status()).toBe(403);
+});
+
+test('standard access by type: a role standard everyone follows, and an agent with the Market Map', async ({ page, browser }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  await page.goto('/admin/users');
+  // The Accountant standard: add People and Companies; the sample accountant follows it.
+  const acc = page.locator('.user-card', { hasText: /^Accountant/ }).filter({ has: page.getByText('Change the Accountant Standard') });
+  await acc.getByText('Change the Accountant Standard').click();
+  await acc.getByLabel('See people and companies').check();
+  await acc.getByRole('button', { name: 'Save the Accountant Standard' }).click();
+  await expect(acc.getByText(/Everyone who is Accountant without their own ticks has this now/)).toBeVisible();
+  const ctx = await browser.newContext();
+  const a = await ctx.newPage();
+  await signIn(a, 'Sample Accountant');
+  await a.goto('/people');
+  await expect(a.getByRole('heading', { level: 1, name: 'People' })).toBeVisible();
+  await page.reload();
+  const acc2 = page.locator('.user-card').filter({ has: page.getByText('Change the Accountant Standard') });
+  await acc2.getByText('Change the Accountant Standard').click();
+  await acc2.getByRole('button', { name: 'Back to the Built-In Standard' }).click();
+  await expect(page.locator('.user-card').filter({ has: page.getByText('Change the Accountant Standard') })).toContainText('built-in standard');
+  await a.goto('/people');
+  await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
+  await ctx.close();
+
+  // An agent: the Market Map is in their standard; they see it, never our projects layer.
+  const inv = page.locator('form:has(button:text("Invite Them"))');
+  await inv.locator('input[name=email]').fill(`ava${s}@realty.example`);
+  await choose(inv, 'guestType', 'agent');
+  await expect(inv.locator('input[name=extra][value=market]')).toBeChecked();
+  await inv.locator('label.role-btn', { hasText: '109 Plainview Ave' }).click();
+  await inv.getByRole('button', { name: 'Invite Them' }).click();
+  const link = await inv.locator('.copy-link input').inputValue();
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  await g.getByRole('button', { name: 'Sign In' }).click();
+  await g.waitForURL(/\/guest$/);
+  await g.getByRole('link', { name: 'Market Map' }).click();
+  await expect(g.getByRole('heading', { level: 1, name: 'Market Map' })).toBeVisible();
+  await expect(g.getByRole('button', { name: 'Each Sale' })).toBeVisible();
+  await expect(g.getByRole('button', { name: 'Our Projects' })).toHaveCount(0);
+  expect((await g.request.get('/api/market/points?bbox=-79,35.5,-78.5,36.2')).status()).toBe(200);
 });
