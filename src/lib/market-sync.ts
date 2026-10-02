@@ -119,3 +119,41 @@ export async function lastSyncs() {
     select distinct on (county) id, county, status, created_at as started, finished_at as finished, parcels, new_sales, "offset", total, error
     from ${marketSyncs} order by county, created_at desc`).then((r) => r.rows);
 }
+
+/** The county parcel at a point on the map (staff only: it names the owner). */
+export async function parcelAt(lat: number, lng: number) {
+  for (const src of [sources.wake, sources.durham]) {
+    const q = new URLSearchParams({
+      geometry: `${lng},${lat}`, geometryType: 'esriGeometryPoint', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+      outFields: src.fields.join(','), returnGeometry: 'false', returnCentroid: 'true', outSR: '4326', resultRecordCount: '1', f: 'json',
+    });
+    const j = await getJson(`${src.url}?${q}`).catch(() => null);
+    const f = j?.features?.[0];
+    if (f) {
+      // Every residential and land parcel maps; anything else still answers with its address and owner.
+      const row = src.map(f);
+      const a = f.attributes;
+      return {
+        county: src.label, address: row?.address ?? String(a[src.addressField] ?? ''), city: row?.city ?? null,
+        owner: row?.ownerName ?? (typeof a.OWNER === 'string' ? a.OWNER : typeof a.PROPERTY_OWNER === 'string' ? a.PROPERTY_OWNER : null),
+        absentee: row?.absentee ?? null, landUse: row?.landUse ?? 'other', heatedSf: row?.heatedSf ?? null, yearBuilt: row?.yearBuilt ?? null,
+        acres: row?.acres ?? null, assessedValue: row?.assessedValue ?? null, lastSalePrice: row?.lastSalePrice ?? null, lastSaleOn: row?.lastSaleOn ?? null,
+        neighborhood: row?.neighborhood ?? null, lat: f.centroid?.y ?? lat, lng: f.centroid?.x ?? lng,
+      };
+    }
+  }
+  return null;
+}
+
+/** Addresses on the county parcels that start with what was typed (for "Go to an address"). */
+export async function countyAddressSearch(text: string) {
+  const a = normalizeAddress(text);
+  if (!a || a.length < 4 || !/^\d/.test(a)) return [];
+  const out: { label: string; lat: number; lng: number }[] = [];
+  for (const src of [sources.wake, sources.durham]) {
+    const q = new URLSearchParams({ where: `${src.addressField} LIKE '${a.replace(/'/g, "''")}%'`, outFields: `${src.addressField},${src.cityField}`, returnGeometry: 'false', returnCentroid: 'true', outSR: '4326', resultRecordCount: '5', f: 'json' });
+    const j = await getJson(`${src.url}?${q}`).catch(() => null);
+    for (const f of j?.features ?? []) if (f.centroid) out.push({ label: `${f.attributes[src.addressField]}, ${String(f.attributes[src.cityField] ?? '').replace(/\b\w/g, (c) => c.toUpperCase())}`, lat: f.centroid.y, lng: f.centroid.x });
+  }
+  return out.slice(0, 8);
+}
