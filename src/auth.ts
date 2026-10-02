@@ -1,3 +1,4 @@
+import { audit } from '@/lib/audit';
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id';
@@ -54,7 +55,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ...(role === 'owner' ? { role: 'owner' as const } : {}),
           },
         })
-        .returning();
+        .returning({ id: users.id, active: users.active, role: users.role, inserted: sql<boolean>`(xmax = 0)` });
+      // Every sign-in is in History (who, when, and whether access was given).
+      await audit({ userId: u.id, entity: 'user', entityId: u.id, action: u.inserted ? 'create' : 'sign-in',
+        summary: u.inserted ? `signed in for the first time (${u.role === 'owner' ? 'owner' : 'waiting for access'})` : u.active ? 'signed in' : 'tried to sign in (access is off)', via: 'Microsoft sign-in' });
       return u.active;
     },
   },
