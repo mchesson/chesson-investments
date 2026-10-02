@@ -4,6 +4,8 @@ import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
+import { bidsFromCompany } from '@/lib/bid-data';
+import { formatCents } from '@/lib/format';
 import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
 import { RecordManage } from '@/components/RecordManage';
 import { isUuid } from '@/lib/forms';
@@ -45,6 +47,10 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           {tab === 'overview' ? (
             <div className="stack">
               {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
+              {seeMoney ? await (async () => { const bs = await bidsFromCompany(id); return bs.length ? (
+                <Section title="Bids They’ve Sent" kind="blue" hint={`${bs.length}`}>
+                  <ul className="rows">{bs.map((b) => <li key={b.id}><Link href={`/projects/${b.projectId}?tab=budget`}>{b.projectName}</Link> · {formatCents(b.totalCents)}{b.submittedOn ? ` · ${formatDate(b.submittedOn)}` : ''} <span className="small muted">{b.status === 'selected' ? 'Won' : b.status === 'declined' ? 'Declined' : 'Open'}</span></li>)}</ul>
+                </Section>) : null; })() : null}
               <Section title="What They Do" kind="blue" hint="The company’s type. Its people have their own roles."><RolesPanel items={roles} companyId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
               {subs.length ? (
                 <Section title="Subs and Suppliers Through Them" kind="aqua" hint="Their invoices come through this GC">

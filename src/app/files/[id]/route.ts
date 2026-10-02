@@ -7,7 +7,7 @@ import { isUuid } from '@/lib/forms';
 import { getObject } from '@/lib/storage';
 
 // Who may open a file depends on what it belongs to.
-const need: Record<string, Permission> = { property: 'properties.view', project: 'projects.view', daily_log: 'projects.view', bill: 'money.view' };
+const need: Record<string, Permission> = { property: 'properties.view', project: 'projects.view', daily_log: 'projects.view', bill: 'money.view', bid: 'money.view' };
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

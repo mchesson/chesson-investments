@@ -252,3 +252,10 @@ export function utilityWorkFor(by: { personId?: string; companyId?: string }) {
     .from(projectUtilities).innerJoin(projects, eq(projects.id, projectUtilities.projectId))
     .where(and(by.personId ? eq(projectUtilities.personId, by.personId) : eq(projectUtilities.companyId, by.companyId!), isNull(projectUtilities.removed), isNull(projects.archived)));
 }
+
+/** Companies to pick for a bid: general contractors first. */
+export function gcCompanyOptions() {
+  return db.select({ id: companies.id, name: companies.name,
+    gc: sql<boolean>`exists (select 1 from ${partyRoles} r where r.company_id = ${companies.id} and r.removed_at is null and r.role = 'gc')` })
+    .from(companies).where(isNull(companies.archived)).orderBy(asc(companies.name)).limit(2000);
+}

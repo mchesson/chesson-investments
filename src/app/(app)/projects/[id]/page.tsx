@@ -4,6 +4,9 @@ import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { activeStaff, companyOptions, historyFor, peopleOptions, tasksForRecord, utilitiesFor, utilityCompanyOptions } from '@/lib/contacts';
 import { Utilities } from '@/components/Utilities';
+import { BudgetBids } from '@/components/BudgetBids';
+import { bidsFor } from '@/lib/bid-data';
+import { gcCompanyOptions } from '@/lib/contacts';
 import { dailyLogsFor, projectMoney } from '@/lib/projects';
 import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
@@ -51,7 +54,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   ];
   return (
     <>
-      <PageHead eyebrow="Project" title={p.name} sub={<><span className="chip blue">{projectStageLabel(p.stage)}</span> {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<><span className="chip blue">{projectStageLabel(p.stage)}</span> {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       <div className="record">
         <div className="card-side">
@@ -78,7 +81,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <Tabs base={base} current={tab} tabs={tabs} />
           {missed.length && tab !== 'schedule' ? <div className="notice error"><strong>{missed.length} missed {missed.length === 1 ? 'commitment' : 'commitments'}</strong>: {missed.map((a) => `${a.description} (${a.who ?? responsibleLabel(a.responsible)})`).join('; ')}. <Link href={`${base}?tab=schedule`}>Schedule</Link></div> : null}
           {tab === 'overview' ? <Overview data={data} seeMoney={seeMoney} openItems={openItems.length} edit={editProject} /> : null}
-          {tab === 'budget' && seeMoney ? <><BudgetStages projectId={id} codes={data.codes} current={new Map(data.codes.map((c) => [c.id, data.money.get(c.id)?.budget ?? 0]))} sched={sched} canEdit={editProject} canApprove={can(user.role, 'users.manage')} /><Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /></> : null}
+          {tab === 'budget' && seeMoney ? <><BudgetBids projectId={id} codes={data.codes} bids={await bidsFor(id)} heatedSf={p.heatedSf} companies={await gcCompanyOptions()} canEdit={editProject} canChoose={can(user.role, 'users.manage')} /><BudgetStages projectId={id} codes={data.codes} current={new Map(data.codes.map((c) => [c.id, data.money.get(c.id)?.budget ?? 0]))} sched={sched} canEdit={editProject} canApprove={can(user.role, 'users.manage')} /><Budget data={data} edit={editProject && editParam === '1'} canEdit={editProject} /></> : null}
           {tab === 'commitments' && seeMoney ? <Commitments data={data} edit={editProject} /> : null}
           {tab === 'bills' && seeMoney ? <Bills data={data} role={user.role} /> : null}
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}

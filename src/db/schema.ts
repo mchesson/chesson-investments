@@ -3,9 +3,12 @@
 // anon / authenticated roles get nothing (see CLAUDE.md "Security").
 
 import {
-  boolean, customType, date, index, integer, jsonb, numeric, pgEnum, pgTable,
+  boolean, customType, date, index, integer, jsonb, numeric, pgEnum, pgSequence, pgTable,
   text, timestamp, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+export const projectNumberSeq = pgSequence('project_number', { startWith: 1001 });
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 const money = (name: string) => numeric(name, { precision: 14, scale: 2 });
@@ -245,6 +248,8 @@ export const projectStage = pgEnum('project_stage', [
 
 export const projects = pgTable('projects', {
   id: id(),
+  // P-1001 and up, from its own sequence, assigned once and never reused.
+  projectNumber: integer('project_number').default(sql`nextval('project_number')`),
   name: text('name').notNull(),
   address: text('address').notNull(),
   city: text('city'),
@@ -309,7 +314,7 @@ export const projects = pgTable('projects', {
   created: created(),
   updated: updated(),
   archived: archived(),
-}, (t) => [uniqueIndex('projects_site_slug').on(t.siteSlug)]).enableRLS();
+}, (t) => [uniqueIndex('projects_site_slug').on(t.siteSlug), uniqueIndex('projects_number').on(t.projectNumber)]).enableRLS();
 
 export const costCodes = pgTable('cost_codes', {
   id: id(),
@@ -495,8 +500,20 @@ export const budgetVersions = pgTable('budget_versions', {
   kind: text('kind').notNull(), // rough | design | approved
   label: text('label'),
   preparedBy: text('prepared_by'),
-  lines: jsonb('lines').notNull(), // [{ costCodeId, cents }]
+  lines: jsonb('lines').notNull(), // [{ costCodeId, cents, note? }]
   totalCents: integer('total_cents').notNull(),
+  // A GC's bid (kind 'bid') or our own estimate (kind 'ours'), Oct 2, 2026:
+  // who sent it, when, the terms, and whether it won.
+  companyId: uuid('company_id').references(() => companies.id),
+  personId: uuid('person_id').references(() => people.id),
+  submittedOn: date('submitted_on'),
+  contractType: text('contract_type'), // fixed | cost_plus
+  feePct: numeric('fee_pct', { precision: 5, scale: 2 }),
+  validUntil: date('valid_until'),
+  status: text('status'), // open | selected | declined
+  decidedBy: uuid('decided_by').references(() => users.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  decidedReason: text('decided_reason'),
   approvedBy: uuid('approved_by').references(() => users.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
   notes: text('notes'),

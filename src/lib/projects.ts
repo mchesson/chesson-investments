@@ -10,7 +10,7 @@ import { countsTowardBudget, countsTowardHolding } from './bill-lines';
 export function listProjects() {
   return db.select({
     id: projects.id, name: projects.name, address: projects.address, city: projects.city, stage: projects.stage,
-    heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
+    projectNumber: projects.projectNumber, heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
   }).from(projects).where(isNull(projects.archived)).orderBy(asc(projects.name));
 }
 
