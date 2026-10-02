@@ -769,6 +769,7 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
   const again = page.locator('.user-card', { hasText: 'accountant@example.com' });
   await again.getByText(/What They Can Do/).click();
   await again.getByRole('button', { name: /Back to the Accountant Standard Set/ }).click();
+  await expect(again.getByText('Using the Accountant standard set.')).toBeVisible();
   await a.goto('/people');
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();

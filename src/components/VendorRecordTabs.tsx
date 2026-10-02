@@ -33,7 +33,6 @@ export async function ProjectVendors({ projectId, status, canEdit }: { projectId
   const [vs, issues, staff, everyone, ps] = await Promise.all([vendorsOnProject(projectId), issuesFor({ projectId }), activeStaff(), peopleOptions(), projectOptions()]);
   const base = { projects: ps, staff: staff.map((u) => ({ id: u.id, name: u.name ?? u.email })), everyone: everyone.map((p) => ({ id: p.id, name: p.name, sub: p.companyName })) };
   const whoOf = (v: (typeof vs)[number]) => (v.companyId ? { companyId: v.companyId } : { personId: v.personId! });
-  const theirsOf = (v: (typeof vs)[number]) => (v.companyId ? everyone.filter((p) => p.companyName === v.name).map((p) => ({ id: p.id, name: p.name })) : [{ id: v.personId!, name: v.name }]);
   return (
     <div className="stack">
       <Section title="Vendors on This Job" kind="blue" hint="Grade each one when their work is done, always with why">
@@ -49,7 +48,7 @@ export async function ProjectVendors({ projectId, status, canEdit }: { projectId
                 {canEdit ? (
                   <div className="issue-actions">
                     <details className="fold"><summary>{g ? 'Grade Again' : 'Grade Them'}</summary><GradeForm who={whoOf(v)} projectId={projectId} /></details>
-                    <details className="fold"><summary>Open an Issue</summary><IssueForm who={whoOf(v)} projectId={projectId} theirs={theirsOf(v)} {...base} /></details>
+                    <Link className="btn small secondary" href={`${href}?tab=issues`}>Open an Issue</Link>
                   </div>
                 ) : null}
               </div>
