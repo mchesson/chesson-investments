@@ -527,3 +527,90 @@ test('like names: a nickname or typo stops and asks, and Possible Duplicates lis
   await pair.getByRole('button', { name: 'Not the Same' }).click();
   await expect(page.locator('.dup-rows li', { hasText: `Robert Smithers${s}` })).toHaveCount(0);
 });
+
+test('grades with a justification, D or below is Do Not Use unless overridden, and issues by status with days to fix', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({
+    companies: [{ name: `Tile${s} Pros`, role: 'sub', trade: 'Tile' }],
+    people: [{ name: `Tess Tiler${s}`, company: `Tile${s} Pros`, title: 'Owner' }],
+    bills: [{ project: '109 Plainview Ave', vendor: `Tile${s} Pros`, number: `T${s}`, date: '2026-09-01', lines: [{ kind: 'build', costCode: '01', amount: '900.00' }] }],
+  });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'tile.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await page.goto(`/companies?q=Tile${s}`);
+  await page.getByRole('link', { name: `Tile${s} Pros`, exact: true }).click();
+  await page.waitForURL(/\/companies\/[0-9a-f-]{36}/);
+  const companyUrl = page.url().split('?')[0];
+
+  // A grade needs a justification.
+  await page.locator('.tabs').getByRole('link', { name: 'Grades' }).click();
+  await choose(page, 'grade', 'D');
+  await page.locator('select[name=projectId]').selectOption({ label: '109 Plainview Ave' });
+  await page.locator('textarea[name=justification]').fill('Short.');
+  await page.locator('textarea[name=justification]').evaluate((el: HTMLTextAreaElement) => el.removeAttribute('minlength'));
+  await page.getByRole('button', { name: 'Save the Grade' }).click();
+  await expect(page.getByText(/Say why they got D/)).toBeVisible();
+  await page.locator('textarea[name=justification]').fill('Grout lines uneven in both baths; had to come back twice and still left a cracked tile.');
+  await page.getByRole('button', { name: 'Save the Grade' }).click();
+  await expect(page.locator('.dnu-banner')).toContainText('Overall grade D from 1 job');
+  await expect(page.locator('.grade-card')).toContainText('Grout lines uneven');
+
+  // Kept usable anyway, with why.
+  await page.getByText('Keep Them Usable Anyway (Override)').click();
+  await page.locator('textarea[name=reason]').fill('Only tile crew free this month; owner approved');
+  await page.getByRole('button', { name: 'Keep Them Usable' }).click();
+  await expect(page.locator('.dnu-banner')).toHaveCount(0);
+  await expect(page.getByText(/Kept usable despite the grade/)).toBeVisible();
+
+  // An issue: open, then fixed, with who was involved and the days to fix.
+  await page.goto(`${companyUrl}?tab=issues`);
+  await page.locator('input[name=title]').fill(`Cracked tile in hall bath ${s}`);
+  await choose(page, 'severity', 'high');
+  await page.locator('input[name=reportedOn]').fill('2026-09-01');
+  await page.locator('label.role-btn', { hasText: `Tess Tiler${s}` }).click();
+  await page.locator('label.role-btn', { hasText: 'Sample Owner (us)' }).click();
+  await page.getByRole('button', { name: 'Open the Issue' }).click();
+  const card = page.locator('.issue-card', { hasText: `Cracked tile in hall bath ${s}` });
+  await expect(card).toContainText(`Tess Tiler${s}`);
+  await expect(card).toContainText('open so far');
+  await expect(page.locator('.status-tab[aria-current=page]')).toContainText('All Open');
+  await card.getByText('Move It').click();
+  await choose(card, 'status', 'resolved');
+  await card.locator('input[name=resolvedOn]').fill('2026-09-11');
+  await card.locator('textarea[name=resolution]').fill('Replaced the tile and regrouted at no charge');
+  await card.getByRole('button', { name: 'Move' }).click();
+  await page.locator('.status-tab[data-k=resolved]').click();
+  const fixed = page.locator('.issue-card', { hasText: `Cracked tile in hall bath ${s}` });
+  await expect(fixed).toContainText('10 days to fix');
+  await expect(fixed).toContainText('Replaced the tile');
+
+  await page.goto(`${companyUrl}?tab=history`);
+  await expect(page.getByText(/graded them D on 109 Plainview Ave/).first()).toBeVisible();
+  await expect(page.getByText(/marked them Do Not Use: Overall grade D/).first()).toBeVisible();
+  await expect(page.getByText(/moved issue #\d+ from Open to Fixed/).first()).toBeVisible();
+
+  // The job's Vendors tab shows them with their grade.
+  await page.goto('/projects');
+  await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
+  await page.locator('.tabs').getByRole('link', { name: 'Vendors and Issues' }).click();
+  await expect(page.locator('.grade-card').filter({ has: page.getByRole('link', { name: `Tile${s} Pros`, exact: true }) }).locator('.grade-why')).toContainText('Grout lines uneven');
+});
+
+test('agents: the areas they specialize in', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  await page.goto('/people/new');
+  await page.getByLabel('First Name', { exact: true }).fill('Ava');
+  await page.getByLabel('Last Name', { exact: true }).fill(`Agent${s}`);
+  await page.getByLabel('Real Estate Agent / Broker', { exact: true }).check();
+  await page.locator('input[name=areas]').fill('Five Points, Oakwood');
+  await expect(page.locator('input[name=city]')).toHaveAttribute('list', 'city-options');
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByText('Specializes in Five Points, Oakwood')).toBeVisible();
+  await page.goto(`/people?roles=agent&q=Agent${s}`);
+  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText('Specializes in Five Points, Oakwood');
+});

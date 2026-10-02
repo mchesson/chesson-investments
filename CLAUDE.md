@@ -73,6 +73,21 @@ tested); "Different person / company" saves anyway (History). The import
 preview flags them; admins see every pair at /admin/duplicates (Not the Same).
 `ActionForm` keeps what was typed when a save shows an error.
 Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
+**Grades and Issues** (owner, Oct 2, 2026) for every contractor and vendor
+(company, or a person with a vendor role: `vendorRoleKeys` in roles.ts): a
+grade per job (A–F, optional parts) with a **required justification**
+(`grades`; rules in src/lib/grades.ts, tested); the overall grade is the
+average, and D or below marks them Do Not Use ("Overall grade D from 2 jobs",
+via grade rule) unless kept usable with a reason (`grade_override`); a Do Not
+Use set by hand is never cleared by a grade. **Issues** (`vendor_issues`, #101
+up; `issue_people` for who was involved, theirs and ours): a tab per status
+(Open, Being Fixed, Waiting on Them, Fixed, Closed Without a Fix; src/lib/issues.ts),
+days to fix (reported → fixed, or open so far), overdue, cost to fix; closing
+needs how it was fixed. Tabs on the company and person pages, and the
+project's **Vendors and Issues** tab (everyone on the job, graded there).
+Agents' **areas they specialize in** are their role's `areas`, shown on their
+page and the People list. City, state, neighborhood and area fields suggest as
+you type (`PlaceLists` in the app layout; src/lib/places.ts).
 Every page is framed sections with a colored heading band (`<Section kind>` in
 `src/components/ui.tsx`): **blue** details and money, **aqua** places,
 properties and documents, **energy** notes, touches and follow-ups, **grey**

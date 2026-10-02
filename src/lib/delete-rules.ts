@@ -4,7 +4,7 @@
 // companies has no rule here. Pure.
 //   delete: belongs to the record (its roles, touches, tasks, list places)
 //   clear:  another record only mentions it (set the column empty)
-//   block:  money history (bills, commitments): archive instead
+//   block:  money and track-record history (bills, commitments, grades, issues): archive instead
 export type Rule = { table: string; column: string; does: 'delete' | 'clear' | 'block'; label: string };
 
 export const deleteRules: Record<'person' | 'company', Rule[]> = {
@@ -24,6 +24,9 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'budget_versions', column: 'person_id', does: 'block', label: 'bids from them' },
     { table: 'rentals', column: 'manager_person_id', does: 'clear', label: 'rentals they manage (who only)' },
     { table: 'rental_contacts', column: 'person_id', does: 'delete', label: 'places as a rental’s manager contact' },
+    { table: 'grades', column: 'person_id', does: 'block', label: 'grades for their work' },
+    { table: 'vendor_issues', column: 'person_id', does: 'block', label: 'issues with them' },
+    { table: 'issue_people', column: 'person_id', does: 'delete', label: 'places as someone involved in an issue' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },
@@ -38,6 +41,8 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'budget_versions', column: 'company_id', does: 'block', label: 'bids from them' },
     { table: 'rentals', column: 'manager_company_id', does: 'clear', label: 'rentals they manage (company only)' },
     { table: 'loans', column: 'lender_company_id', does: 'clear', label: 'loans from them (the lender link only)' },
+    { table: 'grades', column: 'company_id', does: 'block', label: 'grades for their work' },
+    { table: 'vendor_issues', column: 'company_id', does: 'block', label: 'issues with them' },
   ],
 };
 

@@ -283,3 +283,48 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .choice-opt input:checked + span::before { content: '✓ '; }
 .choice-opt input:focus-visible + span { outline: 3px solid var(--aqua); outline-offset: 2px; }
 .fields > fieldset.choice { grid-column: 1 / -1; }
+
+/* Grades: a colored letter per job and overall */
+.grade-badge { display: inline-grid; place-items: center; width: 2.4rem; height: 2.4rem; border-radius: 10px; font-family: 'Vollkorn Variable', serif; font-weight: 700; font-size: 1.35rem; color: #fff; flex: none; vertical-align: middle; }
+.grade-badge.sm { width: 1.7rem; height: 1.7rem; font-size: 1rem; border-radius: 7px; }
+.grade-badge.lg { width: 4rem; height: 4rem; font-size: 2.3rem; border-radius: 14px; }
+.grade-badge.none { background: #eef1f4; color: #888; border: 1px dashed #c9ced4; }
+.grade-badge.g-A { background: var(--aqua-deep); }
+.grade-badge.g-B { background: var(--true-blue); }
+.grade-badge.g-C { background: var(--energy-deep); }
+.grade-badge.g-D { background: #c2610c; }
+.grade-badge.g-F { background: var(--red); }
+.grade-overall { display: flex; gap: 16px; align-items: center; }
+.grade-list, .vendor-grade-list, .issue-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.grade-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--hair); border-radius: 10px; background: #fff; }
+.grade-body { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.grade-why { margin: 0; white-space: pre-wrap; }
+.grade-parts { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Issues: a tab per status, a card per issue colored by how serious it is */
+.status-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.status-tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; border: 1.5px solid #dbe8b0; background: #fff; color: var(--energy-deep); font-weight: 600; font-size: .86rem; text-decoration: none; white-space: nowrap; }
+.status-tab .count { display: inline-block; min-width: 1.4em; padding: 0 6px; border-radius: 999px; background: #eef5d3; font-size: .78rem; text-align: center; }
+.status-tab:hover { background: #f6faea; }
+.status-tab[aria-current='page'] { background: var(--energy-deep); border-color: var(--energy-deep); color: #fff; }
+.status-tab[aria-current='page'] .count { background: rgba(255,255,255,.25); color: #fff; }
+.issue-card { padding: 12px 14px; border: 1px solid var(--hair); border-left: 5px solid #c9ced4; border-radius: 10px; background: #fff; display: grid; gap: 6px; }
+.issue-card[data-sev='high'] { border-left-color: var(--red); }
+.issue-card[data-sev='medium'] { border-left-color: #c2610c; }
+.issue-card[data-sev='low'] { border-left-color: var(--energy); }
+.issue-card[data-status='resolved'], .issue-card[data-status='wont_fix'] { background: var(--mist); }
+.issue-head { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.issue-no { font-weight: 700; color: var(--muted); }
+.issue-title { flex: 1; min-width: 180px; }
+.issue-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #555; }
+.issue-time b { color: var(--ink); }
+.issue-details { margin: 0; white-space: pre-wrap; }
+.issue-who { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.issue-actions { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.issue-actions > details { flex: 1 1 260px; }
+.chip.sev-high, .chip.red-chip { background: #fdecea; border-color: #f2b8b5; color: var(--red); }
+.chip.sev-medium { background: #fdf0e3; border-color: #f2c99c; color: #9a4d09; }
+.chip.sev-low { background: #f1f7dc; border-color: #d8e8a6; color: var(--energy-deep); }
+.chip.status { background: #e5f0f9; border-color: #b9d6ee; color: #0a5a95; }
+.specialty { color: var(--aqua-deep); }
+.sub-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

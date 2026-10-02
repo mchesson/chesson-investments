@@ -73,3 +73,12 @@ test('photos are copied only from our own old website', () => {
   assert.ok(!allowedPhotoUrl('https://user@chessoninvestments.com/a.jpg'));
   assert.ok(!allowedPhotoUrl('not a url'));
 });
+
+test('cities and states fill in', async () => {
+  const { US_STATES, cityList } = await import('./places');
+  assert.equal(US_STATES.length, 51);
+  const list = cityList(['raleigh', 'Asheville', null, 'Asheville ']);
+  assert.equal(list[0], 'Raleigh');
+  assert.equal(list.filter((c) => c.toLowerCase() === 'raleigh').length, 1);
+  assert.equal(list.filter((c) => c === 'Asheville').length, 1);
+});

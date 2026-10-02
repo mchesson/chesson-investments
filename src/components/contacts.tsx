@@ -48,7 +48,7 @@ export function RoleFields({ prefix = '' }: { prefix?: string }) {
   return (
     <div className="fields">
       <label className="f">Trade or Specialty<span className="h">Contractors, suppliers, designers</span><input name={`${prefix}trade`} placeholder="Framing, plumbing…" /></label>
-      <label className="f">Areas<input name={`${prefix}areas`} placeholder="Raleigh, Durham, Wake County" /></label>
+      <label className="f">Areas They Cover<span className="h">Agents: the areas they specialize in (cities, neighborhoods, ZIPs)</span><input name={`${prefix}areas`} list="area-options" placeholder="Five Points, Oakwood, Durham 27705" /></label>
       <label className="f">License #<input name={`${prefix}licenseNumber`} /></label>
     </div>
   );
@@ -69,8 +69,9 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                   <span className={`small ${r.stage === 'avoid' ? 'red' : 'muted'}`}>Where we are with them: {stageLabel(r.role, r.stage)} (since {formatDate(r.stageChangedAt.toISOString())})</span>
                 </div>
                 {r.hiredThroughCompanyId ? <div className="small">Through <Link href={`/companies/${r.hiredThroughCompanyId}`}>{r.hiredThroughName ?? 'the GC'}</Link> (bills come through the GC)</div> : null}
-                {r.trade || r.areas || r.licenseNumber ? (
-                  <div className="small">{[r.trade, r.areas, r.licenseNumber ? `License ${r.licenseNumber}` : null].filter(Boolean).join(' · ')}</div>
+                {r.role === 'agent' ? <div className="small specialty">{r.areas ? <>Specializes in <strong>{r.areas}</strong></> : <span className="muted">Areas they specialize in: not recorded yet (Change to add them)</span>}</div> : null}
+                {r.trade || (r.areas && r.role !== 'agent') || r.licenseNumber ? (
+                  <div className="small">{[r.trade, r.role !== 'agent' ? r.areas : null, r.licenseNumber ? `License ${r.licenseNumber}` : null].filter(Boolean).join(' · ')}</div>
                 ) : null}
                 {r.notes ? <div className="small muted">{r.notes}</div> : null}
                 {canEdit ? (
@@ -81,7 +82,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                       <div className="fields">
                         <Choice name="stage" label="Where We Are With Them" options={def?.stages ?? []} defaultValue={r.stage} />
                         {def?.trade ? <label className="f">Trade<input name="trade" defaultValue={r.trade ?? ''} /></label> : <input type="hidden" name="trade" value={r.trade ?? ''} />}
-                        <label className="f">Areas<input name="areas" defaultValue={r.areas ?? ''} /></label>
+                        <label className="f">{r.role === 'agent' ? 'Areas They Specialize In' : 'Areas They Cover'}{r.role === 'agent' ? <span className="h">Cities, neighborhoods, ZIPs</span> : null}<input name="areas" list="area-options" defaultValue={r.areas ?? ''} /></label>
                         {def?.trade ? <label className="f">License #<input name="licenseNumber" defaultValue={r.licenseNumber ?? ''} /></label> : <input type="hidden" name="licenseNumber" value={r.licenseNumber ?? ''} />}
                       </div>
                       {r.role === 'supplier' ? <><input type="hidden" name="hasSupplierTypes" value="1" /><SupplierTypePicker selected={r.supplierTypes ?? []} hint={false} /></> : null}

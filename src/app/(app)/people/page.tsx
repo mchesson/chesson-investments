@@ -80,7 +80,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                     <td>{p.title ?? '—'}</td>
                     <td>{p.companyName ? <><Link href={`/companies/${p.companyId}`}>{p.companyName}</Link>{p.companyTypes.length ? <div className="small muted">{p.companyTypes.map(roleTag).join(' · ')}</div> : null}</> : '—'}</td>
                     <td>{p.introducedById ? <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link> : '—'}</td>
-                    <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} /></td>
+                    <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} />{p.roles.filter((r) => r.role === 'agent' && r.areas).map((r, i) => <div key={i} className="small specialty">Specializes in {r.areas}</div>)}</td>
                     <td><Phone value={p.phone} /></td>
                     <td>{p.lastTouch ? formatDate(p.lastTouch) : <span className="muted">Never</span>}</td>
                   </tr>

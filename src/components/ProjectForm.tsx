@@ -12,10 +12,10 @@ export function ProjectForm({ project }: { project?: P }) {
         <div className="body fields">
           <label className="f">Project Name<span className="h">Usually the address</span><input name="name" defaultValue={project?.name ?? ''} /></label>
           <label className="f">Address<input name="address" required defaultValue={project?.address} /></label>
-          <label className="f">City<input name="city" defaultValue={project?.city ?? 'Raleigh'} /></label>
-          <label className="f">State<input name="state" defaultValue={project?.state ?? 'NC'} /></label>
+          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={project?.city ?? 'Raleigh'} /></label>
+          <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={project?.state ?? 'NC'} /></label>
           <label className="f">ZIP<input name="zip" defaultValue={project?.zip ?? ''} /></label>
-          <label className="f">Neighborhood<input name="neighborhood" defaultValue={project?.neighborhood ?? ''} /></label>
+          <label className="f">Neighborhood<input name="neighborhood" list="neighborhood-options" defaultValue={project?.neighborhood ?? ''} /></label>
           <label className="f">Owned By<span className="h">The entity on the deed</span><input name="ownedBy" defaultValue={project?.ownedBy ?? 'Chesson Investments, LLC'} /></label>
           {project ? null : <label className="f">Starting Stage<span className="h">After this, change stages with the buttons at the top of the project</span><select name="stage" defaultValue="under_contract">{projectStages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>}
         </div>

@@ -16,8 +16,8 @@ export function CompanyForm({ company, defaultRole }: { company?: C; defaultRole
           <label className="f">Website<input name="website" defaultValue={company?.website ?? ''} /></label>
           <label className="f">Main Phone<input name="phone" type="tel" defaultValue={showPhone(company?.phone)} /></label>
           <label className="f">Email<input name="email" type="email" defaultValue={company?.email ?? ''} /></label>
-          <label className="f">City<input name="city" defaultValue={company?.city ?? ''} /></label>
-          <label className="f">State<input name="state" defaultValue={company?.state ?? 'NC'} /></label>
+          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={company?.city ?? ''} /></label>
+          <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={company?.state ?? 'NC'} /></label>
         </div>
       </div>
       {!company ? (
