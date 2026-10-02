@@ -5,6 +5,7 @@ import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, vendorBills, workHistory } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
 import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
+import { RecordManage } from '@/components/RecordManage';
 import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
@@ -89,6 +90,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
             {edit ? <p className="small" style={{ marginBottom: 0 }}><Link href={`/people/new?introducedBy=${id}`}>Add someone they introduced</Link></p> : null}
           </Section>
           <DoNotUseSection personId={id} on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} canEdit={edit} />
+          <RecordManage kind="person" id={id} canArchive={edit} canDelete={can(user.role, 'users.manage')} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[
