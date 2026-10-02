@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listPeople } from '@/lib/contacts';
 import { requirePage } from '@/lib/session';
-import { roles, roleDef } from '@/lib/roles';
+import { roles, roleDef, roleTag, supplierTypes, isSupplierType } from '@/lib/roles';
 import { formatDate } from '@/lib/format';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
@@ -19,12 +19,14 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   await requirePage('contacts.view');
   const sp = await searchParams;
   const picked = chosenRoles(sp);
+  const supply = picked.includes('supplier') ? [...new Set((sp.supply ?? '').split(',').filter(isSupplierType))] : [];
   const one = picked.length === 1 ? picked[0] : undefined;
   const stage = one && sp.stage && roleDef(one)!.stages.some((s) => s.key === sp.stage) ? sp.stage : undefined;
   const business = sp.business === '1';
-  const { rows, total, page, pageSize } = await listPeople({ q: sp.q, roles: picked, stage, page: Number(sp.page) || 1, business });
+  const { rows, total, page, pageSize } = await listPeople({ q: sp.q, roles: picked, supply, stage, page: Number(sp.page) || 1, business });
   const href = (next: string[], extra: Record<string, string | undefined> = {}) => {
-    const q = new URLSearchParams(Object.entries({ q: sp.q, roles: next.length ? next.join(',') : undefined, business: business ? '1' : undefined, ...extra }).filter(([, v]) => v) as [string, string][]);
+    const keepSupply = next.includes('supplier') && supply.length ? supply.join(',') : undefined;
+    const q = new URLSearchParams(Object.entries({ q: sp.q, roles: next.length ? next.join(',') : undefined, supply: keepSupply, business: business ? '1' : undefined, ...extra }).filter(([, v]) => v) as [string, string][]);
     const s = q.toString();
     return s ? `/people?${s}` : '/people';
   };
@@ -40,9 +42,19 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             <Link key={r.key} href={href(toggle(r.key))} className="role-btn" aria-pressed={picked.includes(r.key)}>{r.plural}</Link>
           ))}
         </nav>
+        {picked.includes('supplier') ? (
+          <nav aria-label="Kinds of supplier" className="role-pick">
+            <span className="small muted" style={{ alignSelf: 'center' }}>Kind of supplier:</span>
+            {supplierTypes.map((t) => {
+              const next = supply.includes(t.key) ? supply.filter((k) => k !== t.key) : [...supply, t.key];
+              return <Link key={t.key} href={href(picked, { supply: next.length ? next.join(',') : undefined })} className="role-btn small-btn" aria-pressed={supply.includes(t.key)}>{t.label}</Link>;
+            })}
+          </nav>
+        ) : null}
         <form className="find-bar">
           <label className="f grow">Search<input name="q" defaultValue={sp.q ?? ''} placeholder="Name, email, phone, company, trade, area" /></label>
           {picked.length ? <input type="hidden" name="roles" value={picked.join(',')} /> : null}
+          {supply.length ? <input type="hidden" name="supply" value={supply.join(',')} /> : null}
           {one ? (
             <label className="f">Where We Are With Them
               <select name="stage" defaultValue={stage ?? ''}>
@@ -60,13 +72,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         {rows.length ? (
           <div className="table-wrap">
             <table className="t">
-              <thead><tr><th>Name</th><th>Company</th><th>Roles</th><th>Phone</th><th>Last Touch</th></tr></thead>
+              <thead><tr><th>Name</th><th>Title</th><th>Company (What They Do)</th><th>Introduced By</th><th>Their Roles</th><th>Phone</th><th>Last Touch</th></tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
-                    <td><Link href={`/people/${p.id}`}>{p.firstName} {p.lastName}</Link>{p.title ? <div className="small muted">{p.title}</div> : null}{p.introducedByName ? <div className="small muted">via <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link></div> : null}</td>
-                    <td>{p.companyName ? <Link href={`/companies/${p.companyId}`}>{p.companyName}</Link> : '—'}</td>
-                    <td><RoleChips items={p.roles} /></td>
+                    <td><Link href={`/people/${p.id}`}>{p.firstName} {p.lastName}</Link></td>
+                    <td>{p.title ?? '—'}</td>
+                    <td>{p.companyName ? <><Link href={`/companies/${p.companyId}`}>{p.companyName}</Link>{p.companyTypes.length ? <div className="small muted">{p.companyTypes.map(roleTag).join(' · ')}</div> : null}</> : '—'}</td>
+                    <td>{p.introducedById ? <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link> : '—'}</td>
+                    <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} /></td>
                     <td><Phone value={p.phone} /></td>
                     <td>{p.lastTouch ? formatDate(p.lastTouch) : <span className="muted">Never</span>}</td>
                   </tr>
@@ -75,7 +89,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             </table>
           </div>
         ) : <Empty>No one matches. Try fewer words, or add them.</Empty>}
-        <Pager base="/people" page={page} total={total} pageSize={pageSize} params={{ q: sp.q, roles: picked.length ? picked.join(',') : undefined, stage, business: business ? '1' : undefined }} />
+        <Pager base="/people" page={page} total={total} pageSize={pageSize} params={{ q: sp.q, roles: picked.length ? picked.join(',') : undefined, supply: supply.length ? supply.join(',') : undefined, stage, business: business ? '1' : undefined }} />
       </Section>
     </>
   );

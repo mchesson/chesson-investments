@@ -2,18 +2,18 @@ import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Empty } from './ui';
 import { addRole, createTask, logTouch, removeRole, setTaskDone, updateRole } from '@/app/(app)/contacts-actions';
-import { roles, roleDef, roleLabel, stageLabel } from '@/lib/roles';
+import { roles, roleDef, roleLabel, roleTag, stageLabel, supplierTypes, supplierTypeLabel } from '@/lib/roles';
 import { formatDate, formatDateTime, today, addDays } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
 
-type RoleRow = { id: string; role: string; stage: string; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
+type RoleRow = { id: string; role: string; stage: string; supplierTypes?: string[] | null; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
 
-export function RoleChips({ items }: { items: { role: string; stage: string }[] }) {
+export function RoleChips({ items }: { items: { role: string; stage: string; supplierTypes?: string[] | null }[] }) {
   if (!items.length) return <span className="muted small">No role yet</span>;
   return (
     <span className="chips">
       {items.map((r, i) => (
-        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`} title={r.stage === 'avoid' ? 'Marked Avoid' : undefined}>{roleLabel(r.role)}{r.stage === 'avoid' ? ' (Avoid)' : ''}</span>
+        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`} title={r.stage === 'avoid' ? 'Marked Avoid' : undefined}>{roleTag(r)}{r.stage === 'avoid' ? ' (Avoid)' : ''}</span>
       ))}
     </span>
   );
@@ -26,6 +26,18 @@ export function RolePicker({ selected = [], name = 'roles' }: { selected?: strin
       <legend className="sr-only">Roles</legend>
       {roles.map((r) => (
         <label key={r.key} className="role-btn"><input type="checkbox" name={name} value={r.key} defaultChecked={selected.includes(r.key)} /><span>{r.label}</span></label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** A supplier's kinds as buttons (they post as name="supplierTypes"). */
+export function SupplierTypePicker({ selected = [], hint = true }: { selected?: string[]; hint?: boolean }) {
+  return (
+    <fieldset className="role-pick">
+      <legend className="small muted" style={{ width: '100%', marginBottom: 4 }}>Kind of Supplier{hint ? ' (ticking one makes them a Supplier)' : ''}</legend>
+      {supplierTypes.map((t) => (
+        <label key={t.key} className="role-btn small-btn"><input type="checkbox" name="supplierTypes" value={t.key} defaultChecked={selected.includes(t.key)} /><span>{t.label}</span></label>
       ))}
     </fieldset>
   );
@@ -52,6 +64,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
               <li key={r.id}>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'baseline' }}>
                   <strong>{roleLabel(r.role)}</strong>
+                  {r.role === 'supplier' && r.supplierTypes?.length ? <span className="chips">{r.supplierTypes.map((k) => <span key={k} className="chip aqua">{supplierTypeLabel(k)}</span>)}</span> : null}
                   <span className={`small ${r.stage === 'avoid' ? 'red' : 'muted'}`}>Where we are with them: {stageLabel(r.role, r.stage)} (since {formatDate(r.stageChangedAt.toISOString())})</span>
                 </div>
                 {r.hiredThroughCompanyId ? <div className="small">Through <Link href={`/companies/${r.hiredThroughCompanyId}`}>{r.hiredThroughName ?? 'the GC'}</Link> (bills come through the GC)</div> : null}
@@ -74,6 +87,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                         <label className="f">Areas<input name="areas" defaultValue={r.areas ?? ''} /></label>
                         {def?.trade ? <label className="f">License #<input name="licenseNumber" defaultValue={r.licenseNumber ?? ''} /></label> : <input type="hidden" name="licenseNumber" value={r.licenseNumber ?? ''} />}
                       </div>
+                      {r.role === 'supplier' ? <><input type="hidden" name="hasSupplierTypes" value="1" /><SupplierTypePicker selected={r.supplierTypes ?? []} hint={false} /></> : null}
                       <label className="f">Notes<input name="notes" defaultValue={r.notes ?? ''} /></label>
                     </ActionForm>
                     <form action={removeRole.bind(null, r.id)} style={{ marginTop: 6 }}>
@@ -85,20 +99,21 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
             );
           })}
         </ul>
-      ) : <Empty>No roles yet.</Empty>}
+      ) : <Empty>{companyId ? 'Not set yet: say what they do (General Contractor, Subcontractor, Supplier…).' : 'No roles yet.'}</Empty>}
       {canEdit ? (
         <details className="fold" style={{ marginTop: 10 }}>
-          <summary>Add a Role</summary>
-          <ActionForm action={addRole} submit="Add Role" resetOnOk>
+          <summary>{companyId ? 'Add What They Do' : 'Add a Role'}</summary>
+          <ActionForm action={addRole} submit={companyId ? 'Add' : 'Add Role'} resetOnOk>
             {personId ? <input type="hidden" name="personId" value={personId} /> : null}
             {companyId ? <input type="hidden" name="companyId" value={companyId} /> : null}
-            <label className="f">Role
-              <select name="role" required defaultValue="">
-                <option value="" disabled>Pick a role</option>
+            <label className="f">{companyId ? 'Type' : 'Role'}
+              <select name="role" defaultValue="">
+                <option value="">{supplierHint}</option>
                 {roles.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
               </select>
             </label>
             <RoleFields />
+            <SupplierTypePicker hint={false} />
             {gcs.length ? (
               <label className="f">Through a GC<span className="h">Subs and suppliers whose bills come through a general contractor</span>
                 <select name="hiredThroughCompanyId" defaultValue=""><option value="">No: we hire them directly</option>{gcs.filter((g) => g.id !== companyId).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
@@ -110,6 +125,8 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
     </div>
   );
 }
+
+const supplierHint = 'Pick one (or just tick a kind of supplier below)';
 
 export function TouchForm({ personId, propertyId, projectId }: { personId: string; propertyId?: string; projectId?: string }) {
   return (

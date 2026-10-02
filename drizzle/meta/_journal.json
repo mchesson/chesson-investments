@@ -50,6 +50,13 @@
       "when": 1790959258856,
       "tag": "0006_public_site",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790964209597,
+      "tag": "0007_suppliers_do_not_use_utilities",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, vendorBills, workHistory } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
+import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
 import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
@@ -56,6 +57,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         sub={<RoleChips items={roles} />}
         actions={edit ? (<><Link className="btn" href={`${base}?tab=touches`}>Log a Touch</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null}
       />
+      <DoNotUseBanner on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} />
       <div className="record">
         <div className="card-side">
           <Section title="Contact" kind="blue">
@@ -86,6 +88,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
             {introduced.length ? <p className="small" style={{ marginBottom: 0 }}><Link href={`${base}?tab=intros`}>They introduced us to {introduced.length} {introduced.length === 1 ? 'person' : 'people'}</Link></p> : null}
             {edit ? <p className="small" style={{ marginBottom: 0 }}><Link href={`/people/new?introducedBy=${id}`}>Add someone they introduced</Link></p> : null}
           </Section>
+          <DoNotUseSection personId={id} on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} canEdit={edit} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[

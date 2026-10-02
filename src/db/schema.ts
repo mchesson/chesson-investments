@@ -51,6 +51,12 @@ export const companies = pgTable('companies', {
   email: text('email'),
   city: text('city'),
   state: text('state'),
+  // Do Not Use (owner, Oct 2, 2026): set by hand with a reason, and later by a
+  // grade of D or below. Never deletes anything; History keeps who and why.
+  doNotUse: boolean('do_not_use').notNull().default(false),
+  doNotUseReason: text('do_not_use_reason'),
+  doNotUseAt: timestamp('do_not_use_at', { withTimezone: true }),
+  doNotUseBy: uuid('do_not_use_by'),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),
@@ -74,6 +80,12 @@ export const people = pgTable('people', {
   introducedById: uuid('introduced_by_id'),
   introNote: text('intro_note'),
   metAtEventId: uuid('met_at_event_id'),
+  // Do Not Use (owner, Oct 2, 2026): set by hand with a reason, and later by a
+  // grade of D or below. Never deletes anything; History keeps who and why.
+  doNotUse: boolean('do_not_use').notNull().default(false),
+  doNotUseReason: text('do_not_use_reason'),
+  doNotUseAt: timestamp('do_not_use_at', { withTimezone: true }),
+  doNotUseBy: uuid('do_not_use_by'),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),
@@ -106,6 +118,9 @@ export const partyRoles = pgTable('party_roles', {
   // A sub or supplier we didn't hire directly: their invoices come through
   // this GC (owner, Oct 2, 2026: "that makes them a subcontractor").
   hiredThroughCompanyId: uuid('hired_through_company_id'),
+  // A supplier's kinds (Utilities, Lumber and Materials...; supplierTypes in
+  // src/lib/roles.ts). Owner, Oct 2, 2026.
+  supplierTypes: text('supplier_types').array(),
   notes: text('notes'),
   stageChangedAt: timestamp('stage_changed_at', { withTimezone: true }).notNull().defaultNow(),
   created: created(),
@@ -528,3 +543,20 @@ export const assignments = pgTable('assignments', {
   created: created(),
   archived: archived(),
 }, (t) => [index('assignments_project').on(t.projectId)]).enableRLS();
+
+
+// Who supplies each utility at a property (owner, Oct 2, 2026): the company
+// (a Supplier with the Utilities type) and the person we deal with there.
+export const projectUtilities = pgTable('project_utilities', {
+  id: id(),
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  service: text('service').notNull(),
+  companyId: uuid('company_id').references(() => companies.id),
+  personId: uuid('person_id').references(() => people.id),
+  startedOn: date('started_on'),
+  endedOn: date('ended_on'),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  removed: timestamp('removed_at', { withTimezone: true }),
+}, (t) => [index('project_utilities_project').on(t.projectId), index('project_utilities_company').on(t.companyId)]).enableRLS();

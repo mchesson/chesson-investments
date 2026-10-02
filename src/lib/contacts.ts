@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { db, type Reader } from '@/db';
-import { auditLog, companies, eventPeople, events, partyRoles, people, personCompanies, properties, projects, savedListMembers, savedLists, tasks, touches, users, bills } from '@/db/schema';
+import { auditLog, companies, eventPeople, events, partyRoles, people, personCompanies, properties, projects, savedListMembers, savedLists, tasks, touches, users, bills, projectUtilities } from '@/db/schema';
 import { isCold } from './roles';
 import { today } from './format';
 
@@ -9,7 +9,7 @@ const PAGE = 50;
 
 export const lastTouchSql = sql<string | null>`(select max(t.happened_on)::text from ${touches} t where t.person_id = ${people.id} and t.archived_at is null)`;
 
-export async function listPeople(opts: { q?: string; roles?: string[]; stage?: string; page?: number; business?: boolean }) {
+export async function listPeople(opts: { q?: string; roles?: string[]; supply?: string[]; stage?: string; page?: number; business?: boolean }) {
   const where = [isNull(people.archived)];
   if (opts.q) {
     const like = `%${opts.q}%`;
@@ -26,6 +26,11 @@ export async function listPeople(opts: { q?: string; roles?: string[]; stage?: s
     where.push(sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role in (${list})
       ${opts.stage && opts.roles.length === 1 ? sql`and r.stage = ${opts.stage}` : sql``})`);
   }
+  if (opts.supply?.length) {
+    // Suppliers of any of these kinds.
+    const kinds = sql`array[${sql.join(opts.supply.map((k) => sql`${k}`), sql`, `)}]::text[]`;
+    where.push(sql`exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role = 'supplier' and r.supplier_types && ${kinds})`);
+  }
   if (opts.business) {
     // Hide people whose only roles are Personal Connection (friends and family).
     where.push(sql`not (exists (select 1 from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null and r.role = 'personal')
@@ -37,7 +42,9 @@ export async function listPeople(opts: { q?: string; roles?: string[]; stage?: s
     title: people.title, companyId: people.companyId, companyName: companies.name, lastTouch: lastTouchSql,
     introducedById: people.introducedById,
     introducedByName: sql<string | null>`(select i.first_name || ' ' || i.last_name from ${people} i where i.id = ${people.introducedById})`,
-    roles: sql<{ role: string; stage: string }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage) order by r.created_at) from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null), '[]')`,
+    doNotUse: people.doNotUse, doNotUseReason: people.doNotUseReason,
+    companyTypes: sql<{ role: string; stage: string; supplierTypes: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types) order by r.created_at) from ${partyRoles} r where r.company_id = ${people.companyId} and r.removed_at is null), '[]')`,
+    roles: sql<{ role: string; stage: string; supplierTypes: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types) order by r.created_at) from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null), '[]')`,
     total: sql<number>`count(*) over ()`.mapWith(Number),
   }).from(people).leftJoin(companies, eq(companies.id, people.companyId))
     .where(and(...where)).orderBy(asc(people.lastName), asc(people.firstName))
@@ -48,7 +55,7 @@ export async function listPeople(opts: { q?: string; roles?: string[]; stage?: s
 function rolesWithGc(where: ReturnType<typeof eq>) {
   return db.select({
     id: partyRoles.id, role: partyRoles.role, stage: partyRoles.stage, trade: partyRoles.trade, areas: partyRoles.areas,
-    licenseNumber: partyRoles.licenseNumber, notes: partyRoles.notes, stageChangedAt: partyRoles.stageChangedAt,
+    licenseNumber: partyRoles.licenseNumber, notes: partyRoles.notes, stageChangedAt: partyRoles.stageChangedAt, supplierTypes: partyRoles.supplierTypes,
     hiredThroughCompanyId: partyRoles.hiredThroughCompanyId,
     hiredThroughName: sql<string | null>`(select c.name from ${companies} c where c.id = ${partyRoles.hiredThroughCompanyId})`,
   }).from(partyRoles).where(and(where, isNull(partyRoles.removed))).orderBy(asc(partyRoles.created));
@@ -218,4 +225,30 @@ export function vendorBills(by: { companyId?: string; personId?: string }) {
     throughVendor: sql<string | null>`(select coalesce(pb.vendor_name, (select gc.name from ${companies} gc where gc.id = pb.vendor_company_id)) from ${bills} pb where pb.id = ${bills.includedInBillId})`,
   }).from(bills).innerJoin(projects, eq(projects.id, bills.projectId))
     .where(and(by.companyId ? eq(bills.vendorCompanyId, by.companyId) : eq(bills.vendorPersonId, by.personId!), isNull(bills.archived), isNull(projects.archived)));
+}
+
+/** A property's utilities: service, company, the person we deal with there. */
+export function utilitiesFor(projectId: string) {
+  return db.select({
+    id: projectUtilities.id, service: projectUtilities.service, startedOn: projectUtilities.startedOn, endedOn: projectUtilities.endedOn, notes: projectUtilities.notes,
+    companyId: projectUtilities.companyId, companyName: sql<string | null>`(select c.name from ${companies} c where c.id = ${projectUtilities.companyId})`,
+    personId: projectUtilities.personId, personName: sql<string | null>`(select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${projectUtilities.personId})`,
+    personPhone: sql<string | null>`(select p.phone from ${people} p where p.id = ${projectUtilities.personId})`,
+    personEmail: sql<string | null>`(select p.email from ${people} p where p.id = ${projectUtilities.personId})`,
+  }).from(projectUtilities).where(and(eq(projectUtilities.projectId, projectId), isNull(projectUtilities.removed))).orderBy(asc(projectUtilities.service));
+}
+
+/** Companies to pick for a utility: utility suppliers first. */
+export function utilityCompanyOptions() {
+  return db.select({ id: companies.id, name: companies.name,
+    utility: sql<boolean>`exists (select 1 from ${partyRoles} r where r.company_id = ${companies.id} and r.removed_at is null and r.role = 'supplier' and 'utilities' = any(r.supplier_types))` })
+    .from(companies).where(isNull(companies.archived)).orderBy(asc(companies.name)).limit(2000);
+}
+
+/** Every property a person or company is the utility contact for (their page). */
+export function utilityWorkFor(by: { personId?: string; companyId?: string }) {
+  return db.select({ id: projectUtilities.id, service: projectUtilities.service, projectId: projectUtilities.projectId, projectName: projects.name,
+    personName: sql<string | null>`(select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${projectUtilities.personId})`, personId: projectUtilities.personId })
+    .from(projectUtilities).innerJoin(projects, eq(projects.id, projectUtilities.projectId))
+    .where(and(by.personId ? eq(projectUtilities.personId, by.personId) : eq(projectUtilities.companyId, by.companyId!), isNull(projectUtilities.removed), isNull(projects.archived)));
 }

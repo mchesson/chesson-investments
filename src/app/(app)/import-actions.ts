@@ -4,18 +4,19 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { SITE_TAG } from '@/lib/site-data';
 import { db, type Tx } from '@/db';
-import { billLines, bills, budgetLines, companies, costCodes, files, partyRoles, people, personCompanies, projects, touches } from '@/db/schema';
+import { billLines, bills, budgetLines, companies, costCodes, files, partyRoles, people, personCompanies, projects, projectUtilities, touches } from '@/db/schema';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { importSchema, lineCents, planImport, splitFull, type Existing, type ImportFile, type Plan } from '@/lib/import-plan';
 import { formatState, normalizeEmail, storePhone, today } from '@/lib/format';
-import { firstStage, roleDef } from '@/lib/roles';
+import { cleanSupplierTypes, firstStage, isStage, isUtilityService, roleDef, roleTag, utilityServiceLabel } from '@/lib/roles';
 import { isHowMet } from '@/lib/how-met';
 import { isProjectStage } from '@/lib/project-stages';
 import { DEFAULT_PERCENTS } from '@/lib/cost-codes';
 import { allowedPhotoUrl, isSiteStatus, photoKindLabel, slugify } from '@/lib/site';
 import { saveFile } from '@/lib/files';
 import { detectFile, MAX_FILE } from '@/lib/file-rules';
+import { matchCompany, matchPerson } from '@/lib/vendor-match';
 
 const VIA = 'import from email and folders';
 
@@ -118,34 +119,47 @@ export async function applyImport(text: string): Promise<Summary> {
     const log = (entity: string, entityId: string, action: string, summary: string) => audit({ userId: user.id, entity, entityId, action, summary, via: VIA }, tx);
     const companyId = new Map<string, string>();
     const k = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const c of (await tx.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived)))) companyId.set(k(c.name), c.id);
-    const addRole = async (target: { personId?: string; companyId?: string }, role: string | null | undefined, trade: string | null | undefined, label: string, through?: string | null) => {
-      if (!role || !roleDef(role)) return;
+    const companyNames = new Map<string, string>();
+    for (const c of (await tx.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived)))) { companyId.set(k(c.name), c.id); companyNames.set(c.id, c.name); }
+    const addRole = async (target: { personId?: string; companyId?: string }, role: string | null | undefined, trade: string | null | undefined, label: string, through?: string | null, kindsIn?: string[] | null, stageIn?: string | null) => {
       void label;
+      const kinds = cleanSupplierTypes(kindsIn ?? []);
+      if (!role && kinds.length) role = 'supplier';
+      if (!role || !roleDef(role)) return;
       const where = target.personId ? eq(partyRoles.personId, target.personId) : eq(partyRoles.companyId, target.companyId!);
-      const [has] = await tx.select({ id: partyRoles.id }).from(partyRoles).where(and(where, eq(partyRoles.role, role), isNull(partyRoles.removed)));
-      if (has) return;
+      const [has] = await tx.select({ id: partyRoles.id, supplierTypes: partyRoles.supplierTypes, stage: partyRoles.stage }).from(partyRoles).where(and(where, eq(partyRoles.role, role), isNull(partyRoles.removed)));
+      const ent = target.personId ? 'person' : 'company', eid = (target.personId ?? target.companyId)!;
+      if (has) {
+        const set: Record<string, unknown> = {};
+        if (role === 'supplier' && kinds.length && !has.supplierTypes?.length) set.supplierTypes = kinds;
+        if (stageIn && isStage(role, stageIn) && stageIn !== has.stage) { set.stage = stageIn; set.stageChangedAt = new Date(); }
+        if (Object.keys(set).length) {
+          await tx.update(partyRoles).set(set).where(eq(partyRoles.id, has.id));
+          await log(ent, eid, 'role-update', `updated the role ${roleTag({ role, supplierTypes: (set.supplierTypes as string[]) ?? has.supplierTypes })} (from the correction file)`);
+        }
+        return;
+      }
       // Through a GC: they've worked for us (Hired), not just met.
-      const stage = through ? (roleDef(role)!.stages.some((s) => s.key === 'hired') ? 'hired' : firstStage(role)) : firstStage(role);
-      await tx.insert(partyRoles).values({ ...target, role, stage, trade: trade ?? null, hiredThroughCompanyId: through ?? null });
-      await log(target.personId ? 'person' : 'company', (target.personId ?? target.companyId)!, 'role-add', `added the role ${roleDef(role)!.label}${trade ? ` (${trade})` : ''}${through ? ', hired through the GC' : ''} (from email and invoices)`);
+      const stage = stageIn && isStage(role, stageIn) ? stageIn : through ? (roleDef(role)!.stages.some((s) => s.key === 'hired') ? 'hired' : firstStage(role)) : firstStage(role);
+      await tx.insert(partyRoles).values({ ...target, role, stage, trade: trade ?? null, hiredThroughCompanyId: through ?? null, supplierTypes: role === 'supplier' && kinds.length ? kinds : null });
+      await log(ent, eid, 'role-add', `added the role ${roleTag({ role, supplierTypes: kinds })}${trade ? ` (${trade})` : ''}${through ? ', hired through the GC' : ''} (from email and invoices)`);
     };
     const ensureCompany = async (name: string) => {
       const id = companyId.get(k(name));
       if (id) return id;
       const [c] = await tx.insert(companies).values({ name, createdBy: user.id }).returning();
-      companyId.set(k(name), c.id);
+      companyId.set(k(name), c.id); companyNames.set(c.id, name);
       await log('company', c.id, 'create', `added the company ${name}`);
       return c.id;
     };
     let added = { companies: 0, people: 0, projects: 0, bills: 0 };
     for (const c of plan.companies) {
       const through = c.row.hiredThrough ? await ensureCompany(c.row.hiredThrough) : null;
-      if (c.match) { await addRole({ companyId: c.match }, c.row.role, c.row.trade, c.name, through); continue; }
+      if (c.match) { await addRole({ companyId: c.match }, c.row.role, c.row.trade, c.name, through, c.row.supplierTypes); continue; }
       const [row] = await tx.insert(companies).values({ name: c.name, phone: storePhone(c.row.phone), email: normalizeEmail(c.row.email), website: c.row.website ?? null, notes: c.row.notes ?? null, createdBy: user.id }).returning();
-      companyId.set(k(c.name), row.id);
+      companyId.set(k(c.name), row.id); companyNames.set(row.id, c.name);
       await log('company', row.id, 'create', `added the company ${c.name}`);
-      await addRole({ companyId: row.id }, c.row.role, c.row.trade, c.name, through);
+      await addRole({ companyId: row.id }, c.row.role, c.row.trade, c.name, through, c.row.supplierTypes);
       added.companies++;
     }
     const personId = new Map<string, string>();
@@ -175,7 +189,13 @@ export async function applyImport(text: string): Promise<Summary> {
         added.people++;
       }
       const co = r.company ? file.companies.find((x) => k(x.name) === k(r.company!)) : undefined;
-      await addRole({ personId: id }, r.role ?? co?.role, r.trade ?? co?.trade, r.name, co?.hiredThrough ? companyId.get(k(co.hiredThrough)) ?? null : null);
+      await addRole({ personId: id }, r.role ?? co?.role, r.trade ?? co?.trade, r.name, co?.hiredThrough ? companyId.get(k(co.hiredThrough)) ?? null : null, r.supplierTypes ?? (r.role ? null : co?.supplierTypes), r.stage);
+      for (const gone of r.removeRoles ?? []) {
+        const [x] = await tx.select({ id: partyRoles.id }).from(partyRoles).where(and(eq(partyRoles.personId, id), eq(partyRoles.role, gone), isNull(partyRoles.removed)));
+        if (!x) continue;
+        await tx.update(partyRoles).set({ removed: new Date() }).where(eq(partyRoles.id, x.id));
+        await log('person', id, 'role-remove', `took off the role ${roleDef(gone)?.label ?? gone} (from the correction file)`);
+      }
       if (r.lastContactOn && r.lastContactOn <= today()) {
         const [has] = await tx.select({ id: touches.id }).from(touches).where(and(eq(touches.personId, id), eq(touches.happenedOn, r.lastContactOn)));
         if (!has) await tx.insert(touches).values({ personId: id, kind: 'email', happenedOn: r.lastContactOn, notes: 'Last email on file (from the email review).', userId: user.id });
@@ -229,6 +249,21 @@ export async function applyImport(text: string): Promise<Summary> {
       await fillSite(row.id, r);
       added.projects++;
     }
+    let utilitiesAdded = 0;
+    for (const u of file.utilities) {
+      const pid = projectId.get(k(u.project));
+      if (!pid || !isUtilityService(u.service)) continue;
+      const cid = u.company ? companyId.get(k(u.company)) ?? null : null;
+      const pidPerson = u.person ? personId.get(k(u.person)) ?? null : null;
+      if (!cid && !pidPerson) continue;
+      const [has] = await tx.select({ id: projectUtilities.id }).from(projectUtilities).where(and(eq(projectUtilities.projectId, pid), eq(projectUtilities.service, u.service), isNull(projectUtilities.removed),
+        cid ? eq(projectUtilities.companyId, cid) : isNull(projectUtilities.companyId)));
+      if (has) continue;
+      await tx.insert(projectUtilities).values({ projectId: pid, service: u.service, companyId: cid, personId: pidPerson, startedOn: u.startedOn ?? null, notes: u.notes ?? null, createdBy: user.id });
+      await log('project', pid, 'utility-add', `added ${utilityServiceLabel(u.service)}: ${[u.company, u.person].filter(Boolean).join(', contact ')}`);
+      utilitiesAdded++;
+    }
+    void utilitiesAdded;
     void DEFAULT_PERCENTS; // imported past projects have no budget percents: their real costs are the bills
     const codeId = new Map(codes.map((c) => [c.code, c.id]));
     const billIdByNumber = new Map<string, string>();
@@ -238,7 +273,7 @@ export async function applyImport(text: string): Promise<Summary> {
       const r = b.row;
       const pid = projectId.get(b.projectKey);
       if (!pid) continue;
-      const vcid = companyId.get(k(r.vendor)) ?? null;
+      const vcid = companyId.get(k(r.vendor)) ?? matchCompany(r.vendor, [...companyId.entries()].map(([, id]) => ({ id, name: companyNames.get(id) ?? '' })))?.id ?? null;
       const [row] = await tx.insert(bills).values({
         projectId: pid, costCodeId: r.lines.map((l) => (l.costCode ? codeId.get(l.costCode) : undefined)).find(Boolean) ?? null,
         vendorCompanyId: vcid, vendorName: vcid ? null : r.vendor, kind: r.kind, billedTo: r.billedTo ?? null, invoiceNumber: r.number ?? null,
@@ -281,4 +316,54 @@ export async function applyImport(text: string): Promise<Summary> {
   console.info('[import] apply saved');
   const sum = summarize(result.plan);
   return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos.` };
+}
+
+export type BillMatch = { vendor: string; to: string | null; kind: 'company' | 'person' | null; how: string | null; count: number; total: string };
+
+/** Bills with a vendor name but no company or person linked, and what each name would link to. */
+async function billMatches(x: Tx | typeof db) {
+  const open = await x.select({ id: bills.id, projectId: bills.projectId, vendor: bills.vendorName, amount: bills.amount }).from(bills)
+    .where(and(isNull(bills.archived), isNull(bills.vendorCompanyId), isNull(bills.vendorPersonId), sql`${bills.vendorName} is not null`));
+  const cos = await x.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived));
+  const ps = await x.select({ id: people.id, firstName: people.firstName, lastName: people.lastName }).from(people).where(isNull(people.archived));
+  const byName = new Map<string, { ids: { id: string; projectId: string }[]; total: number; company: ReturnType<typeof matchCompany>; person: ReturnType<typeof matchPerson> }>();
+  for (const b of open) {
+    const v = b.vendor!;
+    const e = byName.get(v) ?? { ids: [], total: 0, company: matchCompany(v, cos), person: null as ReturnType<typeof matchPerson> };
+    if (!e.company && !e.person && !e.ids.length) e.person = matchPerson(v, ps);
+    e.ids.push({ id: b.id, projectId: b.projectId }); e.total += Math.round(Number(b.amount) * 100);
+    byName.set(v, e);
+  }
+  return byName;
+}
+
+const toRows = (m: Awaited<ReturnType<typeof billMatches>>): BillMatch[] => [...m.entries()].map(([vendor, e]) => ({
+  vendor, to: e.company?.name ?? e.person?.name ?? null, kind: e.company ? 'company' as const : e.person ? 'person' as const : null,
+  how: e.company?.how ?? e.person?.how ?? null, count: e.ids.length, total: (e.total / 100).toFixed(2),
+})).sort((a, b) => Number(!!b.to) - Number(!!a.to) || a.vendor.localeCompare(b.vendor));
+
+export async function previewBillMatches(): Promise<{ rows: BillMatch[] }> {
+  await requireAction('users.manage');
+  return { rows: toRows(await billMatches(db)) };
+}
+
+/** Links every bill whose vendor name matches a company or person (one step, in History). */
+export async function applyBillMatches(): Promise<{ rows: BillMatch[]; done: string }> {
+  const user = await requireAction('users.manage');
+  const r = await db.transaction(async (tx) => {
+    const m = await billMatches(tx);
+    let linked = 0;
+    for (const [vendor, e] of m) {
+      const target = e.company ? { vendorCompanyId: e.company.id } : e.person ? { vendorPersonId: e.person.id } : null;
+      if (!target) continue;
+      for (const b of e.ids) await tx.update(bills).set(target).where(eq(bills.id, b.id));
+      linked += e.ids.length;
+      const who = e.company ?? e.person!;
+      await audit({ userId: user.id, entity: e.company ? 'company' : 'person', entityId: who.id, action: 'bills-linked', summary: `linked ${e.ids.length} ${e.ids.length === 1 ? 'bill' : 'bills'} named “${vendor}” ($${(e.total / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })})`, via: 'Match Bills to Companies' }, tx);
+      for (const pid of new Set(e.ids.map((b) => b.projectId))) await audit({ userId: user.id, entity: 'project', entityId: pid, action: 'bills-linked', summary: `linked the bills from “${vendor}” to ${who.name}`, via: 'Match Bills to Companies' }, tx);
+    }
+    return { linked };
+  });
+  revalidatePath('/', 'layout');
+  return { rows: toRows(await billMatches(db)), done: `Linked ${r.linked} bills.` };
 }

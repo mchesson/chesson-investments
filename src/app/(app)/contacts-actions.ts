@@ -11,7 +11,7 @@ import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { bool, isUuid, str, uuidOrNull } from '@/lib/forms';
 import { formatName, formatState, isDay, normalizeEmail, storePhone, today, addDays } from '@/lib/format';
-import { firstStage, isStage, roleDef, roleLabel, stageLabel } from '@/lib/roles';
+import { firstStage, isStage, roleDef, roleLabel, stageLabel, cleanSupplierTypes, roleTag, doNotUseProblem } from '@/lib/roles';
 import type { FormResult } from '@/components/ActionForm';
 import { howMetProblem, splitName } from '@/lib/how-met';
 
@@ -77,11 +77,12 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
       const [p] = await tx.insert(people).values({ ...f, companyId: cid, createdBy: user.id }).returning();
       if (cid) await tx.insert(personCompanies).values({ personId: p.id, companyId: cid, title: f.title, startedOn: today() });
       // Every role ticked (the old single "role" field still works).
-      const picked = [...new Set([...d.getAll('roles').map(String), str(d, 'role') ?? ''])].filter((r) => roleDef(r));
+      const kinds = cleanSupplierTypes(d.getAll('supplierTypes').map(String));
+      const picked = [...new Set([...d.getAll('roles').map(String), str(d, 'role') ?? '', kinds.length ? 'supplier' : ''])].filter((r) => roleDef(r));
       for (const role of picked) {
-        await tx.insert(partyRoles).values({ personId: p.id, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber') });
+        await tx.insert(partyRoles).values({ personId: p.id, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), supplierTypes: role === 'supplier' && kinds.length ? kinds : null });
       }
-      await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map(roleLabel).join(', ')}` : ''}`, after: f }, tx);
+      await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map((r) => roleTag({ role: r, supplierTypes: kinds })).join(', ')}` : ''}`, after: f }, tx);
       if (f.introducedById) await audit({ userId: user.id, entity: 'person', entityId: f.introducedById, action: 'introduced', summary: `introduced us to ${p.firstName} ${p.lastName}`, after: { personId: p.id, note: f.introNote } }, tx);
       if (bool(d, 'different')) await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'not-duplicate', summary: 'saved as a different person despite a matching email or phone' }, tx);
       return p.id;
@@ -151,15 +152,17 @@ export async function addRole(_: FormResult, d: FormData): Promise<FormResult> {
   const user = await requireAction('contacts.edit');
   const personId = uuidOrNull(d, 'personId');
   const companyId = uuidOrNull(d, 'companyId');
-  const role = str(d, 'role') ?? '';
+  const kinds = cleanSupplierTypes(d.getAll('supplierTypes').map(String));
+  const role = str(d, 'role') ?? (kinds.length ? 'supplier' : '');
   if (!roleDef(role) || (!personId === !companyId)) return { error: 'Pick a role.' };
   const [exists] = await db.select({ id: partyRoles.id }).from(partyRoles)
     .where(and(isNull(partyRoles.removed), eq(partyRoles.role, role), personId ? eq(partyRoles.personId, personId) : eq(partyRoles.companyId, companyId!)));
   if (exists) return { error: `Already a ${roleLabel(role)}.` };
   await db.transaction(async (tx) => {
     const through = uuidOrNull(d, 'hiredThroughCompanyId');
-    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), hiredThroughCompanyId: through });
-    await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: personId ?? companyId, action: 'role-add', summary: `added the role ${roleLabel(role)} (${stageLabel(role, firstStage(role))})${through ? ', through a GC' : ''}` }, tx);
+    const sk = role === 'supplier' && kinds.length ? kinds : null;
+    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), hiredThroughCompanyId: through, supplierTypes: sk });
+    await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: personId ?? companyId, action: 'role-add', summary: `added the role ${roleTag({ role, supplierTypes: sk })} (${stageLabel(role, firstStage(role))})${through ? ', through a GC' : ''}` }, tx);
   });
   revalidatePath('/', 'layout');
   return { ok: `Added ${roleLabel(role)}.` };
@@ -173,14 +176,15 @@ export async function updateRole(_: FormResult, d: FormData): Promise<FormResult
   if (!r) return { error: 'Not found.' };
   const stage = str(d, 'stage') ?? r.stage;
   if (!isStage(r.role, stage)) return { error: 'Pick a stage.' };
-  const next = { stage, trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), notes: str(d, 'notes') };
+  const kinds = d.get('hasSupplierTypes') ? cleanSupplierTypes(d.getAll('supplierTypes').map(String)) : (r.supplierTypes ?? []);
+  const next = { stage, trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), notes: str(d, 'notes'), supplierTypes: r.role === 'supplier' && kinds.length ? kinds : null };
   const ch = diff(r as Record<string, unknown>, next);
   if (!ch) return { ok: 'No changes.' };
   await db.transaction(async (tx) => {
     await tx.update(partyRoles).set({ ...next, ...(stage !== r.stage ? { stageChangedAt: new Date() } : {}) }).where(eq(partyRoles.id, id));
     const summary = stage !== r.stage
       ? `moved ${roleLabel(r.role)} from ${stageLabel(r.role, r.stage)} to ${stageLabel(r.role, stage)}`
-      : `edited the ${roleLabel(r.role)} role`;
+      : `edited the ${roleTag({ role: r.role, supplierTypes: next.supplierTypes })} role`;
     await audit({ userId: user.id, entity: r.personId ? 'person' : 'company', entityId: r.personId ?? r.companyId, action: 'role-update', summary, ...ch }, tx);
   });
   revalidatePath('/', 'layout');
@@ -356,4 +360,31 @@ export async function removeMember(id: string) {
     await audit({ userId: user.id, entity: 'list', entityId: m.listId, action: 'member-remove', summary: 'took someone off the list', after: { personId: m.personId } }, tx);
   });
   revalidatePath(`/lists/${m.listId}`);
+}
+
+/** Mark (or clear) Do Not Use on a person or company, always with a reason. */
+export async function setDoNotUse(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('contacts.edit');
+  const personId = uuidOrNull(d, 'personId');
+  const companyId = uuidOrNull(d, 'companyId');
+  if (!personId === !companyId) return { error: 'Not found.' };
+  const on = d.get('on') === '1';
+  const reason = str(d, 'reason');
+  const problem = doNotUseProblem(on, reason);
+  if (problem) return { error: problem };
+  const table = personId ? people : companies;
+  const id = (personId ?? companyId)!;
+  const set = on ? { doNotUse: true, doNotUseReason: reason, doNotUseAt: new Date(), doNotUseBy: user.id } : { doNotUse: false, doNotUseReason: null, doNotUseAt: null, doNotUseBy: null };
+  await db.transaction(async (tx) => {
+    const [old] = personId
+      ? await tx.select({ on: people.doNotUse, reason: people.doNotUseReason }).from(people).where(eq(people.id, id))
+      : await tx.select({ on: companies.doNotUse, reason: companies.doNotUseReason }).from(companies).where(eq(companies.id, id));
+    if (!old) throw new Error('Not found');
+    await tx.update(table).set(set).where(eq(table.id, id));
+    await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: id, action: on ? 'do-not-use' : 'do-not-use-clear',
+      summary: on ? `marked them Do Not Use: ${reason}` : `took off Do Not Use${reason ? `: ${reason}` : ''} (was: ${old.reason ?? 'no reason'})`,
+      before: { doNotUse: old.on, reason: old.reason }, after: { doNotUse: on, reason: on ? reason : null } }, tx);
+  });
+  revalidatePath('/', 'layout');
+  return { ok: on ? 'Marked Do Not Use.' : 'Do Not Use taken off.' };
 }
