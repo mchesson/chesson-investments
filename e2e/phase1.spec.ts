@@ -153,3 +153,17 @@ test('budget stages, a GC milestone and an owner-supplied commitment that moves 
   await expect(row.getByText("$47,000")).toBeVisible();
   await expect(page.getByText(/Owner-supplied savings: \$[0-9,]+/)).toBeVisible();
 });
+
+test('post-project review: the numbers and the lessons', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  await page.goto('/projects');
+  await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
+  await page.waitForURL(/\/projects\/[0-9a-f-]{36}/);
+  await page.goto(page.url().split('?')[0] + '?tab=review');
+  await expect(page.getByRole('heading', { name: '› What the Numbers Say' })).toBeVisible();
+  await page.getByLabel('First Estimate (Build)').fill('900,000');
+  await page.getByLabel('What We Should Have Done').fill(`Lesson ${stamp}`);
+  await page.getByRole('button', { name: 'Save Review' }).click();
+  await expect(page.getByText('Saved.')).toBeVisible();
+  await expect(page.getByText(/The build (ran over|came in under) the first estimate/)).toBeVisible();
+});

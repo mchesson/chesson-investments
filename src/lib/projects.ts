@@ -49,7 +49,7 @@ export async function projectMoney(projectId: string) {
   const billById = new Map(bs.map((b) => [b.id, b]));
   const counted = lines.map((l) => {
     const b = billById.get(l.billId)!;
-    return { ...l, status: b.status, backup: !!b.includedInBillId, on: b.invoiceOn };
+    return { ...l, status: b.status, backup: !!b.includedInBillId, on: b.invoiceOn, billId: l.billId };
   });
   const orders = comms.length
     ? await db.select().from(changeOrders).where(and(inArray(changeOrders.commitmentId, comms.map((c) => c.id)), isNull(changeOrders.archived))).orderBy(asc(changeOrders.created))
