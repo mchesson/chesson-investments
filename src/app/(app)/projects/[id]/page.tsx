@@ -1,3 +1,4 @@
+import { Choice } from '@/components/Choice';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
@@ -14,7 +15,7 @@ import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
 import { cents, payBlocker, type CodeMoney } from '@/lib/budget';
-import { projectStageLabel } from '@/lib/project-stages';
+import { activeStages, openStage, projectStageLabel, stageStates } from '@/lib/project-stages';
 import { HOLDING_KINDS } from '@/lib/cost-codes';
 import { lineKinds } from '@/lib/bill-lines';
 import { scheduleFor } from '@/lib/schedule-data';
@@ -35,10 +36,10 @@ type Money = NonNullable<Awaited<ReturnType<typeof projectMoney>>>;
 const m = (c: number) => formatCents(c);
 const signed = (c: number) => (c < 0 ? <span className="red">−{m(-c)}</span> : m(c));
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; stage?: string }> }) {
   const user = await requirePage('projects.view');
   const { id } = await params;
-  const { tab = 'overview', edit: editParam } = await searchParams;
+  const { tab = 'overview', edit: editParam, stage: askedStage } = await searchParams;
   const data = isUuid(id) ? await projectMoney(id) : null;
   if (!data || data.project.archived) notFound();
   const { project: p } = data;
@@ -57,9 +58,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   ];
   return (
     <>
-      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<><span className="chip blue">{projectStageLabel(p.stage)}</span> {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
-      <StageBar projectId={id} stage={p.stage} rentalStatus={p.stage === 'rental' ? (await rentalFor(id)).rental?.r.status ?? null : null} canEdit={editProject} />
+      {await (async () => {
+        const states = stageStates(p.stage, p.stageStates);
+        const rentalStatus = (await rentalFor(id)).rental?.r.status ?? null;
+        return <StageBar projectId={id} states={states} subs={{ ...p.subStages, rental: rentalStatus }} open={openStage(askedStage, states)}
+          href={(k) => `${base}?${new URLSearchParams({ ...(tab !== 'overview' ? { tab } : {}), stage: k })}`} canEdit={editProject} />;
+      })()}
       <div className="record">
         <div className="card-side">
           <Section title="The House" kind="aqua">
@@ -375,7 +381,7 @@ async function Bills({ data, role }: { data: Money; role: Parameters<typeof can>
           <ActionForm action={addBill} submit="Save Bill" resetOnOk>
             <input type="hidden" name="projectId" value={data.project.id} />
             <div className="fields">
-              <label className="f">What It Is<select name="kind" defaultValue="invoice"><option value="invoice">Invoice (to pay)</option><option value="receipt">Receipt (already paid)</option><option value="credit">Credit / Return</option></select></label>
+              <Choice name="kind" label="What It Is" options={[{ key: 'invoice', label: 'Invoice (to pay)' }, { key: 'receipt', label: 'Receipt (already paid)' }, { key: 'credit', label: 'Credit / Return' }]} defaultValue="invoice" />
               <label className="f">Vendor (Company)<select name="vendorCompanyId" defaultValue=""><option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label className="f">Or Vendor Name<input name="vendorName" placeholder="Lowe's, Home Depot…" /></label>
               <label className="f">Invoice #<input name="invoiceNumber" /></label>
@@ -429,7 +435,7 @@ function Holding({ data, edit }: { data: Money; edit: boolean }) {
           <ActionForm action={addHoldingCost} submit="Add" resetOnOk>
             <input type="hidden" name="projectId" value={data.project.id} />
             <div className="fields">
-              <label className="f">What<select name="kind" defaultValue="Interest">{HOLDING_KINDS.map((k) => <option key={k}>{k}</option>)}</select></label>
+              <Choice name="kind" label="What" options={HOLDING_KINDS.map((k) => ({ key: k, label: k }))} defaultValue="Interest" color="energy" />
               <label className="f">Date<input type="date" name="incurredOn" defaultValue={today()} required /></label>
               <label className="f">Amount<input name="amount" required inputMode="decimal" /></label>
               <label className="f">Notes<input name="notes" /></label>

@@ -261,6 +261,11 @@ export const projects = pgTable('projects', {
   // Later phases make entities their own records (investors, banking).
   ownedBy: text('owned_by'),
   stage: projectStage('stage').notNull().default('under_contract'),
+  // Several stages can be going at once: each one's state (not_started /
+  // active / done) and its sub-stage (src/lib/project-stages.ts). Empty = read
+  // from `stage`. A rental's sub-stage is rentals.status.
+  stageStates: jsonb('stage_states').$type<Record<string, string>>().notNull().default({}),
+  subStages: jsonb('sub_stages').$type<Record<string, string>>().notNull().default({}),
   lotSf: integer('lot_sf'),
   lotAcres: numeric('lot_acres', { precision: 8, scale: 3 }),
   zoning: text('zoning'),
@@ -670,3 +675,15 @@ export const rentalContacts = pgTable('rental_contacts', {
   main: boolean('main').notNull().default(false),
   created: created(),
 }, (t) => [uniqueIndex('rental_contacts_one').on(t.projectId, t.personId)]).enableRLS();
+
+// Possible duplicates someone said are different (owner, Oct 2, 2026: like
+// names). One row per pair (ids in order), so the Possible Duplicates page
+// stops listing it.
+export const duplicateDismissals = pgTable('duplicate_dismissals', {
+  id: id(),
+  kind: text('kind').notNull(), // person / company
+  aId: uuid('a_id').notNull(),
+  bId: uuid('b_id').notNull(),
+  dismissedBy: uuid('dismissed_by').references(() => users.id),
+  created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex('duplicate_dismissals_pair').on(t.kind, t.aId, t.bId)]).enableRLS();

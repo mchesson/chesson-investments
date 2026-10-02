@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import {
-  billLines, bills, budgetLines, changeOrders, commitments, costCodes, dailyLogs, holdingCosts, projectItems, projects,
+  billLines, bills, budgetLines, changeOrders, commitments, costCodes, dailyLogs, holdingCosts, projectItems, projects, rentals,
 } from '@/db/schema';
 import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
@@ -13,7 +13,7 @@ import { bool, str, uuidOrNull } from '@/lib/forms';
 import { formatState, isDay, parseIntOrNull, parseMoney, parsePercent, today } from '@/lib/format';
 import { payBlocker, retainageFor, dollars } from '@/lib/budget';
 import { checkLines } from '@/lib/bill-lines';
-import { isProjectStage, projectStageLabel } from '@/lib/project-stages';
+import { isProjectStage, isStageState, isSubStage, mainStage, projectStageLabel, stageStateLabel, stageStates, subStageLabel, withState, type ProjectStage, type StageState } from '@/lib/project-stages';
 import { DEFAULT_PERCENTS } from '@/lib/cost-codes';
 import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
@@ -78,11 +78,11 @@ export async function saveProject(_: FormResult, d: FormData): Promise<FormResul
         return p.id;
       }
       const [old] = await tx.select().from(projects).where(eq(projects.id, id));
-      const next = { ...f, ...(stage ? { stage: stage as typeof old.stage } : {}) };
+      const next = { ...f };
       await tx.update(projects).set({ ...next, updated: new Date() }).where(eq(projects.id, id));
       const ch = diff(old as Record<string, unknown>, next);
       if (ch) {
-        const summary = ch.after.stage ? `moved it to ${projectStageLabel(String(ch.after.stage))}` : `edited ${Object.keys(ch.after).join(', ')}`;
+        const summary = `edited ${Object.keys(ch.after).join(', ')}`;
         await audit({ userId: user.id, entity: 'project', entityId: id, action: 'update', summary, ...ch }, tx);
       }
       return id;
@@ -92,14 +92,48 @@ export async function saveProject(_: FormResult, d: FormData): Promise<FormResul
   return r as FormResult;
 }
 
-export async function setProjectStage(projectId: string, stage: string) {
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Saves the states, keeps the main stage in step and writes History. */
+async function saveStates(tx: Tx, userId: string, old: typeof projects.$inferSelect, states: Record<ProjectStage, StageState>, summary: string, extra: Partial<typeof projects.$inferInsert> = {}, rentalStatus?: string) {
+  const stage = mainStage(states);
+  // A rental's sub-stage is the rental's own status (the Rental tab shows it too).
+  if (rentalStatus) await tx.insert(rentals).values({ projectId: old.id, status: rentalStatus }).onConflictDoUpdate({ target: rentals.projectId, set: { status: rentalStatus, updated: new Date() } });
+  await tx.update(projects).set({ stageStates: states, stage, updated: new Date(), ...extra }).where(eq(projects.id, old.id));
+  await audit({ userId, entity: 'project', entityId: old.id, action: 'stage', summary: stage !== old.stage ? `${summary} (main stage now ${projectStageLabel(stage)})` : summary, before: { stageStates: stageStates(old.stage, old.stageStates), stage: old.stage }, after: { stageStates: states, stage, ...extra }, via: 'stage bar' }, tx);
+}
+
+/** One stage's state: Not Started, Going Now or Done. Several can be going at once. */
+export async function setStageState(projectId: string, stage: string, state: string) {
   const user = await requireAction('projects.edit');
-  if (!isProjectStage(stage)) return;
-  const [old] = await db.select().from(projects).where(eq(projects.id, projectId));
-  if (!old || old.stage === stage) return;
+  if (!isProjectStage(stage) || !isStageState(state)) return;
   await db.transaction(async (tx) => {
-    await tx.update(projects).set({ stage, updated: new Date() }).where(eq(projects.id, projectId));
-    await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'stage', summary: `moved it from ${projectStageLabel(old.stage)} to ${projectStageLabel(stage)}` }, tx);
+    const [old] = await tx.select().from(projects).where(eq(projects.id, projectId));
+    if (!old) return;
+    const states = stageStates(old.stage, old.stageStates);
+    if (states[stage] === state) return;
+    await saveStates(tx, user.id, old, withState(states, stage, state), `marked ${projectStageLabel(stage)} ${stageStateLabel[state]} (was ${stageStateLabel[states[stage]]})`);
+  });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/** Where a stage stands now. Picking a sub-stage marks the stage Going Now if it hadn't started. */
+export async function setSubStage(projectId: string, stage: string, sub: string) {
+  const user = await requireAction('projects.edit');
+  if (!isProjectStage(stage) || !isSubStage(stage, sub)) return;
+  await db.transaction(async (tx) => {
+    const [old] = await tx.select().from(projects).where(eq(projects.id, projectId));
+    if (!old) return;
+    const states = stageStates(old.stage, old.stageStates);
+    const next = states[stage] === 'not_started' ? withState(states, stage, 'active') : states;
+    const was = stage === 'rental'
+      ? (await tx.select({ status: rentals.status }).from(rentals).where(eq(rentals.projectId, projectId)))[0]?.status ?? null
+      : old.subStages?.[stage] ?? null;
+    if (was === sub && next === states) return;
+    const subs = stage === 'rental' ? old.subStages : { ...(old.subStages ?? {}), [stage]: sub };
+    await saveStates(tx, user.id, old, next,
+      `moved ${projectStageLabel(stage)} to ${subStageLabel(stage, sub)}${was && was !== sub ? ` (was ${subStageLabel(stage, was) ?? was})` : ''}${next !== states ? `; ${projectStageLabel(stage)} is going now` : ''}`,
+      { subStages: subs }, stage === 'rental' ? sub : undefined);
   });
   revalidatePath(`/projects/${projectId}`);
 }

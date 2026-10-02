@@ -2,7 +2,7 @@ import 'server-only';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
-  billLines, bills, budgetLines, changeOrders, commitments, companies, costCodes, dailyLogs, holdingCosts, people, projectItems, projects, users,
+  billLines, bills, budgetLines, changeOrders, commitments, companies, costCodes, dailyLogs, holdingCosts, people, projectItems, projects, rentals, users,
 } from '@/db/schema';
 import { cents, pnl, resolveBudget, rollup, scenarios, totals, type CodeMoney } from './budget';
 import { countsTowardBudget, countsTowardHolding } from './bill-lines';
@@ -11,6 +11,8 @@ export function listProjects() {
   return db.select({
     id: projects.id, name: projects.name, address: projects.address, city: projects.city, stage: projects.stage,
     projectNumber: projects.projectNumber, heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
+    stageStates: projects.stageStates, subStages: projects.subStages,
+    rentalStatus: sql<string | null>`(select r.status from ${rentals} r where r.project_id = "projects"."id")`,
   }).from(projects).where(isNull(projects.archived)).orderBy(asc(projects.name));
 }
 

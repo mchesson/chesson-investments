@@ -8,6 +8,7 @@ import { cents } from '@/lib/budget';
 import { formatCents, formatDate, today } from '@/lib/format';
 import type { managerOptions, rentalContactsFor, rentalFor } from '@/lib/rental-data';
 import { ManagerPicker } from './ManagerPicker';
+import { Choice } from './Choice';
 
 type Data = Awaited<ReturnType<typeof rentalFor>>;
 type Opt = { id: string; name: string };
@@ -89,7 +90,7 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
             <ActionForm action={saveRental} submit="Save">
               <input type="hidden" name="projectId" value={projectId} />
               <div className="fields">
-                <label className="f">Status<select name="status" defaultValue={r?.status ?? 'getting_ready'}>{rentalStatuses.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
+                <Choice name="status" label="Status" hint="The same as the Rental row at the top of the project" options={rentalStatuses} defaultValue={r?.status ?? 'getting_ready'} color="aqua" />
                 <label className="f">Asking Rent<input name="askingRent" defaultValue={num(r?.askingRent)} placeholder="2,450" /></label>
                 <label className="f">Listed On<input type="date" name="listedOn" defaultValue={r?.listedOn ?? ''} /></label>
                 <label className="f">Listed Where<input name="listedWhere" defaultValue={r?.listedWhere ?? ''} placeholder="Zillow, the manager's site" /></label>
@@ -178,7 +179,7 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
               <div className="fields">
                 <label className="f">Received<input type="date" name="receivedOn" required /></label>
                 <label className="f">Amount<input name="amount" required /></label>
-                <label className="f">What<select name="kind" defaultValue="rent"><option value="rent">Rent</option><option value="late_fee">Late Fee</option><option value="deposit">Deposit</option><option value="other">Other</option></select></label>
+                <Choice name="kind" label="What" options={[{ key: 'rent', label: 'Rent' }, { key: 'late_fee', label: 'Late Fee' }, { key: 'deposit', label: 'Deposit' }, { key: 'other', label: 'Other' }]} defaultValue="rent" color="energy" />
                 <label className="f">For Month<input type="month" name="forMonth" /></label>
               </div>
               <label className="f">Notes<input name="notes" placeholder="From the manager's September statement, net of their fee" /></label>

@@ -5,6 +5,7 @@ import { Phone } from './Phone';
 import { addUtility, removeUtility } from '@/app/(app)/utility-actions';
 import { utilityServices, utilityServiceLabel } from '@/lib/roles';
 import { formatDate } from '@/lib/format';
+import { Choice } from './Choice';
 
 type Row = { id: string; service: string; companyId: string | null; companyName: string | null; personId: string | null; personName: string | null; personPhone: string | null; personEmail: string | null; startedOn: string | null; notes: string | null };
 
@@ -33,8 +34,7 @@ export function Utilities({ projectId, rows, companies, people, canEdit }: {
           <ActionForm action={addUtility} submit="Add" resetOnOk>
             <input type="hidden" name="projectId" value={projectId} />
             <div className="fields">
-              <label className="f">Service<select name="service" required defaultValue="">
-                <option value="" disabled>Pick one</option>{utilityServices.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
+              <Choice name="service" label="Service" options={utilityServices} required color="aqua" />
               <label className="f">Company<span className="h">Utility suppliers first</span><select name="companyId" defaultValue="">
                 <option value="">None</option>
                 {utilityCos.length ? <optgroup label="Utilities">{utilityCos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup> : null}

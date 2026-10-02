@@ -74,3 +74,11 @@ test('photos: only from our old website, once each, with a known kind', () => {
   const plan = planImport(file, { people: [], companies: [], projects: [{ id: 'p1', name: '420 Peyton Street', address: '420 Peyton St' }], bills: [], costCodes: [], photos: [{ projectId: 'p1', sourceUrl: 'https://chessoninvestments.com/images/before-01.jpg' }] });
   assert.deepEqual(plan.photos.map((f) => [f.duplicate, !!f.problem]), [[false, false], [true, false], [false, true], [false, true], [true, false]]);
 });
+
+test('a new person or company with a like name is flagged', () => {
+  const plan = planImport(importSchema.parse({ companies: [{ name: 'Baggett Construction' }], people: [{ name: 'Bob Smyth' }] }), {
+    people: [{ id: 'p1', firstName: 'Robert', lastName: 'Smith', email: null, phone: null }], companies: [{ id: 'c1', name: 'Baggett' }], projects: [], bills: [], costCodes: [],
+  });
+  assert.ok(plan.problems.some((x) => x.startsWith('Baggett Construction: looks like Baggett')));
+  assert.ok(plan.problems.some((x) => x.startsWith('Bob Smyth: looks like Robert Smith')));
+});

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { formatName, normalizeEmail, storePhone } from './format';
 import { roleDef } from './roles';
 import { isHowMet } from './how-met';
+import { likeCompanies, likePeople } from './duplicates';
 import { allowedPhotoUrl, isPhotoKind, isSiteStatus } from './site';
 
 const money = z.union([z.number(), z.string()]).transform((v) => String(v).replace(/[$,\s]/g, ''));
@@ -178,6 +179,15 @@ export function planImport(file: ImportFile, ex: Existing): Plan {
     inFile.add(k);
     return { label: `${b.vendor}${b.number ? ` #${b.number}` : ''} (${b.date})`, projectKey: pk, duplicate, total: totalStr, problem, row: b };
   });
+  // Like names (owner, Oct 2, 2026): a new one that looks like someone on file is flagged before it's added.
+  for (const c of companies) if (!c.match) {
+    const like = likeCompanies(c.name, ex.companies);
+    if (like.length) problems.push(`${c.name}: looks like ${like.map((x) => x.name).join(', ')} on file. It will be added as a new company; use the name on file in the file if it's the same one.`);
+  }
+  for (const p of people) if (!p.match) {
+    const like = likePeople(splitFull(p.name), ex.people);
+    if (like.length) problems.push(`${p.name}: looks like ${like.map((x) => `${x.firstName} ${x.lastName}`).join(', ')} on file. They'll be added as a new person; use the name on file if it's the same person.`);
+  }
   for (const pj of file.projects) if (pj.site?.status && !isSiteStatus(pj.site.status)) problems.push(`${pj.name}: unknown website status "${pj.site.status}"`);
   const photoKeys = new Set((ex.photos ?? []).map((f) => `${f.projectId}|${f.sourceUrl}`));
   const photoSeen = new Set<string>();

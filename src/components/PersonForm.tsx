@@ -3,6 +3,7 @@ import { savePerson } from '@/app/(app)/contacts-actions';
 import { showPhone } from '@/lib/format';
 import { RoleFields, RolePicker, SupplierTypePicker } from './contacts';
 import { howMetOptions } from '@/lib/how-met';
+import { Choice } from './Choice';
 
 type P = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; title: string | null; companyId: string | null; city: string | null; state: string | null; howMet: string | null; introducedById: string | null; introNote: string | null; metAtEventId: string | null; notes: string | null };
 
@@ -56,12 +57,7 @@ export function PersonForm({ person, companies, people, events, defaults }: {
         <header><h2>How We Know Them</h2><span className="hint">Most people come through introductions: always say who</span></header>
         <div className="body">
           <div className="fields">
-            <label className="f">How We Know Them
-              <select name="howMet" defaultValue={person?.howMet ?? (defaults?.introducedById ? 'introduction' : '')}>
-                <option value="">Not sure</option>
-                {howMetOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-              </select>
-            </label>
+            <Choice name="howMet" label="How We Know Them" options={[{ key: '', label: 'Not Sure' }, ...howMetOptions]} defaultValue={person?.howMet ?? (defaults?.introducedById ? 'introduction' : '')} color="energy" />
             <label className="f">Introduced By<span className="h">Someone on file</span>
               <select name="introducedById" defaultValue={person?.introducedById ?? defaults?.introducedById ?? ''}>
                 <option value="">No one / a new person →</option>
@@ -78,7 +74,7 @@ export function PersonForm({ person, companies, people, events, defaults }: {
           </div>
           <label className="f">About the Introduction<span className="h">Why they connected you, what was said</span><textarea name="introNote" defaultValue={person?.introNote ?? ''} /></label>
           <label className="f">Notes<textarea name="notes" defaultValue={person?.notes ?? ''} /></label>
-          <label className="check"><input type="checkbox" name="different" /> Different person (save even if the email or phone matches someone)</label>
+          <label className="check"><input type="checkbox" name="different" /> Different person (save even if the name, email or phone looks like someone on file)</label>
         </div>
       </fieldset>
     </ActionForm>
