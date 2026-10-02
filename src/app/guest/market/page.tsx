@@ -21,7 +21,7 @@ export default async function GuestMarket({ searchParams }: { searchParams: Prom
     <>
       <PageHead title="Market Map" sub="What’s selling, where and for how much, from Wake and Durham County public records." />
       <Section title="Filters" kind="grey"><Filters f={f} base="/guest/market" /></Section>
-      <Section title="Map" kind="aqua"><MarketMap query={query(f)} projects={[]} watch={[]} areas={hoods} only={['heat', 'dots', 'parcels', 'areas']} /></Section>
+      <Section title="Map" kind="aqua"><MarketMap query={query(f)} projects={[]} watch={[]} areas={hoods} only={['heat', 'dots', 'parcels', 'areas', 'permits', 'teardowns']} /></Section>
       <Section title="Where the Market Is Headed" kind="blue" hint="Sales per month: the latest 6 months (to 30 days ago) against the same months a year earlier">
         <p className="trend-sentence"><strong>{bandSentence(bands.filter((b) => b.pace !== 'thin'))}</strong></p>
         <div className="tiles">{bands.map((b) => (

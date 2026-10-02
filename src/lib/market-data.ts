@@ -128,7 +128,7 @@ export async function zoneStats(kind: 'neighborhood' | 'street', counties: strin
   ], sql` and `);
   const r = await db.execute<{
     name: string; city: string | null; county: string; lat: number; lng: number;
-    finished: number; top_psf: number | null; new_count: number; new_psf: number | null; entry_count: number; entry_price: number | null;
+    finished: number; top_psf: number | null; new_count: number; new_psf: number | null; entry_count: number; entry_price: number | null; psf_recent: number | null; psf_prior: number | null;
   }>(sql`
     with z as (
       select ${key} as name, p.city, p.county, p.lat::float as lat, p.lng::float as lng, p.land_use, p.year_built, p.heated_sf as sf, s.price::float as price, s.sold_on,
@@ -141,7 +141,11 @@ export async function zoneStats(kind: 'neighborhood' | 'street', counties: strin
       percentile_cont(0.75) within group (order by price / sf) filter (where sold_on > ${y2} and land_use in ('single_family', 'townhouse') and sf >= 1500) as top_psf,
       count(*) filter (where sold_on > ${y2} and land_use = 'single_family' and year_built >= ${newYear} and sf >= 1500)::int as new_count,
       percentile_cont(0.5) within group (order by price / sf) filter (where sold_on > ${y2} and land_use = 'single_family' and year_built >= ${newYear} and sf >= 1500) as new_psf,
-      0 as entry_count, null::float as entry_price
+      0 as entry_count, null::float as entry_price,
+      percentile_cont(0.5) within group (order by price / sf) filter (where sold_on > ${y1} and land_use in ('single_family', 'townhouse') and sf >= 1500) as psf_recent,
+      case when count(*) filter (where sold_on > ${y2} and sold_on <= ${y1} and land_use in ('single_family', 'townhouse') and sf >= 1500) >= 3
+        and count(*) filter (where sold_on > ${y1} and land_use in ('single_family', 'townhouse') and sf >= 1500) >= 3
+        then percentile_cont(0.5) within group (order by price / sf) filter (where sold_on > ${y2} and sold_on <= ${y1} and land_use in ('single_family', 'townhouse') and sf >= 1500) end as psf_prior
     from z group by name ${kind === 'street' ? sql`, city` : sql`, county`}
     having count(*) filter (where sold_on > ${y2}) >= 3`);
   // Sales by price band in the last 12 months, per zone (a second, plain grouping: fast).
@@ -184,6 +188,7 @@ export async function zoneStats(kind: 'neighborhood' | 'street', counties: strin
       basis: useNew ? 'new builds' as const : 'top quarter of houses' as const,
       entryCount: lots.length, entryPrice: lots.length ? Math.round(median(lots)!) : null, entryFrom: lotsFrom,
       bandCounts: bands.get(`${z.name}|${(kind === 'street' ? z.city : z.county) ?? ''}`) ?? {},
+      psfRecent: z.psf_recent === null ? null : Number(z.psf_recent), psfPrior: z.psf_prior === null ? null : Number(z.psf_prior),
     };
   });
 }
