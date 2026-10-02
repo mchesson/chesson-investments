@@ -14,7 +14,7 @@ import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
 import { cents, payBlocker, type CodeMoney } from '@/lib/budget';
-import { projectStages, projectStageLabel } from '@/lib/project-stages';
+import { projectStageLabel } from '@/lib/project-stages';
 import { HOLDING_KINDS } from '@/lib/cost-codes';
 import { lineKinds } from '@/lib/bill-lines';
 import { scheduleFor } from '@/lib/schedule-data';
@@ -22,11 +22,12 @@ import { responsibleLabel } from '@/lib/schedule';
 import { BudgetStages, ScheduleTab } from '@/components/ProjectSchedule';
 import { ProjectReview } from '@/components/ProjectReview';
 import { ProjectWebsite } from '@/components/ProjectWebsite';
+import { StageBar } from '@/components/StageBar';
 import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
 import {
-  addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver, setProjectStage,
+  addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
 
 type Money = NonNullable<Awaited<ReturnType<typeof projectMoney>>>;
@@ -58,6 +59,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     <>
       <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<><span className="chip blue">{projectStageLabel(p.stage)}</span> {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
+      <StageBar projectId={id} stage={p.stage} rentalStatus={p.stage === 'rental' ? (await rentalFor(id)).rental?.r.status ?? null : null} canEdit={editProject} />
       <div className="record">
         <div className="card-side">
           <Section title="The House" kind="aqua">
@@ -69,15 +71,6 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               ['From Watchlist', p.propertyId ? <Link href={`/watchlist/${p.propertyId}`}>Open the lead</Link> : null],
             ]} />
           </Section>
-          {editProject ? (
-            <Section title="Stage" kind="grey">
-              <div className="chips">{projectStages.map((s) => (
-                <form key={s.key} action={setProjectStage.bind(null, id, s.key)}>
-                  <button type="submit" className={`btn small ${p.stage === s.key ? '' : 'secondary'}`} aria-pressed={p.stage === s.key}>{s.label}</button>
-                </form>
-              ))}</div>
-            </Section>
-          ) : null}
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={tabs} />
