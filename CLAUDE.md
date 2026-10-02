@@ -35,6 +35,10 @@ Chesson) in plain language, with click-by-click steps whenever he has to act.
   `PW_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`).
 
 ## Owner's workflow (as on his other projects)
+- **Every time something merges and goes live, give the owner the app's link
+  again** (owner, Oct 2, 2026): https://chesson-investments.vercel.app, plus a
+  direct link to the page that changed when there is one (the website:
+  https://chesson-investments.vercel.app/site).
 - Every change goes through a pull request. **Claude merges its own pull
   requests** once `npm run typecheck`, `npm run build`, `npm test` and the
   end-to-end tests pass and there's no conflict. Then tell the owner in plain
