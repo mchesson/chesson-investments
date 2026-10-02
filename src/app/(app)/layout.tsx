@@ -1,3 +1,4 @@
+import { PlaceLists } from '@/components/PlaceLists';
 import Link from 'next/link';
 import { AutoCloseDetails } from '@/components/AutoCloseDetails';
 import { signOut } from '@/auth';
@@ -43,6 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <SideNav items={items} />
       <div className="app-body"><main>{children}</main></div>
+      <PlaceLists />
     </>
   );
 }

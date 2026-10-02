@@ -9,6 +9,7 @@ import {
 import { sql } from 'drizzle-orm';
 
 export const projectNumberSeq = pgSequence('project_number', { startWith: 1001 });
+export const issueNumberSeq = pgSequence('issue_number', { startWith: 101 });
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 const money = (name: string) => numeric(name, { precision: 14, scale: 2 });
@@ -60,6 +61,9 @@ export const companies = pgTable('companies', {
   doNotUseReason: text('do_not_use_reason'),
   doNotUseAt: timestamp('do_not_use_at', { withTimezone: true }),
   doNotUseBy: uuid('do_not_use_by'),
+  // Keep using them although their overall grade is D or below (owner, Oct 2, 2026), with why.
+  gradeOverride: boolean('grade_override').notNull().default(false),
+  gradeOverrideReason: text('grade_override_reason'),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),
@@ -89,6 +93,9 @@ export const people = pgTable('people', {
   doNotUseReason: text('do_not_use_reason'),
   doNotUseAt: timestamp('do_not_use_at', { withTimezone: true }),
   doNotUseBy: uuid('do_not_use_by'),
+  // Keep using them although their overall grade is D or below (owner, Oct 2, 2026), with why.
+  gradeOverride: boolean('grade_override').notNull().default(false),
+  gradeOverrideReason: text('grade_override_reason'),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),
@@ -687,3 +694,54 @@ export const duplicateDismissals = pgTable('duplicate_dismissals', {
   dismissedBy: uuid('dismissed_by').references(() => users.id),
   created: timestamp('created', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex('duplicate_dismissals_pair').on(t.kind, t.aId, t.bId)]).enableRLS();
+
+// Grades for a contractor's or vendor's work, one per job (owner, Oct 2, 2026:
+// "put a justification in the grades section"). A company or a person (one of
+// the two); the overall grade is the average (src/lib/grades.ts), and D or
+// below marks them Do Not Use unless overridden.
+export const grades = pgTable('grades', {
+  id: id(),
+  companyId: uuid('company_id').references(() => companies.id),
+  personId: uuid('person_id').references(() => people.id),
+  projectId: uuid('project_id').references(() => projects.id),
+  grade: text('grade').notNull(), // A B C D F
+  quality: text('quality'), schedule: text('schedule'), budget: text('budget'), communication: text('communication'),
+  justification: text('justification').notNull(),
+  gradedBy: uuid('graded_by').references(() => users.id),
+  gradedOn: date('graded_on').notNull(),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('grades_company').on(t.companyId), index('grades_person').on(t.personId), index('grades_project').on(t.projectId)]).enableRLS();
+
+// Issues with a contractor or vendor (owner, Oct 2, 2026): each open item with
+// its status, the time it took to fix and who was involved.
+export const vendorIssues = pgTable('vendor_issues', {
+  id: id(),
+  number: integer('number').default(sql`nextval('issue_number')`),
+  companyId: uuid('company_id').references(() => companies.id),
+  personId: uuid('person_id').references(() => people.id),
+  projectId: uuid('project_id').references(() => projects.id),
+  title: text('title').notNull(),
+  details: text('details'),
+  severity: text('severity').notNull().default('medium'), // low / medium / high
+  status: text('status').notNull().default('open'), // src/lib/issues.ts
+  reportedOn: date('reported_on').notNull(),
+  dueOn: date('due_on'),
+  resolvedOn: date('resolved_on'),
+  resolution: text('resolution'),
+  costToFix: money('cost_to_fix'),
+  reportedBy: uuid('reported_by').references(() => users.id),
+  statusChangedAt: timestamp('status_changed_at', { withTimezone: true }).notNull().defaultNow(),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('vendor_issues_company').on(t.companyId, t.status), index('vendor_issues_person').on(t.personId, t.status), index('vendor_issues_project').on(t.projectId)]).enableRLS();
+
+// Who was involved in an issue: people on file (theirs or ours) and our staff.
+export const issuePeople = pgTable('issue_people', {
+  id: id(),
+  issueId: uuid('issue_id').notNull().references(() => vendorIssues.id),
+  personId: uuid('person_id').references(() => people.id),
+  userId: uuid('user_id').references(() => users.id),
+  role: text('role'), // what they did: reported it, fixed it, signed off
+  created: created(),
+}, (t) => [index('issue_people_issue').on(t.issueId), index('issue_people_person').on(t.personId)]).enableRLS();

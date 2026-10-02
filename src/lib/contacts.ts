@@ -44,7 +44,7 @@ export async function listPeople(opts: { q?: string; roles?: string[]; supply?: 
     introducedByName: sql<string | null>`(select i.first_name || ' ' || i.last_name from ${people} i where i.id = ${people.introducedById})`,
     doNotUse: people.doNotUse, doNotUseReason: people.doNotUseReason,
     companyTypes: sql<{ role: string; stage: string; supplierTypes: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types) order by r.created_at) from ${partyRoles} r where r.company_id = ${people.companyId} and r.removed_at is null), '[]')`,
-    roles: sql<{ role: string; stage: string; supplierTypes: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types) order by r.created_at) from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null), '[]')`,
+    roles: sql<{ role: string; stage: string; supplierTypes: string[] | null; areas: string | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types, 'areas', r.areas) order by r.created_at) from ${partyRoles} r where r.person_id = ${people.id} and r.removed_at is null), '[]')`,
     total: sql<number>`count(*) over ()`.mapWith(Number),
   }).from(people).leftJoin(companies, eq(companies.id, people.companyId))
     .where(and(...where)).orderBy(asc(people.lastName), asc(people.firstName))

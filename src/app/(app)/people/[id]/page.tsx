@@ -15,6 +15,11 @@ import { Phone } from '@/components/Phone';
 import { HistoryList, RoleChips, RolesPanel, TaskForm, TaskRows, TouchForm, TouchList } from '@/components/contacts';
 import { archivePerson } from '../../contacts-actions';
 import { howMetLabel } from '@/lib/how-met';
+import { VendorGrades, VendorIssues } from '@/components/VendorRecordTabs';
+import { GradeBadge } from '@/components/Grades';
+import { gradesFor, issuesFor } from '@/lib/grade-data';
+import { isClosed } from '@/lib/issues';
+import { isVendorRole } from '@/lib/roles';
 
 type Intro = { id: string; firstName: string; lastName: string; introNote: string | null; created: Date; companyName: string | null };
 
@@ -39,23 +44,27 @@ function Intros({ introduced, edit, id }: { introduced: Intro[]; edit: boolean; 
   );
 }
 
-export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview' } = await searchParams;
+  const { tab = 'overview', status } = await searchParams;
   const data = isUuid(id) ? await getPerson(id) : null;
   if (!data || data.person.archived) notFound();
   const { person: p, company, introducedBy, roles, lastTouch, introduced, metAt } = data;
   const edit = can(user.role, 'contacts.edit');
   const base = `/people/${id}`;
   const since = daysSince(lastTouch, today());
+  const [gs, iss] = await Promise.all([gradesFor({ personId: id }), issuesFor({ personId: id })]);
+  // Grades and Issues for contractors and vendors (and anyone already graded or with an issue).
+  const vendor = roles.some((r) => isVendorRole(r.role)) || gs.rows.length > 0 || iss.length > 0;
+  const openIssues = iss.filter((i) => !isClosed(i.status)).length;
 
   return (
     <>
       <PageHead
         eyebrow="Person"
         title={`${p.firstName} ${p.lastName}`}
-        sub={<RoleChips items={roles} />}
+        sub={<span className="sub-row">{vendor ? <GradeBadge letter={gs.overall?.letter} size="sm" /> : null}<RoleChips items={roles} /></span>}
         actions={edit ? (<><Link className="btn" href={`${base}?tab=touches`}>Log a Touch</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null}
       />
       <DoNotUseBanner on={p.doNotUse} reason={p.doNotUseReason} at={p.doNotUseAt} />
@@ -95,8 +104,12 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         <div>
           <Tabs base={base} current={tab} tabs={[
             { key: 'overview', label: 'Overview' }, { key: 'touches', label: 'Touches' }, { key: 'tasks', label: 'Tasks' },
-            { key: 'work', label: 'Work History' }, { key: 'intros', label: 'Introductions', count: introduced.length }, { key: 'deals', label: 'Deals Sent' }, { key: 'history', label: 'History' },
+            { key: 'work', label: 'Work History' }, { key: 'intros', label: 'Introductions', count: introduced.length }, { key: 'deals', label: 'Deals Sent' },
+            ...(vendor ? [{ key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }] : []),
+            { key: 'history', label: 'History' },
           ]} />
+          {tab === 'grades' ? <VendorGrades who={{ personId: id }} canEdit={edit} override={{ on: p.gradeOverride, reason: p.gradeOverrideReason }} /> : null}
+          {tab === 'issues' ? <VendorIssues who={{ personId: id }} theirs={[{ id, name: `${p.firstName} ${p.lastName}` }]} base={base} status={status ?? null} canEdit={edit} /> : null}
           {tab === 'overview' && can(user.role, 'money.view') ? await (async () => { const vb = await vendorBills({ personId: id }); return vb.length ? <div style={{ marginBottom: 16 }}><VendorSpend bills={vb} /></div> : null; })() : null}
           {tab === 'overview' ? <Overview id={id} roles={roles} edit={edit} notes={p.notes} introduced={introduced} /> : null}
           {tab === 'touches' ? (

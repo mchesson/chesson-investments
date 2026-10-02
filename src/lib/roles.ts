@@ -196,3 +196,7 @@ export const utilityServiceLabel = (v: string) => utilityServices.find((s) => s.
 export function doNotUseProblem(on: boolean, reason: string | null | undefined): string | null {
   return on && !reason?.trim() ? 'Say why they’re Do Not Use.' : null;
 }
+
+/** Roles whose work we grade and track issues on (owner, Oct 2, 2026: "for all contractors and vendors"). */
+export const vendorRoleKeys = ['gc', 'sub', 'supplier', 'agent', 'wholesaler', 'lender', 'attorney', 'designer', 'property_manager'];
+export const isVendorRole = (r: string) => vendorRoleKeys.includes(r);

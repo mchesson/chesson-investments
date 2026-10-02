@@ -27,7 +27,7 @@ export function DoNotUseSection(p: Props) {
           <summary>Mark Do Not Use</summary>
           <ActionForm action={setDoNotUse} submit="Mark Do Not Use" submitClass="btn danger">
             {target}<input type="hidden" name="on" value="1" />
-            <label className="f">Why<span className="h">Required. A grade of D or below will set this by itself once grading is built.</span><textarea name="reason" required rows={2} /></label>
+            <label className="f">Why<span className="h">Required. An overall grade of D or below also sets this by itself (see Grades).</span><textarea name="reason" required rows={2} /></label>
           </ActionForm>
         </details>
       )}

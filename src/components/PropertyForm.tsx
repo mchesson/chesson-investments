@@ -11,10 +11,10 @@ export function PropertyForm({ property, people, defaultSource }: { property?: P
       <div className="section" data-c="aqua"><header><h2>Where</h2></header>
         <div className="body fields">
           <label className="f">Address<input name="address" required defaultValue={property?.address} placeholder="109 Plainview Ave" /></label>
-          <label className="f">City<input name="city" defaultValue={property?.city ?? 'Raleigh'} /></label>
-          <label className="f">State<input name="state" defaultValue={property?.state ?? 'NC'} /></label>
+          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={property?.city ?? 'Raleigh'} /></label>
+          <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={property?.state ?? 'NC'} /></label>
           <label className="f">ZIP<input name="zip" defaultValue={property?.zip ?? ''} /></label>
-          <label className="f">Neighborhood<input name="neighborhood" defaultValue={property?.neighborhood ?? ''} /></label>
+          <label className="f">Neighborhood<input name="neighborhood" list="neighborhood-options" defaultValue={property?.neighborhood ?? ''} /></label>
         </div>
       </div>
       <div className="section"><header><h2>The Lot</h2></header>

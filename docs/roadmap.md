@@ -80,6 +80,11 @@ In this order, before phase 2:
      how much rent or cost would change it. The same numbers for Shaw View and
      the beach condo.
 8. **Grading contractors and checking their prices (owner, Oct 2, 2026).**
+   **Built Oct 2, 2026:** a grade per job (A–F, optional parts) with a required
+   justification, the overall grade on their page and the project's Vendors
+   tab, and **Issues** for every contractor and vendor (a tab per status, days
+   to fix, who was involved, cost to fix). Still to come below: the end-of-job
+   task, price checks and suggested vendors.
    - A **grade per job**: quality, schedule kept, budget kept, communication,
      clean-up, would-we-hire-again, with a note, given when their work on a
      project ends (a task asks for it); an **overall grade** on their page from
@@ -99,7 +104,7 @@ In this order, before phase 2:
    date order: emails, calls, meetings, site walks, bids and proposals sent,
    invoices, introductions, role changes and Do Not Use. Contacts found in
    email are suggested for a one-tap add.
-10. **Do Not Use, by grade.** Built by hand (Oct 2, 2026: a reason is
+10. **Do Not Use, by grade** (built Oct 2, 2026, with the override). Built by hand (Oct 2, 2026: a reason is
     required, red on the record and the lists); once grading (item 8) exists,
     a grade of D or below sets it by itself, with the grade as the reason, and
     a manual override that keeps them usable with a reason.
@@ -291,6 +296,40 @@ analysis on the property:
   feeds lot facts, comps by neighborhood and teardown candidates. Claude's
   environment needs network access to maps.wakegov.com, *.wakegov.com,
   data-wake.opendata.arcgis.com and *.arcgis.com (owner adding, Oct 2, 2026).
+
+### Buy box: it moves with the market (owner, Oct 2, 2026)
+"The buy box is not static." It's worked out from market data and re-checked
+as the market moves, not typed once:
+- **Data sets, dated:** sale price, time on market (days from listing to
+  contract), sale price against time on market, and neighborhood against time
+  on market; $/heated sf; list-to-sale ratio; how many sell per month (absorption).
+- **Street by street:** buy zones are drawn from streets and blocks, then
+  neighborhoods, then towns, with the buy price for each (what a finished house
+  sells for there, worked back through the max lot price formula below).
+  Being near a downtown or metro center is a factor.
+- **By price band:** which bands are selling and which are stuck. Today (Oct
+  2026): under $400k sells (people have to live somewhere) and over $1.5M sells
+  (cash buyers don't care about 7% rates after years at 3–4%); the middle is
+  slower, and only certain neighborhoods absorb $1.5M+. The app shows this per
+  neighborhood and alerts when it shifts.
+- **Alerts:** a listing for sale inside a buy zone; a street or neighborhood
+  whose sales speed up or slow down; a price band turning.
+- **Where to look:** suggested zones (on-market) and off-market targets
+  (phase 5b) in the same zones.
+- **Counties:** Wake first (its parcel and sales data is connected), then
+  Durham (its open data has parcels, neighborhoods and sales: reachable), then
+  Orange, Johnston and Chatham.
+- **Listings and days on market** aren't in county records. Zillow has no
+  public data feed (its old API is closed; listing data comes through the MLS
+  or a paid listings service). Options for the owner: an MLS (IDX/VOW) feed
+  through one of our agents, or a paid listings API recorded in Vendors first
+  (open question).
+- **Interactive heat map** (Map in the menu): zoom in and out, with buttons
+  across the top to add or take away what's shown: recent sales ($/sf heat),
+  time on market, our projects, the watchlist, buy zones, listings, off-market
+  targets, agents' areas.
+- **Agents:** every agent's areas they specialize in (built Oct 2, 2026, on
+  their role), shown on the map.
 
 ### Buy box
 County parcel and sales data; max lot price = (value × (1 − selling costs) −

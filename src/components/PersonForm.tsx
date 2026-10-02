@@ -23,8 +23,8 @@ export function PersonForm({ person, companies, people, events, defaults }: {
           <label className="f">Last Name<input name="lastName" required defaultValue={person?.lastName} /></label>
           <label className="f">Mobile or Main Phone<input name="phone" type="tel" defaultValue={showPhone(person?.phone)} /></label>
           <label className="f">Email<input name="email" type="email" defaultValue={person?.email ?? ''} /></label>
-          <label className="f">City<input name="city" defaultValue={person?.city ?? ''} /></label>
-          <label className="f">State<input name="state" defaultValue={person?.state ?? 'NC'} /></label>
+          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={person?.city ?? ''} /></label>
+          <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={person?.state ?? 'NC'} /></label>
         </div>
       </fieldset>
       <fieldset className="section" data-c="aqua" style={{ padding: 0 }}>

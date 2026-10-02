@@ -4,6 +4,10 @@ import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
+import { VendorGrades, VendorIssues } from '@/components/VendorRecordTabs';
+import { GradeBadge } from '@/components/Grades';
+import { gradesFor, issuesFor } from '@/lib/grade-data';
+import { isClosed } from '@/lib/issues';
 import { bidsFromCompany } from '@/lib/bid-data';
 import { formatCents } from '@/lib/format';
 import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
@@ -14,10 +18,12 @@ import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
 import { HistoryList, RoleChips, RolesPanel, TaskForm, TaskRows } from '@/components/contacts';
 
-export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview' } = await searchParams;
+  const { tab = 'overview', status } = await searchParams;
+  const [gs, iss] = await Promise.all([gradesFor({ companyId: id }), issuesFor({ companyId: id })]);
+  const openIssues = iss.filter((i) => !isClosed(i.status)).length;
   const data = isUuid(id) ? await getCompany(id) : null;
   if (!data || data.company.archived) notFound();
   const { company: c, roles, current, former, subs } = data;
@@ -26,7 +32,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const seeMoney = can(user.role, 'money.view');
   return (
     <>
-      <PageHead eyebrow="Company" title={c.name} sub={<RoleChips items={roles} />}
+      <PageHead eyebrow="Company" title={c.name} sub={<span className="sub-row"><GradeBadge letter={gs.overall?.letter} size="sm" /><RoleChips items={roles} /></span>}
         actions={edit ? (<><Link className="btn" href={`/people/new?company=${id}`}>Add Person Here</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null} />
       <DoNotUseBanner on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} />
       <div className="record">
@@ -43,7 +49,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user.role, 'users.manage')} />
         </div>
         <div>
-          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
+          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
               {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
@@ -85,6 +91,8 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
               {edit ? <Section title="Add a Task" kind="energy"><TaskForm companyId={id} staff={await activeStaff()} me={user.id} /></Section> : null}
             </div>
           ) : null}
+          {tab === 'grades' ? <VendorGrades who={{ companyId: id }} canEdit={edit} override={{ on: c.gradeOverride, reason: c.gradeOverrideReason }} /> : null}
+          {tab === 'issues' ? <VendorIssues who={{ companyId: id }} theirs={current.map((x) => ({ id: x.id, name: `${x.firstName} ${x.lastName}` }))} base={base} status={status ?? null} canEdit={edit} /> : null}
           {tab === 'history' ? <Section title="History" kind="grey"><HistoryList rows={await historyFor('company', id)} /></Section> : null}
         </div>
       </div>

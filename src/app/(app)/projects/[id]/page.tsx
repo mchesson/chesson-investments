@@ -24,6 +24,7 @@ import { BudgetStages, ScheduleTab } from '@/components/ProjectSchedule';
 import { ProjectReview } from '@/components/ProjectReview';
 import { ProjectWebsite } from '@/components/ProjectWebsite';
 import { StageBar } from '@/components/StageBar';
+import { ProjectVendors } from '@/components/VendorRecordTabs';
 import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
@@ -36,10 +37,10 @@ type Money = NonNullable<Awaited<ReturnType<typeof projectMoney>>>;
 const m = (c: number) => formatCents(c);
 const signed = (c: number) => (c < 0 ? <span className="red">−{m(-c)}</span> : m(c));
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; stage?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; stage?: string; status?: string }> }) {
   const user = await requirePage('projects.view');
   const { id } = await params;
-  const { tab = 'overview', edit: editParam, stage: askedStage } = await searchParams;
+  const { tab = 'overview', edit: editParam, stage: askedStage, status: issueStatus } = await searchParams;
   const data = isUuid(id) ? await projectMoney(id) : null;
   if (!data || data.project.archived) notFound();
   const { project: p } = data;
@@ -54,7 +55,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
-    { key: 'rental', label: 'Rental' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
+    { key: 'rental', label: 'Rental' }, { key: 'vendors', label: 'Vendors and Issues' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
     <>
@@ -89,6 +90,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
+          {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user.role, 'contacts.edit')} /> : null}
           {tab === 'utilities' ? <Utilities projectId={id} rows={await utilitiesFor(id)} companies={await utilityCompanyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'website' ? <ProjectWebsite p={p} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}
