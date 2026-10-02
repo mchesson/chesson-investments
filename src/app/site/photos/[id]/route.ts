@@ -7,7 +7,7 @@ import { getObject } from '@/lib/storage';
 export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const f = isUuid(id) ? await publicPhoto(id) : null;
-  const body = f ? f.data ?? (f.storagePath ? await getObject(f.storagePath).catch(() => null) : null) : null;
+  const body = f ? (f.data ? Buffer.from(f.data, 'base64') : f.storagePath ? await getObject(f.storagePath).catch(() => null) : null) : null;
   if (!f || !body) return new Response('Not found', { status: 404 });
   return new Response(new Uint8Array(body), {
     headers: {
