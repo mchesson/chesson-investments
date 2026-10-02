@@ -41,12 +41,21 @@ export async function listPeople(opts: { q?: string; role?: string; stage?: stri
   return { rows, total: rows[0]?.total ?? 0, page, pageSize: PAGE };
 }
 
+function rolesWithGc(where: ReturnType<typeof eq>) {
+  return db.select({
+    id: partyRoles.id, role: partyRoles.role, stage: partyRoles.stage, trade: partyRoles.trade, areas: partyRoles.areas,
+    licenseNumber: partyRoles.licenseNumber, notes: partyRoles.notes, stageChangedAt: partyRoles.stageChangedAt,
+    hiredThroughCompanyId: partyRoles.hiredThroughCompanyId,
+    hiredThroughName: sql<string | null>`(select c.name from ${companies} c where c.id = ${partyRoles.hiredThroughCompanyId})`,
+  }).from(partyRoles).where(and(where, isNull(partyRoles.removed))).orderBy(asc(partyRoles.created));
+}
+
 export async function getPerson(id: string) {
   const [p] = await db.select().from(people).where(eq(people.id, id));
   if (!p) return null;
   const [company] = p.companyId ? await db.select().from(companies).where(eq(companies.id, p.companyId)) : [];
   const [introducedBy] = p.introducedById ? await db.select().from(people).where(eq(people.id, p.introducedById)) : [];
-  const roleRows = await db.select().from(partyRoles).where(and(eq(partyRoles.personId, id), isNull(partyRoles.removed))).orderBy(asc(partyRoles.created));
+  const roleRows = await rolesWithGc(eq(partyRoles.personId, id));
   const [last] = await db.select({ on: sql<string | null>`max(happened_on)::text` }).from(touches).where(and(eq(touches.personId, id), isNull(touches.archived)));
   const introduced = await db.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, introNote: people.introNote, created: people.created, companyName: companies.name })
     .from(people).leftJoin(companies, eq(companies.id, people.companyId))
@@ -104,13 +113,16 @@ export async function listCompanies(opts: { q?: string; role?: string; page?: nu
 export async function getCompany(id: string) {
   const [c] = await db.select().from(companies).where(eq(companies.id, id));
   if (!c) return null;
-  const roleRows = await db.select().from(partyRoles).where(and(eq(partyRoles.companyId, id), isNull(partyRoles.removed)));
+  const roleRows = await rolesWithGc(eq(partyRoles.companyId, id));
   const current = await db.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, title: people.title, phone: people.phone, email: people.email, lastTouch: lastTouchSql })
     .from(people).where(and(eq(people.companyId, id), isNull(people.archived))).orderBy(asc(people.lastName));
   const former = await db.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, title: personCompanies.title, endedOn: personCompanies.endedOn })
     .from(personCompanies).innerJoin(people, eq(people.id, personCompanies.personId))
     .where(and(eq(personCompanies.companyId, id), sql`${personCompanies.endedOn} is not null`)).orderBy(desc(personCompanies.endedOn));
-  return { company: c, roles: roleRows, current, former };
+  const subs = await db.select({ companyId: partyRoles.companyId, personId: partyRoles.personId, role: partyRoles.role, trade: partyRoles.trade,
+    name: sql<string>`coalesce((select c.name from ${companies} c where c.id = ${partyRoles.companyId}), (select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${partyRoles.personId}))` })
+    .from(partyRoles).where(and(eq(partyRoles.hiredThroughCompanyId, id), isNull(partyRoles.removed)));
+  return { company: c, roles: roleRows, current, former, subs };
 }
 
 /** Everyone who is cold for at least one live role. */
@@ -184,4 +196,11 @@ export async function getList(id: string) {
     .from(savedListMembers).innerJoin(people, eq(people.id, savedListMembers.personId)).leftJoin(companies, eq(companies.id, people.companyId))
     .where(and(eq(savedListMembers.listId, id), isNull(savedListMembers.removed))).orderBy(asc(people.lastName));
   return { list: l, members };
+}
+
+/** Companies (and people) with a live GC role: who a sub can work through. */
+export function gcOptions() {
+  return db.select({ id: companies.id, name: companies.name }).from(companies)
+    .where(and(isNull(companies.archived), sql`exists (select 1 from ${partyRoles} r where r.company_id = ${companies.id} and r.role = 'gc' and r.removed_at is null)`))
+    .orderBy(asc(companies.name));
 }

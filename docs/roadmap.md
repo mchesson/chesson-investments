@@ -12,6 +12,24 @@ tax IDs or ID documents are copied anywhere).
   vs planned closing (420 Peyton closed 7/31, before the 8/4 date). Every
   deadline becomes a task. Offer → counter → executed versions, with who signed,
   when and on which platform (dotloop, Authentisign, Adobe Sign).
+- **Contract library** (owner, Oct 2, 2026: "a place for standard contracts
+  with GCs etc ... and a place to house contracts that we have executed under
+  each contractor, vendor"). Two parts:
+  - **Standard templates** (none exist yet; to build, with an NC construction
+    attorney's review before first use): GC agreement (fixed price and
+    cost-plus with fee %, draw schedule, retainage, change-order process,
+    schedule, warranty, insurance and lien waiver requirements), subcontractor
+    agreement, independent contractor agreement for day labor, design and
+    engineering agreement, supplier terms, lien waiver forms (conditional and
+    unconditional, partial and final), W-9 and certificate-of-insurance
+    requests. Each template versioned, with merge fields (parties, property,
+    price, dates) filled from the project and the vendor's record.
+  - **Executed contracts** on each vendor (company or person) and on the
+    project: type, parties, property, amount, signed date, term and end date,
+    the signed file and every earlier version, and its commitment in job
+    costing (scope, price, retainage, fee %). The vendor's page lists every
+    contract, insurance certificate (with expiry reminders), W-9 (restricted)
+    and lien waiver, across projects.
 - **Closings, both directions** (purchase and sale): settlement agent, closing
   attorney, title agency and insurer, both brokers, surveyor, lender; cash or
   loan; 1031 exchange (45 / 180-day deadlines); power of attorney; affiliated
@@ -84,7 +102,44 @@ property managers, bookings and leases (nightly / weekly rates, platform),
 expenses by Form 8825 line, insurance policies, utilities, furniture and its
 protection plan, NOI, cap rate, cash-on-cash, occupancy, comparable rate sets.
 
-## Phase 5: buy box
+## Phase 5: Deal Analyzer and buy box
+Owner (Oct 2, 2026): "we need a way to evaluate deals for buying all types of
+properties ... we want to look at deals from all angles." One property on the
+watchlist, run through every strategy side by side, each saved as a dated
+analysis on the property:
+- **Hold the land**; **clear / develop and sell lots**; **subdivide and build N
+  homes** (2, 5, more: lot yield from zoning and lot size, phasing);
+  **build and sell**; **build and rent**; **remodel and flip**; **remodel and
+  rent** (refinance and keep, BRRRR); **buy and rent as is**.
+- Inputs per strategy: price, closing and due diligence, site and demolition,
+  build or remodel cost (from our own cost per heated sf by size and
+  neighborhood: the Track Record), soft and holding costs, financing (loan to
+  cost, rate, points, months), timeline, sale price (comps) or rent, vacancy,
+  management, taxes, insurance, HOA, maintenance, refinance terms.
+- Outputs: cash needed, months, profit and margin, return on cash, annualized
+  return, equity multiple; for rentals monthly cash flow, NOI, cap rate,
+  cash-on-cash, DSCR; and the max price we can pay for each strategy at our
+  target profit (the buy box formula below). Sensitivity: Low / Mid / High.
+- **Exit strategies** (owner, Oct 2, 2026: "we certainly need to factor in
+  comps and exit strategy when deciding to enter a deal and then we need a
+  backup exit strategy and why"). Every deal records a **primary exit** and a
+  **backup exit**, each with the reason: presale (sold before or during
+  construction: less market risk, a buyer's deposit, but a fixed price and
+  change requests), post-construction sale (full retail and staging, but
+  carrying cost and market risk), list as is, sell the lots, rent and hold,
+  refinance and keep, sell to an investor. For each: the comps it relies on
+  (dated, from Wake County and the MLS later), the price and timeline, what it
+  nets, and what would make us switch (e.g. "no presale by framing → list on
+  completion"; "sale under $X after 60 days → rent at $Y", as 420 Peyton went
+  from listing to rental). The Deal Analyzer won't mark a deal "Ready to Offer"
+  until both exits and their comps are filled in. The project carries the
+  chosen exits forward; a change of exit is a dated decision in History.
+- **Wake County free data** (parcels, zoning, assessed values, recorded sales)
+  feeds lot facts, comps by neighborhood and teardown candidates. Claude's
+  environment needs network access to maps.wakegov.com, *.wakegov.com,
+  data-wake.opendata.arcgis.com and *.arcgis.com (owner adding, Oct 2, 2026).
+
+### Buy box
 County parcel and sales data; max lot price = (value × (1 − selling costs) −
 build − soft and holding − target profit) ÷ (1 + financing per $ of land);
 neighborhood map; teardown finder. Comps dated and re-checked at listing (the

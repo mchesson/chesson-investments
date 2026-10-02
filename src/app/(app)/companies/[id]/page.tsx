@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { activeStaff, getCompany, historyFor, tasksForRecord } from '@/lib/contacts';
+import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord } from '@/lib/contacts';
 import { isUuid } from '@/lib/forms';
 import { formatDate } from '@/lib/format';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
@@ -15,7 +15,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const { tab = 'overview' } = await searchParams;
   const data = isUuid(id) ? await getCompany(id) : null;
   if (!data || data.company.archived) notFound();
-  const { company: c, roles, current, former } = data;
+  const { company: c, roles, current, former, subs } = data;
   const edit = can(user.role, 'contacts.edit');
   const base = `/companies/${id}`;
   return (
@@ -37,7 +37,14 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
-              <Section title="Roles" kind="blue"><RolesPanel items={roles} companyId={id} canEdit={edit} /></Section>
+              <Section title="Roles" kind="blue"><RolesPanel items={roles} companyId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
+              {subs.length ? (
+                <Section title="Subs and Suppliers Through Them" kind="aqua" hint="Their invoices come through this GC">
+                  <ul className="rows">{subs.map((x, i) => (
+                    <li key={i}><Link href={x.companyId ? `/companies/${x.companyId}` : `/people/${x.personId}`}>{x.name}</Link> <span className="small muted">{x.role === 'supplier' ? 'Supplier' : 'Subcontractor'}{x.trade ? ` · ${x.trade}` : ''}</span></li>
+                  ))}</ul>
+                </Section>
+              ) : null}
               {c.notes ? <Section title="Notes" kind="energy"><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{c.notes}</p></Section> : null}
             </div>
           ) : null}

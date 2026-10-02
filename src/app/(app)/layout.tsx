@@ -31,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="small muted" style={{ padding: '4px 10px' }}>{user.email} · {roleNames[user.role]}</div>
             {can(user.role, 'users.manage') ? <Link href="/admin/users">Users and Access</Link> : null}
             {can(user.role, 'users.manage') ? <Link href="/admin/history">History (Everything)</Link> : null}
+            {can(user.role, 'users.manage') ? <Link href="/admin/import">Import</Link> : null}
             <form action={async () => { 'use server'; await signOut({ redirectTo: '/signin' }); }}>
               <button type="submit">Sign Out</button>
             </form>

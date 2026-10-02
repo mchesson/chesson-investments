@@ -83,6 +83,18 @@ address). Styles: `src/app/globals.css`.
   `introduced_by_id` (always a person on file: typing a new name adds them),
   `intro_note`, `met_at_event_id`. The introducer's page lists everyone they
   introduced, with the notes, as links; the person's page links back.
+- **Subs through a GC** (owner, Oct 2, 2026: "when there is a GC and the
+  invoice from the contractor comes through them that makes them a
+  subcontractor"): `party_roles.hired_through_company_id`. A trade whose
+  invoices come through the GC is a **Subcontractor** (with its trade, stage
+  Hired) "through" that GC; a store or supplier billing the GC is a
+  **Supplier**. The GC's page lists "Subs and Suppliers Through Them". People
+  met at those companies get the same label.
+- **Import** (/admin/import, Owner): a JSON file Claude prepares (from the
+  owner's email and project folders) with people, companies, projects and
+  bills; previewed first, then added in one transaction (History "via import
+  from email and folders"). Matches by email, phone, then name; only fills
+  empty fields; skips bills already on file. Rules: `src/lib/import-plan.ts`.
 - **person_companies**: work history that follows the person.
 - **touches** (call, email, text, meeting, site walk, event), **tasks** (My
   Tasks), **events** + **event_people** (adding someone logs an event touch),
