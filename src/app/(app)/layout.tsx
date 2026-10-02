@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AutoCloseDetails } from '@/components/AutoCloseDetails';
 import { signOut } from '@/auth';
 import { requirePage } from '@/lib/session';
 import { can, roleNames } from '@/lib/permissions';
@@ -25,7 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <MenuButton />
         <Link href="/" className="wordmark">Chesson <span>Investments</span></Link>
         <span className="spacer" />
-        <details className="account">
+        <AutoCloseDetails className="account">
           <summary>{user.name ?? user.email} ▾</summary>
           <div className="pop">
             <div className="small muted" style={{ padding: '4px 10px' }}>{user.email} · {roleNames[user.role]}</div>
@@ -36,7 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <button type="submit">Sign Out</button>
             </form>
           </div>
-        </details>
+        </AutoCloseDetails>
       </header>
       <SideNav items={items} />
       <div className="app-body"><main>{children}</main></div>

@@ -3,6 +3,18 @@
 import { useState, useTransition } from 'react';
 import type { Summary } from '@/app/(app)/import-actions';
 
+/** Never "Working…" forever: a failed or lost request says so. */
+async function safely(fn: () => Promise<Summary>, ms: number): Promise<Summary> {
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<Summary>((r) => setTimeout(() => r({ error: 'This is taking too long. Reload the page (it may have just been updated) and try again.' }), ms)),
+    ]);
+  } catch {
+    return { error: 'The app couldn’t answer. Reload the page (it may have just been updated) and choose the file again.' };
+  }
+}
+
 export function ImportTool({ preview, apply }: { preview: (t: string) => Promise<Summary>; apply: (t: string) => Promise<Summary> }) {
   const [text, setText] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -13,7 +25,7 @@ export function ImportTool({ preview, apply }: { preview: (t: string) => Promise
       <label className="f">Import File (.json)<input type="file" accept=".json,application/json" onChange={async (e) => {
         const f = e.target.files?.[0]; if (!f) return;
         const t = await f.text(); setText(t); setName(f.name); setSum(null);
-        start(async () => setSum(await preview(t)));
+        start(async () => setSum(await safely(() => preview(t), 60_000)));
       }} /></label>
       {pending ? <p className="muted">Working…</p> : null}
       {sum?.error ? <div className="notice error">{sum.error}</div> : null}
@@ -28,7 +40,7 @@ export function ImportTool({ preview, apply }: { preview: (t: string) => Promise
           <details className="fold"><summary>Bills ({sum.bills?.length ?? 0})</summary><ul className="small">{sum.bills?.map((b, i) => <li key={i}>{b.label}: ${Number(b.total).toLocaleString('en-US', { minimumFractionDigits: 2 })} · {b.status}</li>)}</ul></details>
           {!sum.done && text ? (
             <div className="form-actions">
-              <button className="btn" type="button" disabled={pending} onClick={() => { if (confirm(`Import ${name}? Everything is added in one step and recorded in History.`)) start(async () => setSum(await apply(text))); }}>Import It</button>
+              <button className="btn" type="button" disabled={pending} onClick={() => { if (confirm(`Import ${name}? Everything is added in one step and recorded in History.`)) start(async () => setSum(await safely(() => apply(text), 150_000))); }}>Import It</button>
             </div>
           ) : null}
         </>
