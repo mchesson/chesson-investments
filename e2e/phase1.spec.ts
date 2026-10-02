@@ -48,7 +48,7 @@ test('add a watched lot, then mark it sold as a comparable', async ({ page }) =>
   await page.getByLabel('Sold For').fill('440,000');
   await page.getByLabel('Sold On').fill('2026-09-30');
   await page.getByRole('button', { name: 'Mark Sold' }).click();
-  await expect(page.getByText(/stays searchable as a comparable/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: '› Sold (Comparable)' })).toBeVisible();
   await page.goto('/watchlist?view=comps');
   await expect(page.getByRole('link', { name: `${stamp} Oakwood Ave` })).toBeVisible();
 });
@@ -102,7 +102,7 @@ test('import a file: preview first, then people, a sub through the GC and a bill
       { name: `GC Co ${stamp}`, role: 'gc' },
       { name: `Siding Co ${stamp}`, role: 'sub', trade: 'Siding', hiredThrough: `GC Co ${stamp}` },
     ],
-    people: [{ name: `Emma Sub${stamp}`, company: `Siding Co ${stamp}`, phone: '919-360-1909', howMet: 'job_site', lastContactOn: '2026-06-10' }],
+    people: [{ name: `Emma Sub${stamp}`, company: `Siding Co ${stamp}`, phone: `919-361-${stamp.slice(-4)}`, howMet: 'job_site', lastContactOn: '2026-06-10' }],
     bills: [{ project: '109 Plainview Ave', vendor: `GC Co ${stamp}`, number: `X${stamp}`, date: '2026-09-01', lienWaiverRequired: true, lines: [{ costCode: '14', amount: '1300' }, { kind: 'fee', costCode: '26', amount: '260' }] }],
   };
   await page.goto('/admin/import');
@@ -118,4 +118,38 @@ test('import a file: preview first, then people, a sub through the GC and a bill
   await page.goto(`/companies?q=GC Co ${stamp}`);
   await page.getByRole('link', { name: `GC Co ${stamp}` }).click();
   await expect(page.getByText('Subs and Suppliers Through Them')).toBeVisible();
+});
+
+test('budget stages, a GC milestone and an owner-supplied commitment that moves with it', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  await page.goto('/projects');
+  await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
+  await page.waitForURL(/\/projects\/[0-9a-f-]{36}/);
+  const base = page.url().split('?')[0];
+  await page.goto(`${base}?tab=budget`);
+  await page.locator('select[name=kind]').selectOption('rough');
+  await page.getByLabel('Prepared by').fill('Luxury Oaks');
+  await page.getByRole('button', { name: "Save Today's Budget as This Stage" }).click();
+  await expect(page.getByText('Saved as the Rough Estimate.')).toBeVisible();
+  await page.locator('select[name=kind]').selectOption('approved');
+  await page.getByRole('button', { name: "Save Today's Budget as This Stage" }).click();
+  await expect(page.getByText('Approved: this is now the baseline.')).toBeVisible();
+  await page.goto(`${base}?tab=schedule`);
+  await page.getByText('Add a Milestone').click();
+  await page.getByLabel('Name', { exact: true }).fill(`Trim-Out ${stamp}`);
+  await page.getByLabel('Planned Start').fill('2027-03-15');
+  await page.getByRole('button', { name: 'Add', exact: true }).last().click();
+  await expect(page.locator('li strong', { hasText: `Trim-Out ${stamp}` })).toBeVisible();
+  await page.goto(`${base}?tab=schedule`);
+  await page.getByLabel('What', { exact: true }).fill(`Appliances ${stamp}`);
+  await page.getByLabel('Who Is Responsible').selectOption('owner');
+  await page.getByLabel('Milestone').selectOption({ label: `Trim-Out ${stamp}` });
+  await page.getByLabel(/Days Before/).fill('-5');
+  await page.getByLabel('GC Allowance').fill('47,000');
+  await page.getByLabel('Our Cost').fill('30,000');
+  await page.getByRole('button', { name: 'Add', exact: true }).first().click();
+  const row = page.locator('tr', { hasText: `Appliances ${stamp}` });
+  await expect(row.getByText('3/10/2027')).toBeVisible();
+  await expect(row.getByText("$47,000")).toBeVisible();
+  await expect(page.getByText(/Owner-supplied savings: \$[0-9,]+/)).toBeVisible();
 });
