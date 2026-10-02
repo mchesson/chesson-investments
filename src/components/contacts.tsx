@@ -6,7 +6,7 @@ import { roles, roleDef, roleLabel, stageLabel } from '@/lib/roles';
 import { formatDate, formatDateTime, today, addDays } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
 
-type RoleRow = { id: string; role: string; stage: string; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date };
+type RoleRow = { id: string; role: string; stage: string; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
 
 export function RoleChips({ items }: { items: { role: string; stage: string }[] }) {
   if (!items.length) return <span className="muted small">No role yet</span>;
@@ -29,7 +29,7 @@ export function RoleFields({ prefix = '' }: { prefix?: string }) {
   );
 }
 
-export function RolesPanel({ items, personId, companyId, canEdit }: { items: RoleRow[]; personId?: string; companyId?: string; canEdit: boolean }) {
+export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { items: RoleRow[]; personId?: string; companyId?: string; canEdit: boolean; gcs?: { id: string; name: string }[] }) {
   return (
     <div>
       {items.length ? (
@@ -43,6 +43,7 @@ export function RolesPanel({ items, personId, companyId, canEdit }: { items: Rol
                   <span className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`}>{stageLabel(r.role, r.stage)}</span>
                   <span className="small muted">since {formatDate(r.stageChangedAt.toISOString())}</span>
                 </div>
+                {r.hiredThroughCompanyId ? <div className="small">Through <Link href={`/companies/${r.hiredThroughCompanyId}`}>{r.hiredThroughName ?? 'the GC'}</Link> (bills come through the GC)</div> : null}
                 {r.trade || r.areas || r.licenseNumber ? (
                   <div className="small">{[r.trade, r.areas, r.licenseNumber ? `License ${r.licenseNumber}` : null].filter(Boolean).join(' · ')}</div>
                 ) : null}
@@ -87,6 +88,11 @@ export function RolesPanel({ items, personId, companyId, canEdit }: { items: Rol
               </select>
             </label>
             <RoleFields />
+            {gcs.length ? (
+              <label className="f">Through a GC<span className="h">Subs and suppliers whose bills come through a general contractor</span>
+                <select name="hiredThroughCompanyId" defaultValue=""><option value="">No: we hire them directly</option>{gcs.filter((g) => g.id !== companyId).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+              </label>
+            ) : null}
           </ActionForm>
         </details>
       ) : null}

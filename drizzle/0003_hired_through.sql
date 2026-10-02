@@ -1,0 +1,1 @@
+ALTER TABLE "party_roles" ADD COLUMN "hired_through_company_id" uuid;

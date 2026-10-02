@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, workHistory } from '@/lib/contacts';
+import { gcOptions, activeStaff, dealsFrom, getPerson, historyFor, tasksForRecord, touchesFor, workHistory } from '@/lib/contacts';
 import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
@@ -130,7 +130,7 @@ async function Overview({ id, roles, edit, notes, introduced }: {
   const [recent, open] = await Promise.all([touchesFor(id, 5), tasksForRecord('personId', id)]);
   return (
     <div className="stack">
-      <Section title="Roles" kind="blue" hint="Each role has its own stage"><RolesPanel items={roles} personId={id} canEdit={edit} /></Section>
+      <Section title="Roles" kind="blue" hint="Each role has its own stage"><RolesPanel items={roles} personId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
       <Section title="Recent Touches" kind="energy" actions={<Link href={`/people/${id}?tab=touches`} className="small">All touches</Link>}><TouchList items={recent} /></Section>
       <Section title="Open Tasks" kind="energy"><TaskRows items={open.filter((t) => t.status === 'open')} /></Section>
       {notes ? <Section title="Notes" kind="energy"><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{notes}</p></Section> : null}

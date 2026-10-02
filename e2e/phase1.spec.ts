@@ -93,3 +93,29 @@ test('the accountant sees projects and money, not contacts', async ({ page }) =>
   await page.goto('/projects');
   await expect(page.getByRole('link', { name: '109 Plainview Ave' }).first()).toBeVisible();
 });
+
+test('import a file: preview first, then people, a sub through the GC and a bill', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const file = {
+    source: 'test',
+    companies: [
+      { name: `GC Co ${stamp}`, role: 'gc' },
+      { name: `Siding Co ${stamp}`, role: 'sub', trade: 'Siding', hiredThrough: `GC Co ${stamp}` },
+    ],
+    people: [{ name: `Emma Sub${stamp}`, company: `Siding Co ${stamp}`, phone: '919-360-1909', howMet: 'job_site', lastContactOn: '2026-06-10' }],
+    bills: [{ project: '109 Plainview Ave', vendor: `GC Co ${stamp}`, number: `X${stamp}`, date: '2026-09-01', lienWaiverRequired: true, lines: [{ costCode: '14', amount: '1300' }, { kind: 'fee', costCode: '26', amount: '260' }] }],
+  };
+  await page.goto('/admin/import');
+  await page.getByLabel('Import File (.json)').setInputFiles({ name: 'test.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+  await expect(page.getByRole('button', { name: 'Import It' })).toBeVisible();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/Imported 1 people, 2 companies, 0 projects and 1 bills/)).toBeVisible();
+  await page.goto(`/people?q=Sub${stamp}`);
+  await page.getByRole('link', { name: `Emma Sub${stamp}` }).click();
+  await expect(page.getByText('Subcontractor · Hired')).toBeVisible();
+  await expect(page.getByText(new RegExp(`Through GC Co ${stamp}`))).toBeVisible();
+  await page.goto(`/companies?q=GC Co ${stamp}`);
+  await page.getByRole('link', { name: `GC Co ${stamp}` }).click();
+  await expect(page.getByText('Subs and Suppliers Through Them')).toBeVisible();
+});

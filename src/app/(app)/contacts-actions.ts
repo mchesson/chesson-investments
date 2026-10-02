@@ -156,8 +156,9 @@ export async function addRole(_: FormResult, d: FormData): Promise<FormResult> {
     .where(and(isNull(partyRoles.removed), eq(partyRoles.role, role), personId ? eq(partyRoles.personId, personId) : eq(partyRoles.companyId, companyId!)));
   if (exists) return { error: `Already a ${roleLabel(role)}.` };
   await db.transaction(async (tx) => {
-    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber') });
-    await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: personId ?? companyId, action: 'role-add', summary: `added the role ${roleLabel(role)} (${stageLabel(role, firstStage(role))})` }, tx);
+    const through = uuidOrNull(d, 'hiredThroughCompanyId');
+    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), hiredThroughCompanyId: through });
+    await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: personId ?? companyId, action: 'role-add', summary: `added the role ${roleLabel(role)} (${stageLabel(role, firstStage(role))})${through ? ', through a GC' : ''}` }, tx);
   });
   revalidatePath('/', 'layout');
   return { ok: `Added ${roleLabel(role)}.` };

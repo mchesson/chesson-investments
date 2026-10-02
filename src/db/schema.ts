@@ -103,6 +103,9 @@ export const partyRoles = pgTable('party_roles', {
   trade: text('trade'),
   areas: text('areas'),
   licenseNumber: text('license_number'),
+  // A sub or supplier we didn't hire directly: their invoices come through
+  // this GC (owner, Oct 2, 2026: "that makes them a subcontractor").
+  hiredThroughCompanyId: uuid('hired_through_company_id'),
   notes: text('notes'),
   stageChangedAt: timestamp('stage_changed_at', { withTimezone: true }).notNull().defaultNow(),
   created: created(),
