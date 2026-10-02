@@ -369,3 +369,57 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
   await page.getByRole('link', { name: 'History' }).last().click();
   await expect(page.getByText(new RegExp(`chose Oak${s} Builders’s bid .* as the winning budget`)).first()).toBeVisible();
 });
+
+test('a rental: status and manager, the lease, rent in, the loan, and whether it makes money', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({ projects: [{ name: `Rent Test ${s}`, address: `${s} Rent Rd`, city: 'Raleigh', stage: 'rental', lotCost: 200000 }] });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'rent.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await page.goto('/projects');
+  await page.getByRole('link', { name: `Rent Test ${s}` }).first().click();
+  await page.getByRole('link', { name: 'Rental', exact: true }).click();
+
+  const setup = page.locator('form:has(select[name=status])');
+  await setup.locator('select[name=status]').selectOption('on_market');
+  await setup.locator('input[name=askingRent]').fill('2,450');
+  await setup.locator('input[name=managementFeePct]').fill('8');
+  await setup.locator('input[name=taxesMonthly]').fill('300');
+  await setup.locator('input[name=insuranceMonthly]').fill('150');
+  await setup.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Making money each month')).toBeVisible();
+
+  await page.locator('summary', { hasText: 'Add the Lease' }).click();
+  const lf = page.locator('form:has(input[name=tenants])');
+  await lf.locator('input[name=tenants]').fill(`Pat Tenant ${s}`);
+  await lf.locator('input[name=rent]').fill('2,500');
+  await lf.locator('input[name=startsOn]').fill('2026-09-01');
+  await lf.locator('input[name=endsOn]').fill('2027-08-31');
+  await lf.locator('input[name=deposit]').fill('2,500');
+  await lf.getByRole('button', { name: 'Add the Lease' }).click();
+  await expect(page.locator('section', { hasText: 'Status and Property Manager' }).first()).toContainText('Leased');
+  await expect(page.getByText(`Pat Tenant ${s}`).first()).toBeVisible();
+
+  await page.locator('summary', { hasText: 'Record Money Received' }).click();
+  const rf = page.locator('form:has(input[name=receivedOn])');
+  await rf.locator('input[name=receivedOn]').fill('2026-09-03');
+  await rf.locator('input[name=amount]').fill('2,500');
+  await rf.locator('input[name=forMonth]').fill('2026-09');
+  await rf.getByRole('button', { name: 'Record It' }).click();
+  await expect(page.locator('table.t tr', { hasText: '2026-09' })).not.toContainText(/short/i);
+
+  await page.locator('summary', { hasText: 'Add the Loan' }).click();
+  const lo = page.locator('form:has(input[name=monthlyPayment])');
+  await lo.locator('input[name=lenderName]').fill('Test Bank');
+  await lo.locator('input[name=originalAmount]').fill('150,000');
+  await lo.locator('input[name=monthlyPayment]').fill('3,000');
+  await lo.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Losing money each month')).toBeVisible();
+  await expect(page.getByText(/Break-even rent: \$[0-9,]+ a month/)).toBeVisible();
+
+  await page.getByRole('link', { name: 'History' }).last().click();
+  await expect(page.getByText(`added the lease with Pat Tenant ${s}: $2,500 a month from 2026-09-01 to 2027-08-31`)).toBeVisible();
+});

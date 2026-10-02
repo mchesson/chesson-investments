@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { bills, budgetVersions, dailyLogs, files, users } from '@/db/schema';
+import { bills, budgetVersions, dailyLogs, files, leases, users } from '@/db/schema';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { isUuid } from '@/lib/forms';
@@ -27,6 +27,10 @@ async function belongsTo(entity: string, entityId: string): Promise<{ href: stri
   if (entity === 'bid') {
     const [v] = await db.select({ p: budgetVersions.projectId }).from(budgetVersions).where(eq(budgetVersions.id, entityId));
     return v ? { href: `/projects/${v.p}?tab=budget`, label: 'the bid' } : null;
+  }
+  if (entity === 'lease') {
+    const [l] = await db.select({ p: leases.projectId }).from(leases).where(eq(leases.id, entityId));
+    return l ? { href: `/projects/${l.p}?tab=rental`, label: 'the rental' } : null;
   }
   return null;
 }

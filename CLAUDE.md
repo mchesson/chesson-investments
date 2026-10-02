@@ -247,6 +247,14 @@ this app; GoDaddy keeps only the domain and email.
   in a New Tab; anything else (HEIC) downloads. `/files/<id>` serves the bytes
   (`?inline=1`, `?download=1`); who may open a file follows its record
   (`fileNeed` in `src/lib/file-view.ts`). Link files to `/documents/<id>`.
+- **Rentals** (Rental tab, `src/components/RentalTab.tsx`; rules `src/lib/rentals.ts`, tested;
+  saves `src/app/(app)/rental-actions.ts`; reads `src/lib/rental-data.ts`; migration 0009):
+  `rentals` (status, asking rent, listing, property manager and terms, the monthly costs we
+  expect), `leases` (tenants, rent, term, renewal and decide-by, deposit, the signed lease
+  as a document, entity `lease`), `rent_receipts`, `loans` (no account numbers). Shows cash
+  flow, NOI, cap rate (on cost and value), cash-on-cash, DSCR, a plain verdict and the
+  break-even rent; rent expected vs received by month; bills since the first lease as
+  work done while rented. Escrowed taxes and insurance aren't counted twice.
 - Claude can't write to production itself (a standing import door was refused by
   the safety system, Oct 2, 2026): the owner runs imports from the Import page.
 

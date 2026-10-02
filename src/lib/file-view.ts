@@ -4,7 +4,7 @@ import type { Permission } from './permissions';
 
 /** What each kind of record's files need to be opened (the same as the record). */
 export const fileNeeds: Record<string, Permission> = {
-  property: 'properties.view', project: 'projects.view', daily_log: 'projects.view', bill: 'money.view', bid: 'money.view',
+  property: 'properties.view', project: 'projects.view', daily_log: 'projects.view', bill: 'money.view', bid: 'money.view', lease: 'money.view',
 };
 export const fileNeed = (entity: string): Permission => fileNeeds[entity] ?? 'users.manage';
 
