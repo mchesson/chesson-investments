@@ -5,6 +5,57 @@ built. What follows is the order from the owner's spec (Oct 2, 2026), with what
 his past deal documents showed we need (read Oct 2, 2026; no account numbers,
 tax IDs or ID documents are copied anywhere).
 
+## Next (owner, Oct 2, 2026): bids, our estimate, holding costs, schedules, documents
+In this order, before phase 2:
+1. **Project numbers.** Every project gets a short number (P-1001, from its
+   own sequence, assigned once and never reused), shown on the page heading,
+   the list, bills and the import, and searchable.
+2. **Budgets from several bids.** Each project holds any number of budgets
+   side by side, by cost code:
+   - one per **GC submission** (who, the date, the proposal file, fixed price
+     or cost-plus with the fee %, allowances, what's excluded, how long it's
+     good for, the GC's schedule);
+   - **our own estimate**, built by the app from our track record (cost per
+     heated sf by size, finish level and neighborhood, our past bills by cost
+     code) and the market (comps, $/sf the house can sell for), with every
+     number's source shown;
+   - a **comparison**: each bid against ours and each other, line by line,
+     with the gaps flagged (missing scope, allowances under what the
+     finishes cost, a GC fee over the others);
+   - **Select the Winning Budget**: it becomes the approved budget (the
+     baseline today's Budget tab tracks against) and the GC's commitment, with
+     who chose it, when and why in History.
+   - Plainview's to load first: Blake Anderson's (Envision Investor
+     Solutions) initial estimate of Sept 11, 2025 (a shared Google Doc: the
+     owner exports it to PDF, since the app can't open the link), the Luxury
+     Oaks / Jason Burnette numbers, and the owner's own rough numbers of
+     Sept 10, 2025: land $315k, demolition of house and trees $20k, survey
+     $2k, holding 12 months $65k, closing front and back $8k, realtor $55k,
+     build $494k (2,600 sf × $190), profit $150k, sale $1,109,000 ($426/sf;
+     wanting to come in under $1.1M).
+3. **Holding costs in the budget.** Today only actual holding costs are
+   entered (Holding Costs tab). Each budget also carries the expected holding
+   costs: months held × (loan interest, property tax, insurance, utilities,
+   HOA, lawn), from the schedule, so a longer schedule shows its cost, and
+   actual vs expected month by month.
+4. **Two schedules.** The winning GC's schedule (its milestones, loaded from
+   the bid) and **our expected schedule** (what we expect to see, from our
+   past projects' durations by phase), shown together with the gaps, and the
+   actual dates as they happen. Commitments (who supplies what by when) hang
+   off the GC's schedule as today.
+5. **Documents on every project, vendor, person and property**, with types:
+   Proposal / Bid, Contract (GC, Sub, Design, Supplier), Change Order, Lien
+   Waiver, Insurance Certificate, W-9 (restricted), Permit, Plans, Survey,
+   Inspection, Closing Statement, Deed, Title Policy, Warranty, Receipt,
+   Other. An **executed contract** records its parties, amount, signed date,
+   term and the signed file (every version kept), and links to its
+   commitment in job costing. The contract templates library (phase 2)
+   builds on this.
+6. **Upload receipts.** A Receipts button on the project (and on the phone):
+   drop or photograph one or many receipts; each becomes a bill of kind
+   receipt with its file. Later Claude reads the vendor, date, lines and tax
+   and proposes the cost codes for one-tap confirm (phase 2 invoice reading).
+
 ## Next: the post-project review says where, why, how and with what
 Owner (Oct 2, 2026): "Telling me we should have spent less doesn't help, but
 having the info and then telling me where we should have spent less and why
