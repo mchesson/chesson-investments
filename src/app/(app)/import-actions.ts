@@ -1,7 +1,8 @@
 'use server';
 
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SITE_TAG } from '@/lib/site-data';
 import { db, type Tx } from '@/db';
 import { billLines, bills, budgetLines, companies, costCodes, files, partyRoles, people, personCompanies, projects, touches } from '@/db/schema';
 import { audit } from '@/lib/audit';
@@ -276,6 +277,8 @@ export async function applyImport(text: string): Promise<Summary> {
     return { plan, added, photosAdded };
   });
   revalidatePath('/', 'layout');
+  revalidateTag(SITE_TAG, 'max');
+  console.info('[import] apply saved');
   const sum = summarize(result.plan);
   return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos.` };
 }
