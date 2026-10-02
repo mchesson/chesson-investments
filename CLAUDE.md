@@ -78,6 +78,18 @@ what moved) or **Not the Same**. Any person or company page also has **Merge
 With a Duplicate…**.
 `ActionForm` keeps what was typed when a save shows an error.
 Sections are framed in their own color (left edge, border, deeper heading tint, shadow).
+**User types** (owner, Oct 2, 2026: "create one for all types plus admin"):
+Owner (everything), **Admin** (`admin`: everything but restricted records
+unless the owner ticks it; only the owner changes owners and admins or gives
+restricted access: `mayManage`), Staff, Accountant, and **Outside Partners**
+(role `guest`, with `users.guest_type`: General Contractor, Subcontractor,
+Supplier, Designer / Engineer / Surveyor, Property Manager, Agent / Broker,
+Wholesaler / Deal Source, Lender, Attorney / Title, Investor, Other;
+`guestTypes` in src/lib/guests.ts sets what each starts with). Property
+managers see the rental (status, lease dates, no money); agents and
+wholesalers can see the deals they sent us (`guest_extras` 'deals': address
+and stage only, never our offer). Landowners, personal and networking contacts
+aren't users.
 **Access is checkboxes** (owner, Oct 2, 2026): every permission is listed in
 `permissionGroups` (src/lib/permissions.ts); each role has a standard set
 (`roleDefaults`) and the Users page ticks or unticks any of them per person

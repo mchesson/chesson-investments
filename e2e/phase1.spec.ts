@@ -706,7 +706,7 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   const link = await inv.locator('.copy-link input').inputValue();
   expect(link).toMatch(/\/signin\/link\?t=[A-Za-z0-9_-]{40,}/);
   await page.reload();
-  await expect(page.locator('section', { hasText: 'Guests (Outside People)' }).locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('109 Plainview Ave');
+  await expect(page.locator('section', { hasText: 'Outside Partners' }).locator('.user-card', { hasText: `jo${s}@contractor.example` })).toContainText('109 Plainview Ave');
 
   // The guest signs in with the link (in their own browser).
   const ctx = await browser.newContext();
@@ -769,6 +769,7 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
   const again = page.locator('.user-card', { hasText: 'accountant@example.com' });
   await again.getByText(/What They Can Do/).click();
   await again.getByRole('button', { name: /Back to the Accountant Standard Set/ }).click();
+  await expect(again.getByText('Using the Accountant standard set.')).toBeVisible();
   await a.goto('/people');
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();
@@ -816,4 +817,36 @@ test('merging duplicates: everything moves to the one kept, the extra is archive
   await expect(page.getByText(`sam${s}@mergeco.example`).first()).toBeVisible();
   await page.locator('.tabs').getByRole('link', { name: 'History', exact: true }).click();
   await expect(page.getByText(new RegExp(`merged Sam Pike${s} into this record`)).first()).toBeVisible();
+});
+
+test('outside partner types: a wholesaler sees only the deals they sent us', async ({ page, browser }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into people (first_name, last_name) values ('Wes', $1) returning id`, [`Wholesale${s}`]);
+  await db.query(`insert into properties (address, city, source_person_id, our_offer) values ($1, 'Raleigh', $2, '123456')`, [`${s} Deal Rd`, p.rows[0].id]);
+  await db.end();
+
+  await page.goto('/admin/users');
+  const inv = page.locator('form:has(button:text("Invite Them"))');
+  await inv.locator('input[name=email]').fill(`wes${s}@deals.example`);
+  await inv.locator('select[name=personId]').selectOption({ label: `Wes Wholesale${s}` });
+  await choose(inv, 'guestType', 'wholesaler');
+  // Picking Wholesaler ticks "see the deals they sent" and only the project basics.
+  await expect(inv.locator('input[name=extra][value=deals]')).toBeChecked();
+  await expect(inv.locator('input[name=can][value=daily_log]')).not.toBeChecked();
+  await inv.getByRole('button', { name: 'Invite Them' }).click();
+  const link = await inv.locator('.copy-link input').inputValue();
+  await page.reload();
+  await expect(page.locator('.user-card', { hasText: `wes${s}@deals.example` })).toContainText('Wholesaler / Deal Source');
+
+  const g = await (await browser.newContext()).newPage();
+  await g.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  await g.getByRole('button', { name: 'Sign In' }).click();
+  await g.waitForURL(/\/guest$/);
+  const deals = g.locator('section', { hasText: 'Deals You Sent Us' });
+  await expect(deals).toContainText(`${s} Deal Rd`);
+  await expect(g.locator('body')).not.toContainText('123,456'); // never our offer
 });

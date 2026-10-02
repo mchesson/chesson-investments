@@ -3,7 +3,7 @@
 // of them for one person (owner, Oct 2, 2026: "a checkbox with all the
 // available things on the app"), kept in users.permissions.
 
-export type Role = 'pending' | 'owner' | 'staff' | 'accountant' | 'guest';
+export type Role = 'pending' | 'owner' | 'admin' | 'staff' | 'accountant' | 'guest';
 
 /** Every permission, grouped as the Users page shows them. */
 export const permissionGroups = [
@@ -45,6 +45,9 @@ export const isPermission = (v: string): v is Permission => (allPermissions as s
 export const roleDefaults: Record<Role, Permission[]> = {
   pending: [],
   owner: allPermissions,
+  // Admin: runs the app with the owner (users, imports, cleanup, approvals), but
+  // not restricted records unless the owner ticks it for them.
+  admin: allPermissions.filter((p) => p !== 'sensitive.view'),
   staff: [
     'contacts.view', 'contacts.edit', 'vendors.grade', 'properties.view', 'properties.edit', 'market.update',
     'projects.view', 'projects.edit', 'website.edit', 'money.view', 'bills.edit',
@@ -56,7 +59,7 @@ export const roleDefaults: Record<Role, Permission[]> = {
 };
 
 export const roleNames: Record<Role, string> = {
-  pending: 'Waiting for Access', owner: 'Owner', staff: 'Staff', accountant: 'Accountant', guest: 'Guest (Outside)',
+  pending: 'Waiting for Access', owner: 'Owner', admin: 'Admin', staff: 'Staff', accountant: 'Accountant', guest: 'Outside Partner',
 };
 
 /** A person's permissions: their own ticked list if the owner set one, else their role's. */
@@ -77,3 +80,12 @@ export const isRole = (v: string): v is Role => v in roleDefaults;
 
 const items: readonly { key: string; label: string }[] = permissionGroups.flatMap((g) => g.items as readonly { key: string; label: string }[]);
 export const permissionLabel = (p: string) => items.find((i) => i.key === p)?.label ?? p;
+
+/** Only the owner changes owners and admins, and only the owner gives restricted-record access. */
+export function mayManage(me: { id: string; role: Role }, target: { id: string; role: Role }, toRole?: Role): string | null {
+  if (me.role === 'owner') return null;
+  if (target.id === me.id) return 'Ask the owner to change your own access.';
+  if (target.role === 'owner' || target.role === 'admin') return 'Only the owner changes an Owner or an Admin.';
+  if (toRole === 'owner' || toRole === 'admin') return 'Only the owner can make someone an Owner or an Admin.';
+  return null;
+}
