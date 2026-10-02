@@ -68,7 +68,10 @@ export async function previewImport(text: string): Promise<Summary> {
   await requireAction('users.manage');
   const p = parse(text);
   if ('error' in p) return { error: p.error };
-  return summarize(planImport(p.file, await existing(db)));
+  const t = Date.now();
+  const ex = await existing(db);
+  console.info(`[import] read what's on file in ${Date.now() - t} ms`);
+  return summarize(planImport(p.file, ex));
 }
 
 /** Adds what's new, fills only empty fields on matches, never changes what's typed. One transaction. */
