@@ -19,6 +19,7 @@ export const importSchema = z.object({
     role: z.string().nullish(),
     trade: z.string().max(200).nullish(),
     hiredThrough: z.string().max(200).nullish(), // the GC's company name
+    supplierTypes: z.array(z.string()).nullish(),
     notes: z.string().max(4000).nullish(),
   })).default([]),
   people: z.array(z.object({
@@ -34,6 +35,14 @@ export const importSchema = z.object({
     introNote: z.string().max(2000).nullish(),
     notes: z.string().max(4000).nullish(),
     lastContactOn: day.nullish(),
+    supplierTypes: z.array(z.string()).nullish(),
+    stage: z.string().nullish(), // the role's stage when it isn't the first
+    removeRoles: z.array(z.string()).nullish(), // a correction: roles to take off
+  })).default([]),
+  // Who supplies each utility at a property, and the contact there.
+  utilities: z.array(z.object({
+    project: z.string().min(1), service: z.string(), company: z.string().nullish(), person: z.string().nullish(),
+    startedOn: day.nullish(), notes: z.string().max(500).nullish(),
   })).default([]),
   projects: z.array(z.object({
     name: z.string().min(1).max(200),

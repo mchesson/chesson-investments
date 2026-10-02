@@ -89,6 +89,29 @@ In this order, before phase 2:
    - **Suggest another vendor** when someone with an equal or better grade has
      quoted or billed the same trade for less, with the numbers and dates.
 
+9. **Email and a timeline on every company and person (owner, Oct 2, 2026).**
+   Connect this app to the owner's Microsoft 365 mailbox (read-only, like TS
+   Workspace's mail reader): each person's and company's page gets an **Email**
+   tab with every message to and from them (who, when, subject, a short
+   summary, Open in Outlook), and one **Timeline** that puts everything in
+   date order: emails, calls, meetings, site walks, bids and proposals sent,
+   invoices, introductions, role changes and Do Not Use. Contacts found in
+   email are suggested for a one-tap add.
+10. **Do Not Use, by grade.** Built by hand (Oct 2, 2026: a reason is
+    required, red on the record and the lists); once grading (item 8) exists,
+    a grade of D or below sets it by itself, with the grade as the reason, and
+    a manual override that keeps them usable with a reason.
+11. **Projects with several stages at once** (owner, Oct 2, 2026: "we can be
+    looking for permits and under contract and building"): the stage becomes a
+    set of tracks (Buying, Design, Permits, Building, Selling, Renting), each
+    with its own status, instead of one stage. **Selling** has its own
+    statuses (Coming Soon, For Sale, Under Contract, Sold) and logs
+    **viewings** (date, agent, buyer feedback) and offers. **Permits and
+    inspections**: each permit (type, number, applied, issued, expires) and
+    each inspection (type, date, inspector, passed / failed, notes, the report
+    file), against the GC's schedule and ours, so a late permit or failed
+    inspection shows as days behind.
+
 ## Next: the post-project review says where, why, how and with what
 Owner (Oct 2, 2026): "Telling me we should have spent less doesn't help, but
 having the info and then telling me where we should have spent less and why

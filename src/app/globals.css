@@ -203,3 +203,7 @@ table.t input, table.t select { padding: 4px 6px; font-size: .85rem; }
 .role-btn span, a.role-btn { display: inline-block; padding: 5px 12px; border: 1px solid var(--hair); border-radius: 999px; background: #fff; font-size: .86rem; color: var(--ink); text-decoration: none; }
 .role-btn input:checked + span, a.role-btn[aria-pressed="true"] { background: var(--true-blue); border-color: var(--true-blue); color: #fff; }
 .role-btn input:focus-visible + span, a.role-btn:focus-visible { outline: 2px solid var(--true-blue); outline-offset: 2px; }
+.role-btn.small-btn span { padding: 3px 10px; font-size: .8rem; }
+a.role-btn.small-btn { padding: 3px 10px; font-size: .8rem; }
+.dnu-banner { border: 2px solid var(--red); background: #fdecea; color: var(--red); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+.dnu-banner strong { display: block; }

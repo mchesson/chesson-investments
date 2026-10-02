@@ -1,7 +1,7 @@
 import { ActionForm } from './ActionForm';
 import { savePerson } from '@/app/(app)/contacts-actions';
 import { showPhone } from '@/lib/format';
-import { RoleFields, RolePicker } from './contacts';
+import { RoleFields, RolePicker, SupplierTypePicker } from './contacts';
 import { howMetOptions } from '@/lib/how-met';
 
 type P = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; title: string | null; companyId: string | null; city: string | null; state: string | null; howMet: string | null; introducedById: string | null; introNote: string | null; metAtEventId: string | null; notes: string | null };
@@ -46,6 +46,7 @@ export function PersonForm({ person, companies, people, events, defaults }: {
           <header><h2>What They Are to Us</h2><span className="hint">Tick every role that fits; none is fine</span></header>
           <div className="body">
             <RolePicker selected={defaults?.role ? [defaults.role] : []} />
+            <SupplierTypePicker />
             <RoleFields />
           </div>
         </fieldset>

@@ -198,3 +198,65 @@ test('People: role buttons pick one or several roles', async ({ page }) => {
   await page.getByRole('link', { name: 'All Roles' }).click();
   await expect(page).toHaveURL(/\/people$/);
 });
+
+test('a utility supplier with a kind, Do Not Use with a reason, and a property utility', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const last = `Power${Date.now().toString().slice(-6)}`;
+  await page.goto('/people/new');
+  await page.getByLabel('First Name', { exact: true }).fill('Lubna');
+  await page.getByLabel('Last Name', { exact: true }).fill(last);
+  await page.getByLabel('Utilities', { exact: true }).check();
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.locator('.page-head .chip', { hasText: 'Supplier: Utilities' })).toBeVisible();
+  const personUrl = page.url();
+
+  // People: Suppliers, then the Utilities kind.
+  await page.goto('/people');
+  await page.getByRole('link', { name: 'Suppliers', exact: true }).click();
+  await page.getByRole('link', { name: 'Utilities', exact: true }).click();
+  await expect(page).toHaveURL(/supply=utilities/);
+  await expect(page.getByRole('link', { name: `Lubna ${last}` })).toBeVisible();
+
+  // Do Not Use needs a reason, shows red, and History keeps it.
+  await page.goto(personUrl);
+  await page.locator('summary', { hasText: 'Mark Do Not Use' }).click();
+  await page.getByLabel(/^Why/).fill('Never showed up for the meter set');
+  await page.getByRole('button', { name: 'Mark Do Not Use' }).click();
+  await expect(page.locator('.dnu-banner')).toContainText('Never showed up for the meter set');
+  await page.goto('/people?q=' + last);
+  await expect(page.locator('table.t .chip.red', { hasText: 'Do Not Use' })).toBeVisible();
+
+  // The property's utilities: electric, with this person as the contact there.
+  await page.goto('/projects');
+  await page.getByRole('link', { name: /109 Plainview/ }).first().click();
+  await page.getByRole('link', { name: 'Utilities', exact: true }).click();
+  await page.locator('select[name=service]').selectOption('electric');
+  await page.locator('select[name=personId]').selectOption({ label: `Lubna ${last}` });
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.locator('.rows')).toContainText(`Lubna ${last}`);
+  await expect(page.locator('.rows')).toContainText('Electric');
+});
+
+test('bills under a longer name link to the company, which shows every invoice and the total', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const file = JSON.stringify({
+    companies: [{ name: `Haul${s} Brothers`, role: 'sub', trade: 'Dumpsters' }],
+    bills: [
+      { project: '109 Plainview Ave', vendor: `Haul${s} Brothers Contracting LLC`, number: `A${s}`, date: '2026-09-01', lines: [{ kind: 'build', costCode: '01', amount: '375.00' }] },
+      { project: '109 Plainview Ave', vendor: `Haul${s} Brothers Contracting`, number: `B${s}`, date: '2026-09-15', lines: [{ kind: 'build', costCode: '01', amount: '425.50' }] },
+    ],
+  });
+  await page.goto('/admin/import');
+  await page.locator('input[type=file]').setInputFiles({ name: 'haul.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Import It' }).click();
+  await expect(page.getByText(/Imported .* 2 bills/)).toBeVisible();
+  await page.goto(`/companies?q=Haul${s}`);
+  await page.getByRole('link', { name: `Haul${s} Brothers`, exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'What We’ve Spent With Them' })).toBeVisible();
+  await expect(page.getByText('$800.50 in all · 1 project · 2 invoices')).toBeVisible();
+  await page.getByText(/109 Plainview Ave: 2 invoices/).click();
+  await expect(page.getByRole('cell', { name: `A${s}` })).toBeVisible();
+  await expect(page.getByRole('cell', { name: `B${s}` })).toBeVisible();
+});

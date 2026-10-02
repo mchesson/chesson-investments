@@ -4,6 +4,7 @@ import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
+import { DoNotUseBanner, DoNotUseSection } from '@/components/DoNotUse';
 import { isUuid } from '@/lib/forms';
 import { formatDate } from '@/lib/format';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
@@ -24,6 +25,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
     <>
       <PageHead eyebrow="Company" title={c.name} sub={<RoleChips items={roles} />}
         actions={edit ? (<><Link className="btn" href={`/people/new?company=${id}`}>Add Person Here</Link><Link className="btn secondary" href={`${base}/edit`}>Edit</Link></>) : null} />
+      <DoNotUseBanner on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} />
       <div className="record">
         <div className="card-side">
           <Section title="Company" kind="blue">
@@ -34,13 +36,14 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
               ['Where', [c.city, c.state].filter(Boolean).join(', ')],
             ]} />
           </Section>
+          <DoNotUseSection companyId={id} on={c.doNotUse} reason={c.doNotUseReason} at={c.doNotUseAt} canEdit={edit} />
         </div>
         <div>
           <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
               {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
-              <Section title="Roles" kind="blue"><RolesPanel items={roles} companyId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
+              <Section title="What They Do" kind="blue" hint="The company’s type. Its people have their own roles."><RolesPanel items={roles} companyId={id} canEdit={edit} gcs={await gcOptions()} /></Section>
               {subs.length ? (
                 <Section title="Subs and Suppliers Through Them" kind="aqua" hint="Their invoices come through this GC">
                   <ul className="rows">{subs.map((x, i) => (

@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { activeStaff, companyOptions, historyFor, peopleOptions, tasksForRecord } from '@/lib/contacts';
+import { activeStaff, companyOptions, historyFor, peopleOptions, tasksForRecord, utilitiesFor, utilityCompanyOptions } from '@/lib/contacts';
+import { Utilities } from '@/components/Utilities';
 import { dailyLogsFor, projectMoney } from '@/lib/projects';
 import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
@@ -46,7 +47,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
-    { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
+    { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
     <>
@@ -83,6 +84,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user.role, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
+          {tab === 'utilities' ? <Utilities projectId={id} rows={await utilitiesFor(id)} companies={await utilityCompanyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'website' ? <ProjectWebsite p={p} canEdit={editProject} /> : null}
           {tab === 'log' ? <DailyLog id={id} edit={editProject} /> : null}
           {tab === 'tasks' ? (

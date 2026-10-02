@@ -150,3 +150,49 @@ export function isCold(
   const since = daysSince(lastTouchOn ?? role.createdOn, today);
   return since !== null && since > def.coldDays;
 }
+
+// What kind of supplier (owner, Oct 2, 2026: "a subset with buttons", e.g.
+// Duke Energy is a Supplier → Utilities). A supplier can be several kinds.
+export const supplierTypes = [
+  { key: 'utilities', label: 'Utilities' },
+  { key: 'materials', label: 'Lumber and Materials' },
+  { key: 'appliances', label: 'Appliances' },
+  { key: 'plumbing', label: 'Plumbing Fixtures' },
+  { key: 'lighting', label: 'Lighting and Electrical' },
+  { key: 'flooring', label: 'Flooring and Tile' },
+  { key: 'cabinets', label: 'Cabinets and Counters' },
+  { key: 'windows', label: 'Windows and Doors' },
+  { key: 'hardware', label: 'Hardware and Paint' },
+  { key: 'equipment', label: 'Equipment Rental' },
+  { key: 'landscape', label: 'Landscape Supply' },
+  { key: 'furniture', label: 'Furniture and Staging' },
+  { key: 'other', label: 'Other Supplies' },
+] as const;
+export const isSupplierType = (v: string) => supplierTypes.some((t) => t.key === v);
+export const supplierTypeLabel = (v: string) => supplierTypes.find((t) => t.key === v)?.label ?? v;
+/** Only known kinds, each once, in the list's order. */
+export const cleanSupplierTypes = (vs: string[]) => supplierTypes.map((t) => t.key).filter((k) => vs.includes(k)) as string[];
+
+/** A role as shown in a list: the role, and for a supplier its kinds ("Supplier: Utilities"). Never the stage. */
+export function roleTag(r: { role: string; supplierTypes?: string[] | null }): string {
+  const kinds = r.role === 'supplier' && r.supplierTypes?.length ? `: ${r.supplierTypes.map(supplierTypeLabel).join(', ')}` : '';
+  return `${roleLabel(r.role)}${kinds}`;
+}
+
+// A property's utilities (project_utilities.service).
+export const utilityServices = [
+  { key: 'electric', label: 'Electric' },
+  { key: 'gas', label: 'Gas' },
+  { key: 'water', label: 'Water and Sewer' },
+  { key: 'trash', label: 'Trash and Recycling' },
+  { key: 'internet', label: 'Internet and Cable' },
+  { key: 'propane', label: 'Propane / Oil' },
+  { key: 'other', label: 'Other' },
+] as const;
+export const isUtilityService = (v: string | null | undefined) => utilityServices.some((s) => s.key === v);
+export const utilityServiceLabel = (v: string) => utilityServices.find((s) => s.key === v)?.label ?? v;
+
+/** Do Not Use needs a reason; the grade rule (D or below) comes with grading. */
+export function doNotUseProblem(on: boolean, reason: string | null | undefined): string | null {
+  return on && !reason?.trim() ? 'Say why they’re Do Not Use.' : null;
+}

@@ -85,3 +85,18 @@ test('every new table has row-level security', async () => {
     for (const [, t] of s.matchAll(/CREATE TABLE "(\w+)"/g)) assert.ok(s.includes(`ALTER TABLE "${t}" ENABLE ROW LEVEL SECURITY`), `${f}: ${t}`);
   }
 });
+
+import { cleanSupplierTypes, doNotUseProblem, roleTag } from './roles';
+
+test('supplier kinds and role tags (never the stage)', () => {
+  assert.deepEqual(cleanSupplierTypes(['appliances', 'utilities', 'bogus', 'utilities']), ['utilities', 'appliances']);
+  assert.equal(roleTag({ role: 'supplier', supplierTypes: ['utilities'] }), 'Supplier: Utilities');
+  assert.equal(roleTag({ role: 'supplier', supplierTypes: [] }), 'Supplier');
+  assert.equal(roleTag({ role: 'gc', supplierTypes: ['utilities'] }), 'General Contractor');
+});
+
+test('Do Not Use needs a reason', () => {
+  assert.equal(doNotUseProblem(true, ' '), 'Say why they’re Do Not Use.');
+  assert.equal(doNotUseProblem(true, 'Walked off the job'), null);
+  assert.equal(doNotUseProblem(false, null), null);
+});

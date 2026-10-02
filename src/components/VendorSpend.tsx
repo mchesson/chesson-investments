@@ -10,7 +10,7 @@ const statusLabel: Record<string, string> = { entered: 'Entered', approved: 'App
 export function VendorSpend({ bills }: { bills: SpendBill[] }) {
   const s = spendByProject(bills);
   return (
-    <Section title="What We’ve Spent With Them" kind="blue" hint={s.count ? `${formatCents(s.cents)} in all · ${s.projects.length} ${s.projects.length === 1 ? 'project' : 'projects'} · ${s.count} ${s.count === 1 ? 'invoice' : 'invoices'}` : undefined}>
+    <Section title="What We’ve Spent With Them" kind="blue" hint={s.count ? `${formatCents(s.cents, { cents: true })} in all · ${s.projects.length} ${s.projects.length === 1 ? 'project' : 'projects'} · ${s.count} ${s.count === 1 ? 'invoice' : 'invoices'}` : undefined}>
       {s.projects.length ? (
         <div className="stack">
           <div className="table-wrap">
@@ -19,19 +19,19 @@ export function VendorSpend({ bills }: { bills: SpendBill[] }) {
               <tbody>
                 {s.projects.map((p) => (
                   <tr key={p.projectId}>
-                    <td><Link href={`/projects/${p.projectId}?tab=bills`}>{p.projectName}</Link>{p.through ? <div className="small muted">{formatCents(p.through)} came through the GC’s bills</div> : null}</td>
+                    <td><Link href={`/projects/${p.projectId}?tab=bills`}>{p.projectName}</Link>{p.through ? <div className="small muted">{formatCents(p.through, { cents: true })} came through the GC’s bills</div> : null}</td>
                     <td className="small">{formatDate(p.first)}{p.last !== p.first ? ` – ${formatDate(p.last)}` : ''}</td>
                     <td className="num">{p.bills.length}</td>
-                    <td className="num">{formatCents(p.cents)}</td>
+                    <td className="num">{formatCents(p.cents, { cents: true })}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot><tr><th colSpan={3}>Total</th><th className="num">{formatCents(s.cents)}</th></tr></tfoot>
+              <tfoot><tr><th colSpan={3}>Total</th><th className="num">{formatCents(s.cents, { cents: true })}</th></tr></tfoot>
             </table>
           </div>
           {s.projects.map((p) => (
             <details key={p.projectId} className="fold">
-              <summary>{p.projectName}: {p.bills.length} {p.bills.length === 1 ? 'invoice' : 'invoices'}, {formatCents(p.cents)}</summary>
+              <summary>{p.projectName}: {p.bills.length} {p.bills.length === 1 ? 'invoice' : 'invoices'}, {formatCents(p.cents, { cents: true })}</summary>
               <div className="table-wrap">
                 <table className="t">
                   <thead><tr><th>Date</th><th>Number</th><th>Kind</th><th>Status</th><th className="num">Amount</th></tr></thead>
