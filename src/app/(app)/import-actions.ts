@@ -242,6 +242,7 @@ export async function applyImport(text: string): Promise<Summary> {
         lotCost: r.lotCost ?? null, marketValue: r.marketValue ?? null, notes: r.notes ?? null, sellingCostPct: r.sellingCostPct ?? '5', createdBy: user.id,
         purchasedOn: r.purchasedOn ?? null, completedOn: r.completedOn ?? null, originalEstimate: r.originalEstimate ?? null,
         plannedExit: r.plannedExit ?? null, actualExit: r.actualExit ?? null, closingCostAtSale: r.closingCostAtSale ?? null, reviewNotes: r.reviewNotes ?? null,
+        actualSalePrice: r.actualSalePrice ?? null,
       }).returning();
       await tx.insert(budgetLines).values(codes.map((c) => ({ projectId: row.id, costCodeId: c.id, percentOfConstruction: null as string | null, amount: null })));
       projectId.set(k(r.name), row.id); projectId.set(k(r.address), row.id);
