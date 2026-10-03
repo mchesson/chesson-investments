@@ -1435,6 +1435,7 @@ test('drop documents: many at once, the same file skipped, filed from the inbox 
   const pdf = (n: string) => ({ name: `${n}-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${n} ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
   await page.goto('/documents/drop');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drop Documents');
+  await page.waitForLoadState('networkidle'); // the drop zone answers once the page is ready
   // Claude is off in tests: files wait in the inbox; a text file isn't taken.
   await page.locator('input[type=file]').setInputFiles([pdf('deed'), pdf('receipt'), { name: `notes-${s}.txt`, mimeType: 'text/plain', buffer: Buffer.from('hello') }]);
   await expect(page.locator('.toast', { hasText: /Done: 3 files sent/ })).toBeVisible({ timeout: 60_000 });
