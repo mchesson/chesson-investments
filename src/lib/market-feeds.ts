@@ -6,6 +6,8 @@
 // - building permits: new homes and teardowns (Raleigh and Durham open data).
 // Pure (no network or database), tested in market-feeds.test.ts.
 
+import { normalizeAddress } from './market-sources';
+
 // ---------- Mortgage rates ----------
 
 export const FRED_30YR = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=MORTGAGE30US';
@@ -161,7 +163,7 @@ export const permitSources: Record<string, PermitSource> = {
       const at = f.geometry ? coord(f.geometry.y, f.geometry.x) : coord(a.latitude_perm, a.longitude_perm);
       return {
         source: 'raleigh', county: 'wake', permitNo: no, kind: isRebuild(d) ? 'rebuild' : 'new_home', issuedOn, year: Number((issuedOn ?? '0').slice(0, 4)),
-        address: txt(a.originaladdress1)?.toUpperCase() ?? null, city: cityCase(txt(a.originalcity)), zip: txt(a.originalzip)?.slice(0, 5) ?? null,
+        address: normalizeAddress(txt(a.originaladdress1)), city: cityCase(txt(a.originalcity)), zip: txt(a.originalzip)?.slice(0, 5) ?? null,
         ...(at.lat === null ? coord(a.latitude_perm, a.longitude_perm) : at), cost: pos(a.estprojectcost), sf: pos(a.totalsqft), units: pos(a.housingunitstotal),
         builder: txt(a.contractorcompanyname), description: d?.slice(0, 300) ?? null, status: txt(a.statuscurrentmapped),
       };
@@ -195,7 +197,7 @@ export const permitSources: Record<string, PermitSource> = {
       const yy = Number(no.slice(0, 2));
       return {
         source: 'durham_new', county: 'durham', permitNo: no, kind: 'new_home', issuedOn: null, year: yy >= 10 && yy <= 60 ? 2000 + yy : 0,
-        address: txt(a.SiteAdd)?.toUpperCase() ?? null, city: 'Durham', zip: null, ...coord(f.geometry?.y, f.geometry?.x),
+        address: normalizeAddress(txt(a.SiteAdd)), city: 'Durham', zip: null, ...coord(f.geometry?.y, f.geometry?.x),
         cost: null, sf: null, units: null, builder: null, description: d?.slice(0, 300) ?? null, status: txt(a.P_Status) === 'ISS' ? 'Issued' : txt(a.P_Status),
       };
     },
@@ -234,4 +236,48 @@ export function permitsNear(p: { lat: number; lng: number }, permits: { lat: num
     if (isNewBuild(x.kind)) newHomes++;
   }
   return { newHomes, teardowns };
+}
+
+// ---------- Builders as a signal ----------
+// Owner, Oct 2, 2026: "track home builders by name and success of quick sales
+// and use them as a tool to predict when they buy in an area as a partial
+// indicator. Not national homebuilders though ... Large home builders will be a
+// bucket we may want to be able to separate."
+
+/** National and big regional production builders (by name; their buying follows land deals, not neighborhoods). */
+const NATIONAL = /\b(lennar|d\.?\s?r\.?\s?horton|kb home|meritage|toll brothers|taylor morrison|pulte|centex|del webb|mattamy|stanley martin|dream finders|smith douglas|m\s?\/?\s?i homes|ryan homes|nvr|tri pointe|ashton woods|century communities|david weekley|shea homes|brookfield|drees|lgi homes|mungo|great southern|beazer|richmond american|chesapeake homes|eastwood homes|true homes|caviness|dan ryan|garman|hhhunt|drb group|express homes|starlight homes)\b/i;
+export type BuilderBucket = 'local' | 'large' | 'national';
+export const bucketLabel: Record<BuilderBucket, string> = { local: 'Local Builder', large: 'Large Builder', national: 'National / Production' };
+/** A builder pulling this many new-home permits in 12 months is a large builder, whatever its name. */
+export const LARGE_BUILDER_PERMITS = 40;
+export function builderBucket(name: string | null, permits12: number): BuilderBucket {
+  if (name && NATIONAL.test(name)) return 'national';
+  return permits12 >= LARGE_BUILDER_PERMITS ? 'large' : 'local';
+}
+
+/** A builder's homes from permit to sale: how many sold, how fast, at what $/sf. */
+export function builderRecord(homes: { issuedOn: string; soldOn: string | null; price: number | null; sf: number | null }[]) {
+  const sold = homes.filter((h) => h.soldOn && h.price);
+  const days = sold.map((h) => Math.round((Date.parse(h.soldOn!) - Date.parse(h.issuedOn)) / 864e5)).filter((d) => d > 0 && d < 1500).sort((a, b) => a - b);
+  const psf = sold.filter((h) => h.sf && h.sf > 500).map((h) => h.price! / h.sf!).sort((a, b) => a - b);
+  const mid = (xs: number[]) => (xs.length ? (xs.length % 2 ? xs[(xs.length - 1) / 2] : (xs[xs.length / 2 - 1] + xs[xs.length / 2]) / 2) : null);
+  const medianDays = mid(days);
+  return {
+    homes: homes.length, sold: sold.length, medianDays: medianDays === null ? null : Math.round(medianDays),
+    medianPsf: psf.length ? Math.round(mid(psf)!) : null,
+    /** Quick: half their homes sell within about 10 months of the permit (build plus a short time on the market), from 3+ sales. */
+    quick: days.length >= 3 && medianDays !== null && medianDays <= 300,
+  };
+}
+
+/** The builders of a kind with permits within a distance of a point (names, most permits first). */
+export function buildersNear(p: { lat: number; lng: number }, permits: { lat: number; lng: number; kind: string; builder: string | null; bucket: string | null }[], bucket = 'local', milesAway = 0.5) {
+  const dLat = milesAway / 69, dLng = milesAway / (69 * Math.cos((p.lat * Math.PI) / 180));
+  const n = new Map<string, number>();
+  for (const x of permits) {
+    if (!x.builder || x.bucket !== bucket || x.kind === 'demolition') continue;
+    if (((x.lat - p.lat) / dLat) ** 2 + ((x.lng - p.lng) / dLng) ** 2 > 1) continue;
+    n.set(x.builder, (n.get(x.builder) ?? 0) + 1);
+  }
+  return [...n.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
 }

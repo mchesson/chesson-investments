@@ -109,3 +109,40 @@ test('permits near a point', () => {
   assert.deepEqual(permitsNear(at, ps, 2), { newHomes: 2, teardowns: 1 });
   assert.deepEqual(permitsNear(at, [{ ...at, kind: 'rebuild' }]), { newHomes: 1, teardowns: 1 }); // a rebuild is both
 });
+
+test('builders: national by name, large by volume, everyone else local', async () => {
+  const { builderBucket, LARGE_BUILDER_PERMITS } = await import('./market-feeds');
+  assert.equal(builderBucket('Lennar Carolinas', 3), 'national');
+  assert.equal(builderBucket('D.R. Horton', 3), 'national');
+  assert.equal(builderBucket('M I Homes of Raleigh', 1), 'national');
+  assert.equal(builderBucket('Homes by Dickerson', 12), 'local');
+  assert.equal(builderBucket('Murdock Gannon Construction', LARGE_BUILDER_PERMITS), 'large');
+  assert.equal(builderBucket(null, 0), 'local');
+});
+
+test('a builder’s record: permit to sale, $/sf, quick sellers', async () => {
+  const { builderRecord } = await import('./market-feeds');
+  const h = (issuedOn: string, soldOn: string | null, price: number | null, sf = 2500) => ({ issuedOn, soldOn, price, sf });
+  const r = builderRecord([h('2025-01-01', '2025-08-01', 1_000_000), h('2025-02-01', '2025-10-01', 1_100_000), h('2025-03-01', '2025-11-01', 950_000), h('2025-06-01', null, null)]);
+  assert.equal(r.homes, 4);
+  assert.equal(r.sold, 3);
+  assert.equal(r.medianDays, 242); // Feb 1 → Oct 1
+  assert.equal(r.medianPsf, 400);
+  assert.equal(r.quick, true);
+  // Slow: half take over 300 days.
+  assert.equal(builderRecord([h('2024-01-01', '2025-03-01', 900000), h('2024-01-01', '2025-04-01', 900000), h('2024-01-01', '2025-05-01', 900000)]).quick, false);
+  // A sale before the permit (the old house) isn't counted.
+  assert.equal(builderRecord([h('2025-06-01', '2025-01-01', 500000)]).medianDays, null);
+});
+
+test('local builders near a point, most permits first', async () => {
+  const { buildersNear } = await import('./market-feeds');
+  const at = { lat: 35.8, lng: -78.64 };
+  const ps = [
+    { ...at, kind: 'new_home', builder: 'Local A', bucket: 'local' }, { ...at, kind: 'rebuild', builder: 'Local A', bucket: 'local' },
+    { ...at, kind: 'new_home', builder: 'Local B', bucket: 'local' }, { ...at, kind: 'new_home', builder: 'Lennar', bucket: 'national' },
+    { lat: 35.83, lng: -78.64, kind: 'new_home', builder: 'Far Away', bucket: 'local' }, { ...at, kind: 'demolition', builder: null, bucket: null },
+  ];
+  assert.deepEqual(buildersNear(at, ps), [{ name: 'Local A', count: 2 }, { name: 'Local B', count: 1 }]);
+  assert.deepEqual(buildersNear(at, ps, 'national'), [{ name: 'Lennar', count: 1 }]);
+});

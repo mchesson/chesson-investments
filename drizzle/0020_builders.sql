@@ -1,0 +1,1 @@
+CREATE INDEX "market_parcels_address" ON "market_parcels" USING btree ("county","address");

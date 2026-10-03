@@ -4,7 +4,7 @@ import { unstable_cache } from 'next/cache';
 import { db } from '@/db';
 import { addDays, today } from './format';
 import { priceBands, type BandKey } from './market-stats';
-import { affordability, builderName, rateSensitivity } from './market-feeds';
+import { affordability, builderBucket, builderName, builderRecord, rateSensitivity, type BuilderBucket } from './market-feeds';
 
 // Reading the free data for the Market Map and the buy box.
 
@@ -133,13 +133,71 @@ export async function permitsByArea(limit = 20) {
 /** Permit points in the last 12 months (for counting around each buy-box zone). */
 export const recentPermitPoints = unstable_cache(async () => {
   const y = Number(today().slice(0, 4)) - 1;
-  const r = await db.execute<{ kind: string; lat: string; lng: string }>(sql`
-    select kind, lat::text, lng::text from market_permits where lat is not null and (issued_on >= ${addDays(today(), -365)} or (issued_on is null and year >= ${y}))`);
-  return r.rows.map((x) => ({ kind: x.kind, lat: Number(x.lat), lng: Number(x.lng) }));
+  const r = await db.execute<{ kind: string; lat: string; lng: string; builder: string | null }>(sql`
+    select kind, lat::text, lng::text, builder from market_permits where lat is not null and (issued_on >= ${addDays(today(), -365)} or (issued_on is null and year >= ${y}))`);
+  const counts = new Map<string, number>();
+  for (const x of r.rows) { const b = builderName(x.builder); if (b && x.kind !== 'demolition') counts.set(b, (counts.get(b) ?? 0) + 1); }
+  return r.rows.map((x) => {
+    const b = builderName(x.builder);
+    return { kind: x.kind, lat: Number(x.lat), lng: Number(x.lng), builder: b, bucket: b ? builderBucket(b, counts.get(b) ?? 0) : null };
+  });
 }, ['recent-permits'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: 6 * 3600 }); // market-zones: saving the buy box refreshes it too
 
 export async function feedCounts() {
   const r = await db.execute<{ rates: number; trends: number; permits: number }>(sql`
     select (select count(*) from market_rates)::int as rates, (select count(*) from market_trends)::int as trends, (select count(*) from market_permits)::int as permits`);
   return r.rows[0];
+}
+
+export type BuilderRow = {
+  builder: string; bucket: BuilderBucket; permits12: number; permitsBefore: number; teardowns: number; zips: string[]; latest: string | null;
+  homes: number; sold: number; medianDays: number | null; medianPsf: number | null; quick: boolean; medianCost: number | null;
+};
+
+/**
+ * Every builder on the permits: how many new homes in the last 12 months and the
+ * 12 before, how many on teardown lots, where, and their track record: each
+ * permit matched to the county sale of the same address after it (days from
+ * permit to sale, $/sf). Raleigh's permits name the builder; Durham's don't.
+ */
+export const builderTable = unstable_cache(async (): Promise<BuilderRow[]> => {
+  const y1 = addDays(today(), -365), y2 = addDays(today(), -730);
+  const r = await db.execute<{ builder: string; kind: string; issued_on: string | null; zip: string | null; cost: string | null; sold_on: string | null; price: string | null; sf: number | null }>(sql`
+    select p.builder, p.kind, p.issued_on::text, p.zip, p.cost::text, s.sold_on::text, s.price::text, coalesce(mp.heated_sf, p.sf) as sf
+    from market_permits p
+    left join market_parcels mp on mp.county = p.county and mp.address = p.address
+    left join lateral (select ms.sold_on, ms.price from market_sales ms where ms.parcel_id = mp.id and ms.sold_on > p.issued_on order by ms.sold_on limit 1) s on true
+    where p.builder is not null and p.kind in ('new_home', 'rebuild') and p.issued_on is not null`);
+  const by = new Map<string, typeof r.rows>();
+  for (const x of r.rows) { const b = builderName(x.builder); if (b) by.set(b, [...(by.get(b) ?? []), x]); }
+  const mid = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
+  return [...by.entries()].map(([builder, rows]) => {
+    const recent = rows.filter((x) => x.issued_on! >= y1);
+    const rec = builderRecord(rows.map((x) => ({ issuedOn: x.issued_on!, soldOn: x.sold_on, price: x.price === null ? null : Number(x.price), sf: x.sf })));
+    return {
+      builder, bucket: builderBucket(builder, recent.length), permits12: recent.length, permitsBefore: rows.filter((x) => x.issued_on! < y1 && x.issued_on! >= y2).length,
+      teardowns: rows.filter((x) => x.kind === 'rebuild').length, zips: [...new Set(recent.map((x) => x.zip).filter(Boolean) as string[])].sort(),
+      latest: rows.reduce<string | null>((m, x) => (!m || x.issued_on! > m ? x.issued_on : m), null),
+      medianCost: mid(rows.map((x) => Number(x.cost)).filter((c) => c > 0)), ...rec,
+    };
+  }).sort((a, b) => b.permits12 - a.permits12 || b.homes - a.homes);
+}, ['builder-table'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: 6 * 3600 });
+
+/** Where local builders with a track record are moving in: their new permits in the last 6 months, by ZIP. */
+export async function localBuildersMovingIn() {
+  const builders = await builderTable();
+  const proven = new Map(builders.filter((b) => b.bucket === 'local' && (b.quick || b.sold >= 3)).map((b) => [b.builder, b]));
+  const r = await db.execute<{ builder: string; zip: string | null; n: number; first: string }>(sql`
+    select builder, zip, count(*)::int as n, min(issued_on)::text as first from market_permits
+    where builder is not null and kind in ('new_home', 'rebuild') and issued_on >= ${addDays(today(), -183)} group by builder, zip`);
+  const byZip = new Map<string, { zip: string; builders: { name: string; n: number; medianDays: number | null }[]; permits: number }>();
+  for (const x of r.rows) {
+    const b = proven.get(builderName(x.builder) ?? '');
+    if (!b || !x.zip) continue;
+    const o = byZip.get(x.zip) ?? { zip: x.zip, builders: [], permits: 0 };
+    o.builders.push({ name: b.builder, n: x.n, medianDays: b.medianDays });
+    o.permits += x.n;
+    byZip.set(x.zip, o);
+  }
+  return [...byZip.values()].sort((a, b) => b.builders.length - a.builders.length || b.permits - a.permits);
 }
