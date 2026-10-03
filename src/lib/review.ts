@@ -1,12 +1,15 @@
 // Post-project review (after-action report): the project's own numbers, read
 // back against what would have made it work. Pure, tested in review.test.ts.
 import { daysSince } from './roles';
+import { saleCosts } from './budget';
 
 export type ReviewIn = {
   value: number | null; // cents: actual sale, else market value today
   valueBasis: 'sold' | 'market' | 'pro forma' | null;
   sellingCostPct: number;
   closingAtSale: number;
+  /** The settlement statement's whole cost of selling, when sold. */
+  actualSaleCosts?: number | null;
   lotCost: number;
   acquisition: number; // closing and due diligence on the purchase
   build: number; // the build actually spent (or projected)
@@ -33,7 +36,7 @@ const months = (a: string, b: string) => Math.max(0, Math.round(((daysSince(a, b
 export function review(r: ReviewIn) {
   const findings: Finding[] = [];
   const allIn = r.lotCost + r.acquisition + r.build + r.staging + r.holding - r.keptAssets;
-  const net = r.value === null ? null : r.value - Math.round((r.value * r.sellingCostPct) / 100) - r.closingAtSale;
+  const net = r.value === null ? null : r.value - saleCosts({ sale: r.value, pct: r.sellingCostPct, closing: r.closingAtSale, actual: r.valueBasis === 'sold' ? r.actualSaleCosts : null }).total;
   const profit = net === null ? null : net - allIn;
   const target = r.value === null ? null : Math.round((r.value * r.targetProfitPct) / 100);
   // What we could have paid for the lot and still made the target, at this scope and these costs.

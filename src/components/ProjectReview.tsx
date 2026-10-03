@@ -17,7 +17,7 @@ export function ProjectReview({ data, canEdit }: { data: Money; canEdit: boolean
   const gcBilled = counted.filter((l) => gcIds.has(l.billId)).reduce((s, l) => s + cents(l.amount), 0);
   const ownerDirect = counted.filter((l) => !gcIds.has(l.billId)).reduce((s, l) => s + cents(l.amount), 0);
   const r = review({
-    value: value ? cents(value) : null, valueBasis: basis as never, sellingCostPct: Number(p.sellingCostPct ?? 0), closingAtSale: cents(p.closingCostAtSale),
+    value: value ? cents(value) : null, valueBasis: basis as never, sellingCostPct: Number(p.sellingCostPct ?? 0), closingAtSale: cents(p.closingCostAtSale), actualSaleCosts: p.actualSaleCosts ? cents(p.actualSaleCosts) : null,
     lotCost: cents(p.lotCost), acquisition: data.acquisition.projected, build: data.all.projected, staging: data.selling.projected, holding: data.holdingToDate,
     keptAssets: cents(p.keptAssetsValue), heatedSf: p.heatedSf, originalEstimate: p.originalEstimate ? cents(p.originalEstimate) : null,
     targetProfitPct: p.targetProfitPct ? Number(p.targetProfitPct) : 15, purchasedOn: p.purchasedOn, completedOn: p.completedOn,

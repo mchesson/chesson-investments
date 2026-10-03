@@ -114,6 +114,8 @@ export type PnlIn = {
   salePrice: number; // cents: pro forma (or actual once sold)
   marketValue?: number | null; // cents: what it would sell for today
   sellingCostPct: number; // percent of the sale price
+  closingAtSale?: number; // closing cost at sale, on top of the commissions
+  actualSaleCosts?: number | null; // from the settlement statement: replaces both
   lotCost: number;
   acquisitionCosts?: number; // due diligence and closing costs (code 30): added to the lot
   stagingBudget?: number; // staging, listing and marketing (code 31): a cost of selling
@@ -136,10 +138,21 @@ export type Pnl = {
 const per = (c: number, sf: number | null) => (sf && sf > 0 ? Math.round(c / sf) : null);
 const margin = (profit: number, sale: number) => (sale > 0 ? Math.round((profit / sale) * 10000) / 100 : null);
 
+/**
+ * What selling costs: the settlement statement's total once we have it,
+ * else the commission % of the price plus the closing cost at sale.
+ */
+export function saleCosts(p: { sale: number; pct: number; closing?: number | null; actual?: number | null }) {
+  if (p.actual !== null && p.actual !== undefined) return { commissions: 0, closing: p.actual, total: p.actual, fromSettlement: true };
+  const commissions = Math.round((p.sale * p.pct) / 100);
+  const closing = p.closing ?? 0;
+  return { commissions, closing, total: commissions + closing, fromSettlement: false };
+}
+
 /** Pro forma vs projected vs actual to date. Per-sf figures are all-in (lot + build) except buildPerSf. */
 export function pnl(p: PnlIn): Pnl {
   const lot = p.lotCost + (p.acquisitionCosts ?? 0);
-  const selling = Math.round((p.salePrice * p.sellingCostPct) / 100);
+  const selling = saleCosts({ sale: p.salePrice, pct: p.sellingCostPct, closing: p.closingAtSale, actual: p.actualSaleCosts }).total;
   const stB = p.stagingBudget ?? 0;
   const stP = p.stagingProjected ?? 0;
   const proProfit = p.salePrice - selling - stB - lot - p.buildBudget;

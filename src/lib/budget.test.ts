@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cents, codeMoney, payBlocker, pnl, resolveBudget, retainageFor, rollup, scenarios, totals } from './budget';
+import { cents, codeMoney, payBlocker, pnl, resolveBudget, saleCosts, retainageFor, rollup, scenarios, totals } from './budget';
 
 const plainview = [9460, 0, 18000, 3030, 0, 3500, 84571, 102200, 36203, 49496, 58220, 11686, 21031, 36664, 82499, 22278, 60559, 66713, 38331, 63500, 16400, 13419, null, 20350, 600];
 
@@ -81,4 +81,12 @@ test("sale scenarios match the owner's 420 Peyton sheet", () => {
   assert.deepEqual(s.map((x) => x.profit), [cents(22_881.04), cents(3_976.04), cents(-10_273.96)]);
   assert.equal(s[0].afterTax, cents(11_440.52));
   assert.equal(s[2].tax, 0);
+});
+
+test('a sold house uses the settlement statement’s cost of sale, never the commission % on top (Hillock)', () => {
+  assert.deepEqual(saleCosts({ sale: cents(430_000), pct: 5, closing: cents(18_685), actual: cents(18_685) }), { commissions: 0, closing: cents(18_685), total: cents(18_685), fromSettlement: true });
+  assert.equal(saleCosts({ sale: cents(430_000), pct: 5, closing: cents(3_000) }).total, cents(21_500 + 3_000));
+  const base = { salePrice: cents(430_000), marketValue: null, sellingCostPct: 5, lotCost: cents(325_000), acquisitionCosts: cents(3_867.4), buildBudget: 0, buildProjected: 0, buildBilled: 0, holdingToDate: 0, heatedSf: null };
+  assert.equal(pnl({ ...base, closingAtSale: cents(18_685), actualSaleCosts: cents(18_685) }).projected.profit, cents(430_000 - 18_685 - 325_000 - 3_867.4));
+  assert.equal(pnl({ ...base, closingAtSale: cents(18_685) }).projected.profit, cents(430_000 - 21_500 - 18_685 - 325_000 - 3_867.4));
 });

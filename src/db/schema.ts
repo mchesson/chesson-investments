@@ -348,6 +348,10 @@ export const projects = pgTable('projects', {
   taxRatePct: numeric('tax_rate_pct', { precision: 5, scale: 2 }),
   sellingCostPct: numeric('selling_cost_pct', { precision: 5, scale: 2 }),
   actualSalePrice: money('actual_sale_price'),
+  // The whole cost of selling from the settlement statement (commissions and
+  // closing together). Once set it replaces the commission % and the closing
+  // cost estimate (Hillock was counted twice before, Oct 3, 2026).
+  actualSaleCosts: money('actual_sale_costs'),
   // What the finished house would sell for today (a broker's opinion, comps,
   // an appraisal): the check against over-building.
   marketValue: money('market_value'),

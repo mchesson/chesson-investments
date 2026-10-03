@@ -9,7 +9,8 @@ import { countsTowardBudget, countsTowardHolding } from './bill-lines';
 
 export function listProjects() {
   return db.select({
-    id: projects.id, name: projects.name, address: projects.address, city: projects.city, stage: projects.stage,
+    id: projects.id, name: projects.name, address: projects.address, city: projects.city, state: projects.state, zip: projects.zip, neighborhood: projects.neighborhood, stage: projects.stage,
+    actualSalePrice: projects.actualSalePrice,
     projectNumber: projects.projectNumber, heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
     stageStates: projects.stageStates, subStages: projects.subStages,
     rentalStatus: sql<string | null>`(select r.status from ${rentals} r where r.project_id = "projects"."id")`,
@@ -73,7 +74,9 @@ export async function projectMoney(projectId: string) {
   const sale = cents(project.actualSalePrice ?? project.proformaSalePrice);
   const report = pnl({
     salePrice: sale, marketValue: project.marketValue ? cents(project.marketValue) : null,
-    sellingCostPct: Number(project.sellingCostPct ?? 0), lotCost: cents(project.lotCost), acquisitionCosts: acquisition.projected,
+    sellingCostPct: Number(project.sellingCostPct ?? 0), closingAtSale: cents(project.closingCostAtSale),
+    actualSaleCosts: project.actualSalePrice && project.actualSaleCosts ? cents(project.actualSaleCosts) : null,
+    lotCost: cents(project.lotCost), acquisitionCosts: acquisition.projected,
     stagingBudget: selling.budget, stagingProjected: selling.projected,
     buildBudget: build.budget, buildProjected: build.projected, buildBilled: build.billed, holdingToDate, heatedSf: project.heatedSf,
   });

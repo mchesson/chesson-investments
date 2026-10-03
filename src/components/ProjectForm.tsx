@@ -2,7 +2,7 @@ import { ActionForm } from './ActionForm';
 import { saveProject } from '@/app/(app)/project-actions';
 import { projectStages } from '@/lib/project-stages';
 
-type P = { id: string; name: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; stage: string; lotSf: number | null; zoning: string | null; lotCost: string | null; lotValue: string | null; heatedSf: number | null; plan: string | null; ownedBy: string | null; saleLow: string | null; saleHigh: string | null; closingCostAtSale: string | null; keptAssetsValue: string | null; taxRatePct: string | null; marketValue: string | null; marketValueOn: string | null; marketValueSource: string | null; proformaSalePrice: string | null; sellingCostPct: string | null; actualSalePrice: string | null; notes: string | null };
+type P = { id: string; name: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; stage: string; lotSf: number | null; zoning: string | null; lotCost: string | null; lotValue: string | null; heatedSf: number | null; plan: string | null; ownedBy: string | null; saleLow: string | null; saleHigh: string | null; closingCostAtSale: string | null; keptAssetsValue: string | null; taxRatePct: string | null; marketValue: string | null; marketValueOn: string | null; marketValueSource: string | null; proformaSalePrice: string | null; sellingCostPct: string | null; actualSalePrice: string | null; actualSaleCosts?: string | null; notes: string | null };
 
 export function ProjectForm({ project }: { project?: P }) {
   return (
@@ -40,6 +40,7 @@ export function ProjectForm({ project }: { project?: P }) {
           <label className="f">What We Keep<span className="h">Staging furniture, tools: added back</span><input name="keptAssetsValue" inputMode="decimal" defaultValue={project?.keptAssetsValue ?? ''} /></label>
           <label className="f">Tax Rate %<span className="h">For profit after tax; blank to skip</span><input name="taxRatePct" inputMode="decimal" defaultValue={project?.taxRatePct ?? ''} /></label>
           <label className="f">Actual Sale Price<span className="h">Once it sells</span><input name="actualSalePrice" inputMode="decimal" defaultValue={project?.actualSalePrice ?? ''} /></label>
+          <label className="f">Actual Cost of Sale<span className="h">Once sold: the settlement statement’s total (commissions and closing). It replaces the two estimates.</span><input name="actualSaleCosts" inputMode="decimal" defaultValue={project?.actualSaleCosts ?? ''} /></label>
         </div>
       </div>
       <div className="section" data-c="grey"><header><h2>Market Check</h2><span className="hint">What the finished house would sell for today: catches over-building</span></header>
