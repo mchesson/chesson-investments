@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
-import { peopleOptions } from '@/lib/contacts';
+import { companyOptions, peopleOptions } from '@/lib/contacts';
 import { getProperty } from '@/lib/watch';
 import { isUuid } from '@/lib/forms';
 import { PageHead } from '@/components/ui';
@@ -11,5 +11,5 @@ export default async function EditProperty({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const data = isUuid(id) ? await getProperty(id) : null;
   if (!data) notFound();
-  return (<><PageHead title={`Edit ${data.property.address}`} eyebrow="Watchlist" /><PropertyForm property={data.property} people={await peopleOptions()} /></>);
+  return (<><PageHead title={`Edit ${data.property.address}`} eyebrow="Watchlist" /><PropertyForm property={data.property} people={await peopleOptions()} companies={await companyOptions()} /></>);
 }

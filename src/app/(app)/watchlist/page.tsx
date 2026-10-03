@@ -6,6 +6,7 @@ import { formatDate, formatMoney } from '@/lib/format';
 import { pricePerLotSf, propertyStageLabel } from '@/lib/properties';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { Pager } from '@/components/contacts';
+import { dealTypeLabel, dealTypes, isDealType } from '@/lib/deal-sources';
 
 export const metadata = { title: 'Watchlist' };
 
@@ -17,19 +18,26 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   const user = await requirePage('properties.view');
   const sp = await searchParams;
   const view = (views.find((v) => v.key === sp.view)?.key ?? 'active') as WatchView;
-  const { rows, total, page, pageSize } = await listProperties({ view, q: sp.q, page: Number(sp.page) || 1 });
+  const dealType = isDealType(sp.type) ? sp.type : null;
+  const { rows, total, page, pageSize } = await listProperties({ view, q: sp.q, page: Number(sp.page) || 1, dealType });
+  const href = (o: Record<string, string | null>) => { const q = new URLSearchParams(Object.entries({ view: view === 'active' ? null : view, type: dealType, ...o }).filter(([, v]) => v) as [string, string][]).toString(); return q ? `/watchlist?${q}` : '/watchlist'; };
   return (
     <>
       <PageHead title="Watchlist" sub="Every lot we like, bid on or watch. Sold ones stay as comparables."
-        actions={can(user, 'properties.edit') ? <Link className="btn" href="/watchlist/new">Add a Property</Link> : null} />
+        actions={<><Link className="btn secondary" href="/watchlist/sources">Deal Sources</Link>{can(user, 'properties.edit') ? <Link className="btn" href={`/watchlist/new${dealType ? `?type=${dealType}` : ''}`}>Add a Property</Link> : null}</>} />
       <Section title="Find Properties" kind="grey">
         <nav className="chips" style={{ marginBottom: 10 }} aria-label="Which properties">
           {views.map((v) => (
-            <Link key={v.key} href={`/watchlist${v.key === 'active' ? '' : `?view=${v.key}`}`} className={`chip ${view === v.key ? 'blue' : ''}`} aria-current={view === v.key ? 'page' : undefined}>{v.label}</Link>
+            <Link key={v.key} href={href({ view: v.key === 'active' ? null : v.key })} className={`chip ${view === v.key ? 'blue' : ''}`} aria-current={view === v.key ? 'page' : undefined}>{v.label}</Link>
           ))}
+        </nav>
+        <nav className="role-pick" aria-label="Kind of deal"><span className="filter-label">Kind</span>
+          <Link className="role-btn" aria-pressed={!dealType} href={href({ type: null })}>Every Kind</Link>
+          {dealTypes.map((t) => <Link key={t.key} className="role-btn" aria-pressed={dealType === t.key} href={href({ type: t.key })}>{t.label}</Link>)}
         </nav>
         <form className="find-bar">
           {view !== 'active' ? <input type="hidden" name="view" value={view} /> : null}
+          {dealType ? <input type="hidden" name="type" value={dealType} /> : null}
           <label className="f grow">Search<input name="q" defaultValue={sp.q ?? ''} placeholder="Address, city, neighborhood, ZIP, zoning" /></label>
           <button className="btn" type="submit">Search</button>
         </form>
@@ -43,7 +51,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
               const ppsf = pricePerLotSf(price, r.lotSf);
               return (
                 <tr key={r.id}>
-                  <td><Link href={`/watchlist/${r.id}`}>{r.address}</Link><div className="small muted">{[r.neighborhood, r.city, r.zip].filter(Boolean).join(' · ')}</div></td>
+                  <td><Link href={`/watchlist/${r.id}`}>{r.address}</Link><div className="small muted">{[r.dealType !== 'lot' ? dealTypeLabel(r.dealType) + (r.lotsPossible ? ` (${r.lotsPossible} lots)` : '') : null, r.neighborhood, r.city, r.zip].filter(Boolean).join(' · ')}</div></td>
                   <td><span className="chip">{propertyStageLabel(r.stage)}</span>{r.stage === 'sold' && r.soldOn ? <div className="small muted">{formatDate(r.soldOn)}</div> : null}
                     {r.stage === 'lost' ? <div className="small muted">We offered {formatMoney(r.ourOffer)}{r.winningPrice ? `; won at ${formatMoney(r.winningPrice)}` : ''}</div> : null}</td>
                   <td className="num">{formatMoney(price)}</td>
@@ -56,7 +64,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
             })}</tbody>
           </table></div>
         ) : <Empty>Nothing here yet.</Empty>}
-        <Pager base="/watchlist" page={page} total={total} pageSize={pageSize} params={{ view: view === 'active' ? undefined : view, q: sp.q }} />
+        <Pager base="/watchlist" page={page} total={total} pageSize={pageSize} params={{ view: view === 'active' ? undefined : view, q: sp.q, type: dealType ?? undefined }} />
       </Section>
     </>
   );

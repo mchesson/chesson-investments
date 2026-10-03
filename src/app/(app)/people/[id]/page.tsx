@@ -10,6 +10,8 @@ import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
 import { dealCredit, propertyStageLabel } from '@/lib/properties';
+import { sourceRecordFor } from '@/lib/deal-source-data';
+import { gradeLabel } from '@/lib/deal-sources';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
 import { HistoryList, RoleChips, RolesPanel, TaskForm, TaskRows, TouchForm, TouchList } from '@/components/contacts';
@@ -185,6 +187,7 @@ async function Work({ id }: { id: string }) {
 async function Deals({ id }: { id: string }) {
   const rows = await dealsFrom(id);
   const credit = dealCredit(rows.map((r) => ({ stage: r.stage, metBuyBox: r.metBuyBox, hasProject: !!r.projectId, referralFee: r.referralFee })));
+  const record = await sourceRecordFor('person', id);
   return (
     <div className="stack">
       <div className="tiles">
@@ -192,6 +195,8 @@ async function Deals({ id }: { id: string }) {
         <div className="tile"><div className="k">Met Our Buy Box</div><div className="v">{credit.metBuyBox}</div></div>
         <div className="tile"><div className="k">Closed</div><div className="v">{credit.closed}</div></div>
         <div className="tile"><div className="k">Referral Fees</div><div className="v">{formatMoney(credit.referralFees)}</div></div>
+        {record ? <div className="tile"><div className="k">As a Source</div><div className="v"><span className={`chip grade-${record.grade}`}>{gradeLabel[record.grade]}</span></div>
+          <div className="s">{record.score} of 100{record.accuracyRate !== null ? ` · numbers held up ${record.accuracyRate}%` : ''} · <Link href="/watchlist/sources">Compare</Link></div></div> : null}
       </div>
       <Section title="Properties They Sent Us" kind="aqua">
         {rows.length ? (

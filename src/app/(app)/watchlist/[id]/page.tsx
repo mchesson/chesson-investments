@@ -15,7 +15,11 @@ import { pickableStages, pricePerLotSf, propertyStageLabel } from '@/lib/propert
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
-import { addPropertyPhoto, convertToProject, markSold, setPropertyStage } from '../../watch-actions';
+import { addPropertyPhoto, convertToProject, markSold, setChecklistItem, setPropertyStage } from '../../watch-actions';
+import { checklistProgress, commercialUses, dealTypeLabel, entitlements, isBigDeal, labelOf, sourceKindLabel, utilities } from '@/lib/deal-sources';
+import { db } from '@/db';
+import { companies } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export default async function PropertyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const user = await requirePage('properties.view');
@@ -28,10 +32,13 @@ export default async function PropertyPage({ params, searchParams }: { params: P
   const base = `/watchlist/${id}`;
   const photos = await filesFor('property', id);
   const ppsf = pricePerLotSf(p.stage === 'sold' ? p.soldPrice : p.askingPrice, p.lotSf);
+  const [sourceCompany] = p.sourceCompanyId ? await db.select({ id: companies.id, name: companies.name }).from(companies).where(eq(companies.id, p.sourceCompanyId)) : [];
+  const big = isBigDeal(p.dealType);
+  const check = checklistProgress(p.dealType, p.checklist as Record<string, unknown>);
 
   return (
     <>
-      <PageHead eyebrow="Watchlist" title={p.address} sub={<><span className="chip blue">{propertyStageLabel(p.stage)}</span> {[p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
+      <PageHead eyebrow="Watchlist" title={p.address} sub={<><span className="chip blue">{propertyStageLabel(p.stage)}</span> <span className="chip">{dealTypeLabel(p.dealType)}</span> {[p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
         actions={edit ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       {project ? <div className="notice">This is now a project: <Link href={`/projects/${project.id}`}>{project.name}</Link>.</div> : null}
       <div className="record">
@@ -43,10 +50,26 @@ export default async function PropertyPage({ params, searchParams }: { params: P
               ['$ per Lot SF', ppsf ? `$${ppsf.toFixed(2)}` : null],
               ['Zoning', p.zoning],
               ['Buy Box', p.metBuyBox === null ? 'Not decided' : p.metBuyBox ? 'Meets it' : 'Doesn’t meet it'],
-              ['Sent By', source ? <Link href={`/people/${source.id}`}>{source.firstName} {source.lastName}</Link> : 'We found it'],
+              ['Sent By', source ? <Link href={`/people/${source.id}`}>{source.firstName} {source.lastName}</Link> : sourceCompany ? null : 'We found it'],
+              ['Their Company', sourceCompany ? <Link href={`/companies/${sourceCompany.id}`}>{sourceCompany.name}</Link> : null],
+              ['How It Came', p.sourceKind ? sourceKindLabel(p.sourceKind) : null],
+              ['Their Numbers', p.sourceAccurate === null ? null : p.sourceAccurate ? 'Held up' : `Were off${p.sourceNote ? `: ${p.sourceNote}` : ''}`],
               ['Referral Fee', p.referralFee ? formatMoney(p.referralFee) : null],
             ]} />
+            <p className="small" style={{ margin: '6px 0 0' }}><Link href="/watchlist/sources">How our sources compare</Link></p>
           </Section>
+          {big || p.lotsPossible || p.utilities || p.entitlement || p.commercialUse ? (
+            <Section title={p.dealType === 'commercial' ? 'Commercial' : 'Land'} kind="grey">
+              <Facts items={[
+                ['Lots or Units', p.lotsPossible ? p.lotsPossible.toLocaleString() : null],
+                ['$ per Lot', p.lotsPossible && p.askingPrice ? formatMoney(String(Math.round(Number(p.askingPrice) / p.lotsPossible))) : null],
+                ['$ per Acre', p.lotAcres && Number(p.lotAcres) > 0 && p.askingPrice ? formatMoney(String(Math.round(Number(p.askingPrice) / Number(p.lotAcres)))) : null],
+                ['Water and Sewer', labelOf(utilities, p.utilities)],
+                ['Approvals', labelOf(entitlements, p.entitlement)],
+                ['Use', labelOf(commercialUses, p.commercialUse)],
+              ]} />
+            </Section>
+          ) : null}
           {p.ourOffer || p.stage === 'lost' ? (
             <Section title="Our Bid" kind="blue">
               <Facts items={[['Our Offer', formatMoney(p.ourOffer)], ['Offered On', p.offerOn ? formatDate(p.offerOn) : null], ['Won At', p.winningPrice ? formatMoney(p.winningPrice) : null], ['Bought By', p.winningBuyer]]} />
@@ -65,6 +88,24 @@ export default async function PropertyPage({ params, searchParams }: { params: P
               <Suspense fallback={<Section title="Buy Box Check" kind="aqua"><p className="small muted" style={{ margin: 0 }}>Working it out from the market…</p></Section>}>
                 <BuyBoxCheck p={{ neighborhood: p.neighborhood, address: p.address, city: p.city, askingPrice: p.askingPrice }} />
               </Suspense>
+              {check.total ? (
+                <Section title={`${p.dealType === 'commercial' ? 'Commercial' : 'Land'} Checklist`} kind="blue" hint={`${check.done} of ${check.total} done · what to look at before an offer goes firm`}>
+                  <ul className="checklist">{check.items.map((i) => {
+                    const done = (p.checklist as Record<string, unknown>)[i.key] === true;
+                    return (
+                      <li key={i.key} className={done ? 'done' : ''}>
+                        <span aria-hidden="true">{done ? '✓' : '○'}</span>
+                        <div style={{ flex: 1 }}><strong>{i.label}</strong><div className="small muted">{i.why}</div></div>
+                        {edit ? (
+                          <ActionForm action={setChecklistItem} submit={done ? 'Undo' : 'Done'}>
+                            <input type="hidden" name="id" value={id} /><input type="hidden" name="key" value={i.key} /><input type="hidden" name="done" value={done ? 'no' : 'yes'} />
+                          </ActionForm>
+                        ) : null}
+                      </li>
+                    );
+                  })}</ul>
+                </Section>
+              ) : null}
               {p.notes ? <Section title="Notes" kind="energy"><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{p.notes}</p></Section> : null}
               {edit && p.stage !== 'sold' && !project ? (
                 <Section title="Where It Stands" kind="blue" hint="Offer Made and Lost keep our offer; Lost keeps who won and at what price">

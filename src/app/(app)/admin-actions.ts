@@ -2,7 +2,7 @@
 
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { headers } from 'next/headers';
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { db } from '@/db';
 import { appSettings, guestAccess, projects, users } from '@/db/schema';
 import { readStandards, STANDARDS_KEY, STANDARDS_TAG } from '@/lib/access-standards';
@@ -223,7 +223,7 @@ export async function saveRoleStandard(_: FormResult, d: FormData): Promise<Form
       summary: reset ? `set the ${roleNames[r]} standard back to the built-in set` : `changed the ${roleNames[r]} standard${added.length ? `; added: ${added.map(permissionLabel).join(', ')}` : ''}${taken.length ? `; took off: ${taken.map(permissionLabel).join(', ')}` : ''}`,
       before: { [r]: before }, after: { [r]: after } }, tx);
   });
-  revalidateTag(STANDARDS_TAG, 'max');
+  updateTag(STANDARDS_TAG); // access changes apply on the very next page, never one late
   revalidatePath('/admin/users');
   return { ok: `Saved. Everyone who is ${roleNames[r]} without their own ticks has this now.` };
 }
@@ -257,7 +257,7 @@ export async function savePartnerStandard(_: FormResult, d: FormData): Promise<F
       summary: reset ? `set the ${guestTypeLabel(type)} standard back to the built-in set` : `changed the ${guestTypeLabel(type)} standard: ${[...std.can.map(abilityLabel), ...std.extras].join(', ') || 'nothing'}`,
       before: { [type]: cur.partners[type] ?? null }, after: { [type]: std } }, tx);
   });
-  revalidateTag(STANDARDS_TAG, 'max');
+  updateTag(STANDARDS_TAG); // access changes apply on the very next page, never one late
   revalidatePath('/admin/users');
   return { ok: applyNow ? `Saved, and applied to ${applied} ${applied === 1 ? 'person' : 'people'} of this type.` : 'Saved. New invitations of this type start with it; tick “apply to everyone” to change the ones already invited.' };
 }
