@@ -197,6 +197,13 @@
       "when": 1791034344115,
       "tag": "0027_entities_data",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791035902447,
+      "tag": "0028_storage_file_limit",
+      "breakpoints": true
     }
   ]
 }
