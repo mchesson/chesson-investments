@@ -190,6 +190,13 @@
       "when": 1791033628838,
       "tag": "0026_partner_role",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791034344115,
+      "tag": "0027_entities_data",
+      "breakpoints": true
     }
   ]
 }
