@@ -440,3 +440,10 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .picker-list li[aria-selected="true"] { background: #e5f0f9; }
 .picker-picked { display: block; margin-top: 2px; font-weight: 400; }
 .met-list { margin: 4px 0 0 1.1em; padding: 0; font-size: .92rem; }
+
+/* Planning layers on the Market Map (zoning, easements, sewer, water, right-of-way). */
+.map-plan { margin: 6px 0; }
+.map-plan > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.zoning-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
+.zoning-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.2); }
+.zoning-fact .chip { margin-left: 4px; }
