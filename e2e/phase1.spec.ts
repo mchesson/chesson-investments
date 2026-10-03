@@ -612,7 +612,7 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
     await page.getByRole('option', { name: new RegExp(`Tile${s} Pros.*On this job`) }).click({ timeout: 2000 });
   }).toPass({ timeout: 20000 });
   await open.getByRole('button', { name: 'Open the Issue' }).click();
-  await expect(page.locator('.toast', { hasText: 'Saved' })).toBeVisible();
+  await expect(page.locator('.toast', { hasText: 'Saved' })).toBeVisible({ timeout: 20_000 }); // the job's tab holds every earlier run's vendors locally
   await expect(page.locator('.issue-card', { hasText: `Loose threshold ${s}` })).toContainText(`Tile${s} Pros`);
 });
 
@@ -1487,6 +1487,10 @@ test('comps on a project: county sales offered, one typed from an appraisal, sou
   const { Client } = await import('pg');
   const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
   await db.connect();
+  // Earlier runs' made-up sales nearby would be offered too: clear them first.
+  await db.query(`delete from comps where market_sale_id in (select s.id from market_sales s join market_parcels pa on pa.id = s.parcel_id where pa.address like '%COMPLY RD')`);
+  await db.query(`delete from market_sales where parcel_id in (select id from market_parcels where address like '%COMPLY RD')`);
+  await db.query(`delete from market_parcels where address like '%COMPLY RD'`);
   const p = await db.query(`insert into projects (name, address, city, heated_sf, lat, lng) values ($1, $2, 'Raleigh', 2400, $3, $4) returning id`, [`Comp Test ${s}`, `${s} Comp St`, lat, lng]);
   const id = p.rows[0].id;
   for (const [i, sf, price] of [[1, 2300, 690_000], [2, 2500, 750_000], [3, 900, 200_000]] as const) {
