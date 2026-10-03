@@ -2,7 +2,10 @@
 // Update Market Data: reads a county's sales a page at a time, with progress.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { placeOurPlaces, startMarketSync, stepMarketSync, updateEverything, updateFeed, type SyncState } from '@/app/(app)/market-actions';
+import type { SyncState } from '@/app/(app)/market-actions';
+import { runWork } from '@/lib/work-client';
+
+type Said = { ok?: string; problem?: string };
 import { toast } from './Toast';
 
 const counties = [{ key: 'wake', label: 'Wake County' }, { key: 'durham', label: 'Durham County' }] as const;
@@ -21,10 +24,10 @@ export function MarketSync({ last, auto }: { last: Record<string, { status: stri
   async function run(county: string) {
     setBusy(county); setMsg(null);
     try {
-      let s = await startMarketSync(county);
+      let s = await runWork<SyncState | { problem: string }>('startMarketSync', county);
       while (!('problem' in s) && s.status === 'running') {
         setProg(s);
-        s = await stepMarketSync(s.id);
+        s = await runWork<SyncState | { problem: string }>('stepMarketSync', s.id);
       }
       if ('problem' in s) setMsg(s.problem);
       else if (s.status === 'failed') setMsg(`It stopped: ${s.error}. Press Update again to start over.`);
@@ -38,7 +41,7 @@ export function MarketSync({ last, auto }: { last: Record<string, { status: stri
   async function feed(key: string) {
     setBusy(key); setMsg(null);
     try {
-      const r = await updateFeed(key);
+      const r = await runWork<Said>('updateFeed', key);
       setMsg(r.ok ?? r.problem ?? null);
     } catch (e) {
       setMsg(`It stopped: ${e instanceof Error ? e.message : e}. Try again.`);
@@ -53,7 +56,7 @@ export function MarketSync({ last, auto }: { last: Record<string, { status: stri
     for (const [part, label] of [['counties', 'County sales'], ['feeds', 'Rates, permits and Redfin'], ['places', 'Map places, zoning and bills']] as const) {
       setMsg(`Updating: ${label}…`);
       try {
-        const r = await updateEverything(part);
+        const r = await runWork<Said>('updateEverything', part);
         done.push(`${label}: ${r.ok ?? r.problem}`);
       } catch (e) { done.push(`${label} stopped: ${e instanceof Error ? e.message : e}`); }
     }
@@ -64,7 +67,7 @@ export function MarketSync({ last, auto }: { last: Record<string, { status: stri
 
   async function place() {
     setBusy('place');
-    await placeOurPlaces();
+    await runWork('placeOurPlaces').catch((e) => setMsg(e instanceof Error ? e.message : String(e)));
     setBusy(null); router.refresh();
   }
 

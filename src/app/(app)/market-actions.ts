@@ -1,7 +1,7 @@
 'use server';
 
 import { eq } from 'drizzle-orm';
-import { revalidatePath, updateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { db } from '@/db';
 import { appSettings, marketSyncs } from '@/db/schema';
 import { buyBoxFields } from '@/lib/buy-box';
@@ -44,7 +44,7 @@ export async function stepMarketSync(id: string): Promise<SyncState | { problem:
     await audit({ userId: user.id, entity: 'market', entityId: s.id, action: s.status === 'done' ? 'sync-done' : 'sync-failed',
       summary: s.status === 'done' ? `refreshed ${sources[s.county as 'wake'].label}: ${s.parcels.toLocaleString()} parcels, ${s.newSales.toLocaleString()} new sales` : `refreshing ${s.county} stopped: ${s.error}` });
     revalidatePath('/market');
-    updateTag(ZONES_TAG);
+    revalidateTag(ZONES_TAG, { expire: 0 });
   }
   return view(s);
 }
@@ -59,8 +59,8 @@ export async function updateFeed(key: string): Promise<{ ok?: string; problem?: 
   const r = await run(user.id);
   await audit({ userId: user.id, entity: 'market', entityId: r.id, action: r.ok ? 'feed-done' : 'feed-failed',
     summary: r.ok ? `updated ${feedLabel[key]}: ${r.rows.toLocaleString()} records read, ${r.added.toLocaleString()} new` : `updating ${feedLabel[key]} stopped: ${r.error}` });
-  updateTag(FEEDS_TAG);
-  updateTag(ZONES_TAG);
+  revalidateTag(FEEDS_TAG, { expire: 0 });
+  revalidateTag(ZONES_TAG, { expire: 0 });
   revalidatePath('/market');
   revalidatePath('/market/buy-box');
   return r.ok ? { ok: `Done: ${r.rows.toLocaleString()} records read, ${r.added.toLocaleString()} new.` } : { problem: `It stopped: ${r.error}. Try again in a few minutes.` };
@@ -93,7 +93,7 @@ export async function saveBuyBox(_: FormResult, d: FormData): Promise<FormResult
     await tx.insert(appSettings).values({ key: BUY_BOX_KEY, value: next }).onConflictDoUpdate({ target: appSettings.key, set: { value: next, updated: new Date() } });
     await audit({ userId: user.id, entity: 'settings', entityId: BUY_BOX_ID, action: 'buy-box', summary: `changed the buy box: ${changed.map((f) => `${f.label} ${before[f.key]} → ${next[f.key]}`).join('; ')}`, before, after: next }, tx);
   });
-  updateTag(ZONES_TAG);
+  revalidateTag(ZONES_TAG, { expire: 0 });
   revalidatePath('/market/buy-box');
   return { ok: 'Saved: every zone is worked out again with these numbers.' };
 }
@@ -104,8 +104,8 @@ export async function updateEverything(part: string): Promise<{ ok?: string; pro
   const user = await requireAction('market.update');
   if (!isAutoPart(part)) return { problem: 'Pick a part.' };
   const r = await runAutoUpdate(part, { userId: user.id, budgetMs: 240_000, redfin: true });
-  updateTag(FEEDS_TAG);
-  updateTag(ZONES_TAG);
+  revalidateTag(FEEDS_TAG, { expire: 0 });
+  revalidateTag(ZONES_TAG, { expire: 0 });
   revalidatePath('/market');
   return { ok: r.lines.join('; ') };
 }

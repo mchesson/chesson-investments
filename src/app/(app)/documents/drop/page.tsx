@@ -14,7 +14,8 @@ import { ActionForm } from '@/components/ActionForm';
 import { ActionButton } from '@/components/ActionButton';
 import { SearchPicker } from '@/components/SearchPicker';
 import { DropDocuments } from '@/components/DropDocuments';
-import { createProjectFromDocs, discardDropped, fileFromInbox, readAgain } from '../../doc-drop-actions';
+import { createProjectFromDocs, discardDropped, fileFromInbox } from '../../doc-drop-actions';
+import { WorkButton } from '@/components/WorkButton';
 import { mergeProposals, propertyKey, type NewProperty } from '@/lib/doc-filing';
 import { projectStages } from '@/lib/project-stages';
 import { sameAsAddress } from '@/lib/locate-rules';
@@ -75,7 +76,7 @@ export default async function DropPage() {
           </Section>
         ) : null}
         <Section title="Waiting to Be Filed" kind="energy" hint={`${rest.length}`}>
-          {inbox.length ? <p style={{ margin: '0 0 8px' }}><ActionButton action={readAgain} className="btn small secondary" label="Read Again" done="Read again." /> <span className="small muted">Reads the waiting files again: they’re filed where they now fit, and documents about new properties gather above.</span></p> : null}
+          {inbox.length ? <p style={{ margin: '0 0 8px' }}><WorkButton job="readAgain" className="btn small secondary" label="Read Again" busyLabel="Reading…" done="Read again." /> <span className="small muted">Reads the waiting files again: they’re filed where they now fit, and documents about new properties gather above.</span></p> : null}
           {rest.length ? <ul className="rows">{rest.map((f) => {
             const c = splitCaption(f.caption);
             return (
