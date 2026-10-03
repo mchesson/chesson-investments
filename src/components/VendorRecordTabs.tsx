@@ -4,7 +4,7 @@ import { GradeBadge, GradeForm, GradesTab } from './Grades';
 import { Empty, Section } from './ui';
 import { IssueForm, IssuesTab } from './Issues';
 import { gradesFor, issuesFor, vendorsOnProject } from '@/lib/grade-data';
-import { activeStaff, peopleOptions } from '@/lib/contacts';
+import { activeStaff, companyOptions, peopleOptions } from '@/lib/contacts';
 import { db } from '@/db';
 import { projects } from '@/db/schema';
 import { asc, isNull } from 'drizzle-orm';
@@ -30,7 +30,7 @@ export async function VendorIssues({ who, theirs, base, status, canEdit }: {
 
 /** A project's Vendors tab: everyone on the job with their grade for it, and the job's issues. */
 export async function ProjectVendors({ projectId, status, canEdit }: { projectId: string; status: string | null; canEdit: boolean }) {
-  const [vs, issues, staff, everyone, ps] = await Promise.all([vendorsOnProject(projectId), issuesFor({ projectId }), activeStaff(), peopleOptions(), projectOptions()]);
+  const [vs, issues, staff, everyone, ps, cos] = await Promise.all([vendorsOnProject(projectId), issuesFor({ projectId }), activeStaff(), peopleOptions(), projectOptions(), companyOptions()]);
   const base = { projects: ps, staff: staff.map((u) => ({ id: u.id, name: u.name ?? u.email })), everyone: everyone.map((p) => ({ id: p.id, name: p.name, sub: p.companyName })) };
   const whoOf = (v: (typeof vs)[number]) => (v.companyId ? { companyId: v.companyId } : { personId: v.personId! });
   return (
@@ -57,7 +57,13 @@ export async function ProjectVendors({ projectId, status, canEdit }: { projectId
         })}</ul> : <Empty>No vendors on this job yet: they show here once they bill it, have a commitment or send a bid.</Empty>}
       </Section>
       <IssuesTab issues={issues} status={status} canEdit={canEdit} showVendor
-        href={(s) => `/projects/${projectId}?tab=vendors${s ? `&status=${s}` : ''}`} form={null}
+        href={(s) => `/projects/${projectId}?tab=vendors${s ? `&status=${s}` : ''}`}
+        form={canEdit ? <IssueForm projectId={projectId} theirs={[]} {...base} vendors={[
+          // Who's on this job first, then every company and person on file.
+          ...vs.map((x) => ({ id: x.companyId ? `c:${x.companyId}` : `p:${x.personId}`, label: x.name, sub: 'On this job' })),
+          ...cos.filter((c) => !vs.some((x) => x.companyId === c.id)).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })),
+          ...everyone.filter((p) => !vs.some((x) => x.personId === p.id)).map((p) => ({ id: `p:${p.id}`, label: p.name, sub: p.companyName ?? 'Person' })),
+        ]} /> : null}
         editForm={(i) => <IssueForm who={i.companyId ? { companyId: i.companyId } : { personId: i.personId! }} projectId={projectId} theirs={[]} {...base} issue={i} />} />
     </div>
   );

@@ -16,6 +16,9 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Who = { personId: string | null; companyId: string | null };
 
 function who(d: FormData): Who | null {
+  // Picked by typing on a job's Vendors tab: "c:<id>" (a company) or "p:<id>" (a person).
+  const v = str(d, 'vendor')?.match(/^([cp]):([0-9a-f-]{36})$/i);
+  if (v) return v[1] === 'c' ? { personId: null, companyId: v[2] } : { personId: v[2], companyId: null };
   const personId = uuidOrNull(d, 'personId');
   const companyId = uuidOrNull(d, 'companyId');
   return !personId === !companyId ? null : { personId, companyId };
@@ -132,7 +135,7 @@ async function saveInvolved(tx: Tx, issueId: string, d: FormData) {
 export async function saveIssue(_: FormResult, d: FormData): Promise<FormResult> {
   const user = await requireAction('vendors.grade');
   const w = who(d);
-  if (!w) return { error: 'Not found.' };
+  if (!w) return { error: str(d, 'vendor') === null && d.has('vendor') ? 'Pick the vendor: type their name and choose them from the list.' : 'Not found.' };
   const id = uuidOrNull(d, 'id');
   const title = str(d, 'title');
   if (!title) return { error: 'Say what the issue is.' };
