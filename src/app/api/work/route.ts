@@ -4,6 +4,7 @@ import { dropSmall, finishDrop, readAgain, startDrop } from '@/app/(app)/doc-dro
 import { placeOurPlaces, startMarketSync, stepMarketSync, updateEverything, updateFeed } from '@/app/(app)/market-actions';
 import { findLocationsAndZoning } from '@/app/(app)/locate-actions';
 import { readCompsFromDocument } from '@/app/(app)/comp-actions';
+import { readReceipt } from '@/app/(app)/receipt-actions';
 
 // Long work, run as its own request so the rest of the app stays clickable
 // (src/lib/long-work.ts). Each job checks its own permission, exactly as when
@@ -23,6 +24,7 @@ const jobs: Partial<Record<LongJob, (a: unknown[], form: FormData | null) => Pro
   placeOurPlaces: () => placeOurPlaces(),
   findLocationsAndZoning: () => findLocationsAndZoning(),
   readCompsFromDocument: (a) => readCompsFromDocument(str(a[0]), str(a[1])),
+  readReceipt: (_a, form) => readReceipt(form ?? new FormData()),
 };
 
 export async function POST(req: Request) {

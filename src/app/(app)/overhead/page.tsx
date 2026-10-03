@@ -47,7 +47,7 @@ export default async function OverheadPage({ searchParams }: { searchParams: Pro
   );
   return (
     <>
-      <PageHead title="Overhead" sub="What running the business costs, apart from any one property. Drop receipts in Drop Documents: they're read and filed here." actions={<Link className="btn secondary" href="/documents/drop">Drop Receipts</Link>} />
+      <PageHead title="Overhead" sub="What running the business costs, apart from any one property. Drop receipts in Drop Documents: they're read and filed here." actions={<><Link className="btn" href="/receipts/snap">Snap a Receipt</Link> <Link className="btn secondary" href="/documents/drop">Drop Receipts</Link></>} />
       <Section title="Find" kind="grey">
         <nav className="role-pick" aria-label="Year"><span className="filter-label">Year</span>
           {[0, 1, 2].map((k) => year - 1 + k).filter((y) => y <= Number(today().slice(0, 4))).map((y) => <Link key={y} className="role-btn" aria-pressed={y === year} href={href({ year: String(y) })}>{y}</Link>)}
