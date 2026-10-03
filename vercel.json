@@ -1,3 +1,8 @@
 {
-  "git": { "deploymentEnabled": { "main": true, "claude/*": false } }
+  "git": { "deploymentEnabled": { "main": true, "claude/*": false } },
+  "crons": [
+    { "path": "/api/cron/market?part=counties", "schedule": "0 10,22 * * *" },
+    { "path": "/api/cron/market?part=feeds", "schedule": "10 10,22 * * *" },
+    { "path": "/api/cron/market?part=places", "schedule": "20 10,22 * * *" }
+  ]
 }

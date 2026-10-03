@@ -15,7 +15,7 @@ export const feedKeys = ['rates', 'redfin', 'permits'] as const;
 export type FeedKey = (typeof feedKeys)[number];
 export const isFeed = (k: string): k is FeedKey => (feedKeys as readonly string[]).includes(k);
 
-async function record<T extends { rows: number; added: number }>(key: FeedKey, since: string, userId: string, run: () => Promise<T>) {
+async function record<T extends { rows: number; added: number }>(key: FeedKey, since: string, userId: string | null, run: () => Promise<T>) {
   const [row] = await db.insert(marketSyncs).values({ county: key, since, startedBy: userId }).returning();
   try {
     const r = await run();
@@ -38,7 +38,7 @@ async function lastDone(key: FeedKey) {
 
 // ---------- Mortgage rates ----------
 
-export async function updateRates(userId: string, fetcher: typeof fetch = fetch) {
+export async function updateRates(userId: string | null, fetcher: typeof fetch = fetch) {
   return record('rates', '2015-01-01', userId, async () => {
     const r = await fetcher(FRED_30YR, { signal: AbortSignal.timeout(30_000), cache: 'no-store', headers: { 'user-agent': 'Mozilla/5.0 (compatible; ChessonInvestments/1.0)', accept: 'text/csv' } });
     if (!r.ok) throw new Error(`the Federal Reserve answered ${r.status}`);
@@ -117,7 +117,7 @@ async function saveTrends(rows: TrendRow[]) {
   return added;
 }
 
-export async function updateRedfin(userId: string, fetcher: typeof fetch = fetch) {
+export async function updateRedfin(userId: string | null, fetcher: typeof fetch = fetch) {
   return record('redfin', '2019-01-01', userId, async () => {
     let rows = 0, added = 0;
     for (const f of redfinFiles) {
@@ -145,7 +145,7 @@ async function savePermits(rows: PermitRow[]) {
   return res.filter((x) => x.added).length;
 }
 
-export async function updatePermits(userId: string, fetcher: typeof fetch = fetch) {
+export async function updatePermits(userId: string | null, fetcher: typeof fetch = fetch) {
   const last = await lastDone('permits');
   const since = last ? addDays(last.toISOString().slice(0, 10), -60) : addDays(today(), -3 * 365);
   return record('permits', since, userId, async () => {

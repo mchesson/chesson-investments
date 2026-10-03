@@ -2,7 +2,8 @@
 // Update Market Data: reads a county's sales a page at a time, with progress.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { placeOurPlaces, startMarketSync, stepMarketSync, updateFeed, type SyncState } from '@/app/(app)/market-actions';
+import { placeOurPlaces, startMarketSync, stepMarketSync, updateEverything, updateFeed, type SyncState } from '@/app/(app)/market-actions';
+import { toast } from './Toast';
 
 const counties = [{ key: 'wake', label: 'Wake County' }, { key: 'durham', label: 'Durham County' }] as const;
 const feeds = [
@@ -11,7 +12,7 @@ const feeds = [
   { key: 'permits', label: 'Building Permits', button: 'Update Permits', what: 'new homes and teardowns, Raleigh and Durham (free)' },
 ] as const;
 
-export function MarketSync({ last }: { last: Record<string, { status: string; finished: string | null; parcels: number; newSales: number; error: string | null } | undefined> }) {
+export function MarketSync({ last, auto }: { last: Record<string, { status: string; finished: string | null; parcels: number; newSales: number; error: string | null } | undefined>; auto: { part: string; label: string; at: string | null; summary: string | null }[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -45,6 +46,22 @@ export function MarketSync({ last }: { last: Record<string, { status: string; fi
     setBusy(null); router.refresh();
   }
 
+  // Update Everything Now: the counties, then the free sources, then our places, zoning and bills.
+  async function everything() {
+    setBusy('all'); setMsg(null);
+    const done: string[] = [];
+    for (const [part, label] of [['counties', 'County sales'], ['feeds', 'Rates, permits and Redfin'], ['places', 'Map places, zoning and bills']] as const) {
+      setMsg(`Updating: ${label}…`);
+      try {
+        const r = await updateEverything(part);
+        done.push(`${label}: ${r.ok ?? r.problem}`);
+      } catch (e) { done.push(`${label} stopped: ${e instanceof Error ? e.message : e}`); }
+    }
+    setMsg(done.join(' · '));
+    toast('Everything is updated.');
+    setBusy(null); router.refresh();
+  }
+
   async function place() {
     setBusy('place');
     await placeOurPlaces();
@@ -53,6 +70,12 @@ export function MarketSync({ last }: { last: Record<string, { status: string; fi
 
   return (
     <div className="market-sync">
+      <div className="auto-update">
+        <p style={{ margin: 0 }}><strong>Updates itself twice a day</strong> (about 6 am and 6 pm): the counties’ sales, rates, permits and Redfin, then our projects and watchlist placed with their zoning, and bills linked to their vendors.</p>
+        <ul className="small muted" style={{ margin: '6px 0' }}>{auto.map((a) => <li key={a.part}><strong>{a.label}:</strong> {a.at ? `${a.at} · ${a.summary ?? ''}` : 'not run yet'}</li>)}</ul>
+        <button className="btn" type="button" disabled={!!busy} onClick={everything}>{busy === 'all' ? 'Updating Everything…' : 'Update Everything Now'}</button>
+      </div>
+      <details className="fold"><summary>Update One at a Time</summary>
       <ul className="rows">{counties.map((c) => {
         const l = last[c.key];
         return (
@@ -71,6 +94,7 @@ export function MarketSync({ last }: { last: Record<string, { status: string; fi
           </li>
         );
       })}</ul>
+      </details>
       {prog ? (
         <div className="sync-progress" role="status">
           <progress max={prog.total ?? undefined} value={prog.offset} /> <span className="small">{prog.offset.toLocaleString()} of {(prog.total ?? 0).toLocaleString()} records read</span>

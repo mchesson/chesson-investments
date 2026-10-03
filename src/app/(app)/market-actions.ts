@@ -14,6 +14,7 @@ import { countSince, locateOurPlaces, nextSince, runStep } from '@/lib/market-sy
 import { placeAndZoneAll } from '@/lib/locate';
 import { isFeed, updatePermits, updateRates, updateRedfin } from '@/lib/market-feeds-sync';
 import { FEEDS_TAG } from '@/lib/market-feeds-data';
+import { isAutoPart, runAutoUpdate } from '@/lib/market-auto';
 
 export type SyncState = { id: string; county: string; status: string; offset: number; total: number | null; parcels: number; newSales: number; error: string | null };
 const view = (s: typeof marketSyncs.$inferSelect): SyncState => ({ id: s.id, county: s.county, status: s.status, offset: s.offset, total: s.total, parcels: s.parcels, newSales: s.newSales, error: s.error });
@@ -97,3 +98,14 @@ export async function saveBuyBox(_: FormResult, d: FormData): Promise<FormResult
   return { ok: 'Saved: every zone is worked out again with these numbers.' };
 }
 const BUY_BOX_ID = '00000000-0000-0000-0000-00000000b001';
+
+/** Update Everything Now: one part at a time (the page calls counties, feeds, then places). */
+export async function updateEverything(part: string): Promise<{ ok?: string; problem?: string }> {
+  const user = await requireAction('market.update');
+  if (!isAutoPart(part)) return { problem: 'Pick a part.' };
+  const r = await runAutoUpdate(part, { userId: user.id, budgetMs: 240_000, redfin: true });
+  updateTag(FEEDS_TAG);
+  updateTag(ZONES_TAG);
+  revalidatePath('/market');
+  return { ok: r.lines.join('; ') };
+}
