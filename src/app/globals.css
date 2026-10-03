@@ -454,3 +454,16 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .drop-zone.over { border-color: var(--aqua); background: #e2f6f5; }
 .drop-results td { vertical-align: top; }
 .new-property { border: 1px solid var(--hair); border-radius: 10px; padding: 12px 14px; }
+
+/* Comps tab */
+.comp-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.t.comps td { vertical-align: top; }
+.t tr.comp-ours td { background: #f1f7dc; font-weight: 600; }
+.t.comps tr.comp-off td { color: var(--ash); }
+.t.comps tr.comp-check td { background: #fdf0e3; }
+.comp-edit { margin-top: 4px; }
+.comp-edit > summary { cursor: pointer; color: var(--true-blue); font-size: .85rem; }
+.comp-edit[open] { min-width: min(640px, 80vw); }
+.comp-add { margin-top: 12px; }
+.comp-add > summary { list-style: none; display: inline-block; cursor: pointer; }
+.comp-add > summary::-webkit-details-marker { display: none; }

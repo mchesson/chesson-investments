@@ -29,6 +29,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'issue_people', column: 'person_id', does: 'delete', label: 'places as someone involved in an issue' },
     { table: 'users', column: 'person_id', does: 'clear', label: 'a guest sign-in linked to them (the link only)' },
     { table: 'entity_members', column: 'person_id', does: 'clear', label: 'places as a member of our business entities (the link only; the name stays)' },
+    { table: 'comps', column: 'provided_by_person_id', does: 'clear', label: 'comps they gave us (who only)' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },
@@ -49,6 +50,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'grades', column: 'company_id', does: 'block', label: 'grades for their work' },
     { table: 'vendor_issues', column: 'company_id', does: 'block', label: 'issues with them' },
     { table: 'users', column: 'company_id', does: 'clear', label: 'guest sign-ins from it (the link only)' },
+    { table: 'comps', column: 'provided_by_company_id', does: 'clear', label: 'comps they gave us (who only)' },
   ],
 };
 

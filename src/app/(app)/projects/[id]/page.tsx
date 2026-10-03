@@ -32,6 +32,9 @@ import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
 import { SalePriceTag } from '@/components/SalePriceTag';
 import { ZoningFact } from '@/components/ZoningFact';
 import { ProjectDocuments } from '@/components/ProjectDocuments';
+import { CompsTab } from '@/components/CompsTab';
+import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/comp-data';
+import { sameAsAddress } from '@/lib/locate-rules';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -59,11 +62,11 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
-    { key: 'documents', label: 'Documents' }, { key: 'rental', label: 'Rental' }, { key: 'vendors', label: 'Vendors and Issues' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
+    { key: 'comps', label: 'Comps' }, { key: 'documents', label: 'Documents' }, { key: 'rental', label: 'Rental' }, { key: 'vendors', label: 'Vendors and Issues' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
     <>
-      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {[p.address !== p.name ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {[!sameAsAddress(p.name, p.address) ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       {await (async () => {
         const states = stageStates(p.stage, p.stageStates);
@@ -93,6 +96,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
+          {tab === 'comps' ? <CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
+            providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /> : null}
           {tab === 'documents' ? <ProjectDocuments projectId={id} canAdd={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
           {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user, 'contacts.edit')} /> : null}

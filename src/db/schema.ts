@@ -366,6 +366,8 @@ export const projects = pgTable('projects', {
   marketValue: money('market_value'),
   marketValueOn: date('market_value_on'),
   marketValueSource: text('market_value_source'),
+  // Our finish level, so comps at the same level stand out (src/lib/comps.ts).
+  finishLevel: text('finish_level'),
   // For the post-project review: dates, the first estimate, the target and the exits.
   purchasedOn: date('purchased_on'),
   completedOn: date('completed_on'),
@@ -1018,3 +1020,56 @@ export const overheadExpenses = pgTable('overhead_expenses', {
   created: created(),
   archived: archived(),
 }, (t) => [index('overhead_entity_on').on(t.entityId, t.spentOn)]).enableRLS();
+
+// Comparable sales (owner, Oct 3, 2026: "break those down in to public data comps
+// private data comps etc to know how many we looked at and talk about the trim
+// level of those comps"). On a project (or a watched property, for the analysis
+// before an offer). Source, finish level and adjustments are what tell them
+// apart; src/lib/comps.ts has the rules. Read from an appraisal by Claude
+// (checked = false until a person looks), offered from county sales, or typed.
+export const comps = pgTable('comps', {
+  id: id(),
+  projectId: uuid('project_id').references(() => projects.id),
+  propertyId: uuid('property_id').references(() => properties.id),
+  source: text('source').notNull(), // public_record / appraisal / new_build / broker / listing / private
+  status: text('status').notNull().default('sold'), // sold / pending / active / presale / appraised
+  address: text('address').notNull(),
+  city: text('city'),
+  neighborhood: text('neighborhood'),
+  soldOn: date('sold_on'),
+  price: money('price'),
+  heatedSf: integer('heated_sf'),
+  beds: numeric('beds', { precision: 4, scale: 1 }),
+  baths: numeric('baths', { precision: 4, scale: 1 }),
+  yearBuilt: integer('year_built'),
+  lotAcres: numeric('lot_acres', { precision: 8, scale: 3 }),
+  finishLevel: text('finish_level'), // basic / builder / upgraded / high / luxury
+  quality: text('quality'), // the appraisal's rating as written (Q3, C1)
+  distanceMi: numeric('distance_mi', { precision: 6, scale: 2 }),
+  adjustments: jsonb('adjustments').$type<{ label: string; amount: number }[]>().notNull().default([]),
+  adjustedPrice: money('adjusted_price'),
+  counted: boolean('counted').notNull().default(true), // used in the value range
+  checked: boolean('checked').notNull().default(true), // false: read by Claude, not looked at yet
+  notes: text('notes'),
+  fileId: uuid('file_id').references(() => files.id),
+  marketSaleId: uuid('market_sale_id').references(() => marketSales.id),
+  // A presale or pending sale (owner, Oct 3, 2026: "keep an eye out for when it
+  // closes"): the expected closing, then what the county recorded once it did.
+  expectedCloseOn: date('expected_close_on'),
+  actualPrice: money('actual_price'),
+  actualSoldOn: date('actual_sold_on'),
+  closeFoundAt: timestamp('close_found_at', { withTimezone: true }),
+  // Who gave it to us, so we learn whose numbers hold up ("determine who gives
+  // reliable info"). Private comps mostly; public records come from the county.
+  providedByPersonId: uuid('provided_by_person_id').references(() => people.id),
+  providedByCompanyId: uuid('provided_by_company_id').references(() => companies.id),
+  // Who built it (owner, Oct 3, 2026: "separate data from customer home builders
+  // and track builders"). A custom build for an owner on their own lot isn't a
+  // market sale of a finished house, so it's kept out of the value by default.
+  builderName: text('builder_name'),
+  customBuild: boolean('custom_build').notNull().default(false),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  updated: updated(),
+  archived: archived(),
+}, (t) => [index('comps_project').on(t.projectId), index('comps_property').on(t.propertyId)]).enableRLS();

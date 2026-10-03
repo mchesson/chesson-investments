@@ -1480,3 +1480,129 @@ test('a project made from dropped documents, and a receipt filed as overhead', a
   await expect(page.locator('tr', { hasText: `Staples ${s}` })).toContainText('Office and Supplies');
   await expect(page.locator('tr', { hasText: `Staples ${s}` })).toContainText('$44.59');
 });
+
+test('comps on a project: county sales offered, one typed from an appraisal, sources and finish level counted, the value used', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const lat = 34.2 + Number(s.slice(-3)) / 2000, lng = -79.9;
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into projects (name, address, city, heated_sf, lat, lng) values ($1, $2, 'Raleigh', 2400, $3, $4) returning id`, [`Comp Test ${s}`, `${s} Comp St`, lat, lng]);
+  const id = p.rows[0].id;
+  for (const [i, sf, price] of [[1, 2300, 690_000], [2, 2500, 750_000], [3, 900, 200_000]] as const) {
+    const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, neighborhood, land_use, heated_sf, year_built, lat, lng)
+      values ('wake', $1, $2, $3, 'Raleigh', $4, 'single_family', $5, 2021, $6, $7) returning id`, [`C${s}${i}`, `${i}${s} COMPLY RD`, `COMPLY${s} RD`, `Comply ${s}`, sf, lat + i * 0.001, lng]);
+    await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - 60, $2, $3)`, [r.rows[0].id, price, sf]);
+  }
+  await db.query(`insert into files (entity, entity_id, name, content_type, size, sha256, data) values ('project', $1, 'Appraisal_Report.pdf', 'application/pdf', 9, $2, $3)`, [id, `cmp${s}`, Buffer.from('%PDF-1.4\n')]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${id}?tab=comps`);
+  // County sales nearby are offered, the small house (900 sf) is left out.
+  const offered = page.locator('[data-suggest]');
+  await expect(offered).toHaveCount(2);
+  await expect(page.locator(`[data-suggest="3${s} COMPLY RD"]`)).toHaveCount(0);
+  await expect(async () => {
+    await page.locator(`[data-suggest="1${s} COMPLY RD"] [data-k=add-public-comp]`).click();
+    await expect(page.locator(`tr[data-comp="1${s} COMPLY RD"]`)).toBeVisible({ timeout: 5000 });
+  }).toPass();
+  await expect(page.locator(`[data-suggest="1${s} COMPLY RD"]`)).toHaveCount(0);
+
+  // One typed in from an appraisal, with its finish level and an adjustment.
+  await page.locator('.comp-add > summary').click();
+  const form = page.locator('.comp-add');
+  await form.getByLabel('Address', { exact: true }).fill(`77 Appraised Ln ${s}`);
+  await form.getByLabel('Source').selectOption('appraisal');
+  await form.getByLabel('Sold or Contract Date').fill('2026-06-01');
+  await form.getByLabel('Price', { exact: true }).fill('820,000');
+  await form.getByLabel('Heated SF').fill('2400');
+  await form.getByLabel('Finish Level').selectOption('high');
+  await form.getByLabel(/^Adjustments/).fill('Size: -20,000');
+  await form.getByRole('button', { name: 'Add Comp' }).click();
+  const typed = page.locator(`tr[data-comp="77 Appraised Ln ${s}"]`);
+  await expect(typed).toContainText('$800,000');
+  await expect(typed).toContainText('High End');
+
+  // Two looked at: one public, one private; both counted.
+  const tiles = page.locator('.tiles');
+  await expect(tiles).toContainText('1 public · 1 private');
+  await expect(tiles.locator('.tile', { hasText: 'Counted in the Value' })).toContainText('2');
+
+  // Our finish level: the value at our finish uses only the High End comp ($820k / 2,400 sf × 2,400, size adjustment aside).
+  await page.getByLabel('Our finish level').selectOption('high');
+  await page.locator('.comp-bar').getByRole('button', { name: 'Save' }).click();
+  await expect(tiles.locator('.tile', { hasText: 'At Our Finish' })).toContainText('$820,000'); // the size adjustment is left out of $/sf
+
+  // Not counting the county sale leaves the appraisal's comp alone in the value.
+  await page.locator(`tr[data-comp="1${s} COMPLY RD"] [data-k=comp-count]`).click();
+  await expect(page.locator(`tr[data-comp="1${s} COMPLY RD"] [data-k=comp-count]`)).toHaveText(/Not Counted/);
+  await expect(tiles.locator('.tile', { hasText: 'Counted in the Value' })).toContainText('1');
+
+  await page.locator('[data-k=use-comp-value]').click();
+  await expect(page.locator('.comp-bar')).toContainText('$820,000');
+
+  // Reading an appraisal says plainly when Claude is off here.
+  await page.locator('[data-k=read-comps]').first().click();
+  await expect(page.locator('.toast').filter({ hasText: /isn’t switched on here/ })).toBeVisible();
+
+  await page.goto(`/projects/${id}?tab=history`);
+  const h = page.locator('main');
+  await expect(h).toContainText(`added a comp from the county records: 1${s} COMPLY RD`);
+  await expect(h).toContainText(`added a comp: 77 Appraised Ln ${s}`);
+  await expect(h).toContainText('set our finish level to High End');
+  await expect(h).toContainText('stopped counting the comp');
+  await expect(h).toContainText('set the market value to $820,000 from the comps');
+});
+
+test('a presale someone told us about is watched until the county records it; whose numbers held up', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into projects (name, address, city, heated_sf) values ($1, $2, 'Raleigh', 3000) returning id`, [`Presale Test ${s}`, `${s} Presale St`]);
+  const id = p.rows[0].id;
+  await db.query(`insert into people (first_name, last_name) values ('Blake', $1)`, [`Builder${s}`]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${id}?tab=comps`);
+  await page.locator('.comp-add > summary').click();
+  const form = page.locator('.comp-add');
+  await form.getByLabel('Address', { exact: true }).fill(`88 Watched Way ${s}`);
+  await form.getByLabel('Source').selectOption('new_build');
+  await form.getByLabel('Status').selectOption('presale');
+  await form.getByLabel('Price', { exact: true }).fill('1,000,000');
+  await form.getByLabel('Heated SF').fill('3000');
+  await form.getByLabel(/Expected Closing/).fill('2026-11-15');
+  await form.getByLabel('Builder', { exact: true }).fill(`Envision ${s}`);
+  await form.getByRole('combobox', { name: /Who Gave It to Us/ }).fill(`Builder${s}`);
+  await form.getByRole('option', { name: new RegExp(`Builder${s}`) }).click();
+  await form.getByRole('button', { name: 'Add Comp' }).click();
+  const row = page.locator(`tr[data-comp="88 Watched Way ${s}"]`);
+  await expect(row).toContainText('Watching for the Close: 11/15/2026');
+  await expect(row).toContainText(`From Blake Builder${s}`);
+  await expect(row).toContainText(`Built by Envision ${s}`);
+
+  // The lot sells first (not the close), then the house closes at $1,020,000.
+  const db2 = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db2.connect();
+  const parcel = await db2.query(`insert into market_parcels (county, parcel_key, address, street, city, land_use) values ('wake', $1, $2, $3, 'Raleigh', 'single_family') returning id`, [`W${s}`, `88 WATCHED WAY ${s}`.replace(` ${s}`, ''), 'WATCHED']);
+  await db2.query(`update market_parcels set address = $2 where id = $1`, [parcel.rows[0].id, `88 WATCHED WAY ${s}`]);
+  await db2.query(`insert into market_sales (parcel_id, sold_on, price) values ($1, current_date - 5, 300000), ($1, current_date - 1, 1020000)`, [parcel.rows[0].id]);
+  await db2.end();
+
+  await page.goto('/market');
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Update Everything Now' }).click({ timeout: 2000 });
+    await expect(page.locator('.toast', { hasText: 'Everything is updated.' })).toBeVisible({ timeout: 60000 });
+  }).toPass({ timeout: 120000 });
+  await page.goto(`/projects/${id}?tab=comps`);
+  await expect(row).toContainText('Closed $1,020,000');
+  await expect(row).toContainText('+2% vs. what we were told');
+  await expect(row).not.toContainText('Watching for the Close');
+  const held = page.locator('tr:not([data-comp])', { hasText: `Blake Builder${s}` });
+  await expect(held).toContainText('Held up');
+  await page.goto(`/projects/${id}?tab=history`);
+  await expect(page.locator('main')).toContainText(`found that the presale at 88 Watched Way ${s} closed: $1,020,000`);
+});

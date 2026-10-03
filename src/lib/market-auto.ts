@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { auditLog, marketSyncs } from '@/db/schema';
 import { audit } from './audit';
 import { linkBills } from './bill-linking';
+import { watchPresales } from './comp-watch';
 import { placeAndZoneAll } from './locate';
 import { isCounty, sources } from './market-sources';
 import { countSince, locateOurPlaces, nextSince, runStep } from './market-sync';
@@ -54,7 +55,8 @@ async function places(userId: string | null, via: string) {
   const parcelHits = process.env.COUNTY_LOOKUPS === 'off' ? 0 : await locateOurPlaces().catch(() => 0);
   const z = await placeAndZoneAll(userId);
   const b = await linkBills(userId, via);
-  return [`placed ${parcelHits + z.placed} on the map`, `zoning for ${z.zoned}`, `linked ${b.linked} bills`];
+  const w = await watchPresales(userId, via);
+  return [`placed ${parcelHits + z.placed} on the map`, `zoning for ${z.zoned}`, `linked ${b.linked} bills`, `${w.found} of ${w.watched} presales found closed`];
 }
 
 /** One part of the update; History says what it did ("System (scheduled update)" when no one pressed it). */

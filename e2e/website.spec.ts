@@ -32,7 +32,7 @@ test('a project goes on the website with its photos, and comes off again', async
   await page.getByRole('link', { name: /109 Plainview/ }).first().click();
   await page.getByRole('link', { name: 'Website' }).click();
   // A run that stopped half way may have left it on the website: start from off.
-  if (await page.locator('input[name=siteStatus]:checked').getAttribute('value')) {
+  if (await page.locator('input[name=siteStatus]:checked').getAttribute('value') || await page.getByText(/It’s on the website/).count()) {
     await choose(page, 'siteStatus', '');
     await page.getByRole('button', { name: 'Save the Page' }).click();
   }

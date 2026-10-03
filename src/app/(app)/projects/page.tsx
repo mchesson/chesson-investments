@@ -10,6 +10,7 @@ import { SalePriceTag, saleBasis } from '@/components/SalePriceTag';
 import { saleCosts } from '@/lib/budget';
 import { ActionButton } from '@/components/ActionButton';
 import { findLocationsAndZoning } from '../locate-actions';
+import { sameAsAddress } from '@/lib/locate-rules';
 
 export const metadata = { title: 'Projects' };
 
@@ -29,7 +30,7 @@ export default async function Projects() {
             <tbody>{rows.map((p) => (
               <tr key={p.id}>
                 <td className="small">{p.projectNumber ? `P-${p.projectNumber}` : ''}</td>
-                <td><Link href={`/projects/${p.id}`}>{p.address || p.name}</Link>{p.address && p.name !== p.address ? <div className="small muted">{p.name}</div> : null}</td>
+                <td><Link href={`/projects/${p.id}`}>{p.address || p.name}</Link>{p.address && !sameAsAddress(p.name, p.address) ? <div className="small muted">{p.name}</div> : null}</td>
                 <td>{p.city ?? '—'}</td>
                 <td>{p.state ?? '—'}</td>
                 <td>{p.zip ?? '—'}</td>

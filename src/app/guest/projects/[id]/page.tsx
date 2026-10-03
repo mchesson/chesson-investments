@@ -10,6 +10,7 @@ import { Choice } from '@/components/Choice';
 import { StageChips } from '@/components/StageChips';
 import { Empty, PageHead, Section } from '@/components/ui';
 import { guestAddLog, guestUpdateIssue } from '../../actions';
+import { sameAsAddress } from '@/lib/locate-rules';
 
 export const metadata = { title: 'Project' };
 
@@ -24,7 +25,7 @@ export default async function GuestProject({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHead eyebrow={p.number ? `Project P-${p.number}` : 'Project'} title={p.name}
-        sub={<span className="sub-row"><StageChips p={p} /> {[p.address !== p.name ? p.address : null, p.city, p.state].filter(Boolean).join(', ')}</span>} />
+        sub={<span className="sub-row"><StageChips p={p} /> {[!sameAsAddress(p.name, p.address) ? p.address : null, p.city, p.state].filter(Boolean).join(', ')}</span>} />
       <div className="stack">
         {guestMay(a, 'schedule') ? (
           <>
