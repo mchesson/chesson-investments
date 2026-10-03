@@ -11,7 +11,7 @@ import { ref } from '@/lib/sql-ref';
 export function listProjects() {
   return db.select({
     id: projects.id, name: projects.name, address: projects.address, city: projects.city, state: projects.state, zip: projects.zip, neighborhood: projects.neighborhood, stage: projects.stage,
-    actualSalePrice: projects.actualSalePrice,
+    actualSalePrice: projects.actualSalePrice, lat: projects.lat, lng: projects.lng,
     projectNumber: projects.projectNumber, heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
     stageStates: projects.stageStates, subStages: projects.subStages,
     rentalStatus: sql<string | null>`(select r.status from ${rentals} r where r.project_id = "projects"."id")`,

@@ -26,3 +26,15 @@ test('a name that only repeats the address is the same address', () => {
   assert.ok(!sameAsAddress('The Grey', '1211 Shaw View Alley Unit 101'));
   assert.ok(!sameAsAddress('422 Peyton St', '420 Peyton St'));
 });
+
+import { joinAddress, splitAddress } from './locate-rules';
+
+test('one address field split for the lookups, and joined back', () => {
+  assert.deepEqual(splitAddress('109 Plainview Ave, Raleigh, NC 27604'), { street: '109 Plainview Ave', city: 'Raleigh', state: 'NC', zip: '27604' });
+  assert.deepEqual(splitAddress('613 S Ocean Blvd Unit N3, North Myrtle Beach, SC 29582'), { street: '613 S Ocean Blvd Unit N3', city: 'North Myrtle Beach', state: 'SC', zip: '29582' });
+  assert.deepEqual(splitAddress('1211 Shaw View Alley Unit 101, Raleigh North Carolina'), { street: '1211 Shaw View Alley Unit 101', city: 'Raleigh', state: 'NC', zip: null });
+  assert.deepEqual(splitAddress('420 Peyton St'), { street: '420 Peyton St', city: null, state: null, zip: null });
+  assert.deepEqual(splitAddress('420 Peyton St 27610'), { street: '420 Peyton St', city: null, state: null, zip: '27610' });
+  assert.equal(joinAddress({ address: '109 Plainview Ave', city: 'Raleigh', state: 'NC', zip: '27604' }), '109 Plainview Ave, Raleigh, NC 27604');
+  assert.equal(joinAddress({ address: '420 Peyton St', city: null, state: 'NC', zip: null }), '420 Peyton St, NC');
+});

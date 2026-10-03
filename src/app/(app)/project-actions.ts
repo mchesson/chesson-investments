@@ -18,6 +18,7 @@ import { isProjectStage, isStageState, isSubStage, mainStage, projectStageLabel,
 import { DEFAULT_PERCENTS } from '@/lib/cost-codes';
 import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
+import { splitAddress } from '@/lib/locate-rules';
 
 class FieldError extends Error {}
 const money = (d: FormData, k: string, label: string) => {
@@ -39,10 +40,12 @@ function projectFields(d: FormData) {
   const heatedSf = parseIntOrNull(d.get('heatedSf'));
   const lotSf = parseIntOrNull(d.get('lotSf'));
   if (heatedSf === undefined || lotSf === undefined) throw new FieldError('Square feet: type a whole number.');
+  // One address field (owner, Oct 3, 2026): split into the parts the county lookups use.
+  const where = splitAddress(str(d, 'address'));
   return {
-    name: str(d, 'name') ?? str(d, 'address') ?? '',
-    address: str(d, 'address') ?? '',
-    city: str(d, 'city'), state: formatState(str(d, 'state')) ?? 'NC', zip: str(d, 'zip'), neighborhood: str(d, 'neighborhood'),
+    name: str(d, 'name') ?? where.street,
+    address: where.street,
+    city: where.city ?? str(d, 'city'), state: formatState(where.state ?? str(d, 'state')) ?? 'NC', zip: where.zip ?? str(d, 'zip'), neighborhood: str(d, 'neighborhood'),
     lotSf, zoning: str(d, 'zoning')?.toUpperCase() ?? null,
     lotCost: money(d, 'lotCost', 'Lot cost'), lotValue: money(d, 'lotValue', 'Lot value'),
     heatedSf, plan: str(d, 'plan'),
