@@ -8,7 +8,7 @@ import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { bool, str, uuidOrNull } from '@/lib/forms';
 import { isDay, parseMoney, parsePercent } from '@/lib/format';
-import { isRentalStatus, rentalStatusLabel } from '@/lib/rentals';
+import { isRentalKind, isRentalStatus, rentalKindLabel, rentalStatusLabel } from '@/lib/rentals';
 import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
 
@@ -27,10 +27,12 @@ const $ = (v: string | null) => (v ? `$${Number(v).toLocaleString('en-US')}` : '
 export async function saveRental(_: FormResult, d: FormData): Promise<FormResult> {
   const user = await requireAction('projects.edit');
   return run(uuidOrNull(d, 'projectId'), async (projectId) => {
+    const kind = str(d, 'kind') ?? 'long_term';
+    if (!isRentalKind(kind)) throw new Bad('Pick the type of rental.');
     const status = str(d, 'status') ?? 'getting_ready';
-    if (!isRentalStatus(status)) throw new Bad('Pick a status.');
+    if (!isRentalStatus(status, kind)) throw new Bad(`Pick a status for a ${rentalKindLabel(kind).toLowerCase()}.`);
     const f = {
-      status, askingRent: money(d, 'askingRent', 'Asking rent'), listedOn: day(d, 'listedOn', 'Listed on'), listedWhere: str(d, 'listedWhere'),
+      kind, status, askingRent: money(d, 'askingRent', 'Asking rent'), listedOn: day(d, 'listedOn', 'Listed on'), listedWhere: str(d, 'listedWhere'),
       managerCompanyId: uuidOrNull(d, 'managerCompanyId'), managerPersonId: null as string | null,
       managementFeePct: pct(d, 'managementFeePct', 'Management fee'), leasingFee: money(d, 'leasingFee', 'Leasing fee'), managementTerms: str(d, 'managementTerms'),
       taxesMonthly: money(d, 'taxesMonthly', 'Taxes'), insuranceMonthly: money(d, 'insuranceMonthly', 'Insurance'), hoaMonthly: money(d, 'hoaMonthly', 'HOA'),
@@ -61,13 +63,13 @@ export async function saveRental(_: FormResult, d: FormData): Promise<FormResult
       const [old] = await tx.select().from(rentals).where(eq(rentals.projectId, projectId));
       if (!old) {
         await tx.insert(rentals).values({ projectId, ...f });
-        await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-create', summary: `set it up as a rental (${rentalStatusLabel(status)})`, after: f }, tx);
+        await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-create', summary: `set it up as a ${rentalKindLabel(kind).toLowerCase()} (${rentalStatusLabel(status)})`, after: f }, tx);
         return;
       }
       const ch = diff(old as Record<string, unknown>, f);
       if (!ch) return;
       await tx.update(rentals).set({ ...f, updated: new Date() }).where(eq(rentals.id, old.id));
-      await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-update', summary: old.status !== status ? `moved the rental from ${rentalStatusLabel(old.status)} to ${rentalStatusLabel(status)}` : `changed the rental (${Object.keys(ch.after).join(', ')})`, ...ch }, tx);
+      await audit({ userId: user.id, entity: 'project', entityId: projectId, action: 'rental-update', summary: old.kind !== kind ? `made it a ${rentalKindLabel(kind).toLowerCase()} (was ${rentalKindLabel(old.kind).toLowerCase()}), ${rentalStatusLabel(status)}` : old.status !== status ? `moved the rental from ${rentalStatusLabel(old.status)} to ${rentalStatusLabel(status)}` : `changed the rental (${Object.keys(ch.after).join(', ')})`, ...ch }, tx);
     });
     return 'Saved.';
   });

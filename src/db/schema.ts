@@ -161,7 +161,11 @@ export const partyRoles = pgTable('party_roles', {
   role: text('role').notNull(),
   stage: text('stage').notNull(),
   trade: text('trade'),
-  areas: text('areas'),
+  areas: text('areas'), // the summary shown and searched (src/lib/areas.ts)
+  // Where they work, as values (agents: cities, ZIPs, neighborhoods); null on roles saved before Oct 3, 2026 (read from areas).
+  cities: text('cities').array(),
+  zips: text('zips').array(),
+  neighborhoods: text('neighborhoods').array(),
   licenseNumber: text('license_number'),
   // A sub or supplier we didn't hire directly: their invoices come through
   // this GC (owner, Oct 2, 2026: "that makes them a subcontractor").
@@ -671,7 +675,9 @@ export const projectUtilities = pgTable('project_utilities', {
 export const rentals = pgTable('rentals', {
   id: id(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
-  status: text('status').notNull().default('getting_ready'), // getting_ready | on_market | application | leased | notice | vacant
+  // long_term / mid_term / short_term (src/lib/rentals.ts): each has its own statuses.
+  kind: text('kind').notNull().default('long_term'),
+  status: text('status').notNull().default('getting_ready'), // leases: getting_ready | on_market | application | leased | notice | vacant; short-term: getting_ready | listed | operating | paused
   askingRent: money('asking_rent'),
   listedOn: date('listed_on'),
   listedWhere: text('listed_where'),

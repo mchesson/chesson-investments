@@ -635,20 +635,42 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await expect(page.locator('.issue-card', { hasText: `Loose threshold ${s}` })).toContainText(`Tile${s} Pros`);
 });
 
-test('agents: the areas they specialize in', async ({ page }) => {
+test('agents: the areas they specialize in, as cities, ZIPs and neighborhoods; agents who work at a watched property', async ({ page }) => {
   await signIn(page, 'Sample Owner');
   const s = Date.now().toString().slice(-6);
+  const hood = `Agentwood ${s}`;
   await page.goto('/people/new');
   await page.getByLabel('First Name', { exact: true }).fill('Ava');
   await page.getByLabel('Last Name', { exact: true }).fill(`Agent${s}`);
   await page.getByLabel('Real Estate Agent / Broker', { exact: true }).check();
-  await page.locator('input[name=areas]').fill('Five Points, Oakwood');
   await expect(page.locator('input[name=city]')).toHaveAttribute('list', 'city-options');
-  await page.getByRole('button', { name: 'Add Person' }).click();
-  await expect(page.locator('main').getByText('Specializes in Five Points, Oakwood')).toBeVisible();
+  const areas = page.locator('fieldset.area-picker');
+  await areas.getByLabel('ZIP Codes').fill('27604');
+  await areas.getByLabel('ZIP Codes').press('Enter');
+  await areas.getByLabel('Neighborhoods').fill(hood);
+  await areas.getByLabel('Neighborhoods').press('Enter');
+  await areas.getByLabel('Neighborhoods').fill('Oakwood');
+  await areas.getByLabel('Neighborhoods').press('Enter');
+  await expect(areas.locator('.chip')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Add Person', exact: true }).last().click();
+  await expect(page.locator('main').getByText(`Specializes in 27604 · ${hood}, Oakwood`)).toBeVisible();
   await page.goto(`/people?roles=agent&q=Agent${s}`);
-  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText('Specializes in Five Points, Oakwood');
+  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText(`Specializes in 27604 · ${hood}, Oakwood`);
+  // A search for the ZIP finds them.
+  await page.goto(`/people?roles=agent&q=27604`);
+  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toBeVisible();
+  // A watched property in that neighborhood lists them.
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const w = await db.query(`insert into properties (address, city, neighborhood) values ($1, 'Raleigh', $2) returning id`, [`${s} Agent Way`, hood]);
+  await db.end();
+  await page.goto(`/watchlist/${w.rows[0].id}`);
+  const here = page.locator('section', { has: page.getByRole('heading', { name: /Agents Who Work Here/ }) });
+  await expect(here).toContainText(`Ava Agent${s}`);
+  await expect(here).toContainText(`works ${hood}`);
 });
+
 
 test('the market map: filters and layer buttons, sales in view, neighborhoods and the trend by price', async ({ page }) => {
   // Made-up sales (the counties are never called in tests).
@@ -1413,6 +1435,7 @@ test('drop documents: many at once, the same file skipped, filed from the inbox 
   const pdf = (n: string) => ({ name: `${n}-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${n} ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
   await page.goto('/documents/drop');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drop Documents');
+  await page.waitForLoadState('networkidle'); // the drop zone answers once the page is ready
   // Claude is off in tests: files wait in the inbox; a text file isn't taken.
   await page.locator('input[type=file]').setInputFiles([pdf('deed'), pdf('receipt'), { name: `notes-${s}.txt`, mimeType: 'text/plain', buffer: Buffer.from('hello') }]);
   await expect(page.locator('.toast', { hasText: /Done: 3 files sent/ })).toBeVisible({ timeout: 60_000 });
@@ -1660,4 +1683,53 @@ test('one address field, split for the lookups; the address and neighborhood ope
   // A projected sale price is labelled under the amount, not beside it.
   await page.goto('/projects');
   await expect(page.locator('td .sale-tag', { hasText: 'Projected' }).first()).toHaveCSS('display', 'block');
+});
+
+test('a short-term rental is called that, with its own statuses, on the project and the list', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into projects (name, address, city, stage) values ($1, $2, 'North Myrtle Beach', 'rental') returning id`, [`Beach ${s}`, `${s} Ocean Blvd Unit 1`]);
+  await db.end();
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${p.rows[0].id}?tab=rental`);
+  const setup = page.locator('form:has(input[name=askingRent])');
+  await choose(setup, 'kind', 'short_term');
+  // Lease statuses give way to a short-term rental's own.
+  await expect(setup.getByText('Application Pending')).toBeHidden();
+  await choose(setup, 'status', 'operating');
+  await setup.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('main').getByText('Operating (Booking Guests)').first()).toBeVisible();
+  await expect(page.locator('.page-head')).toContainText('Short-Term Rental');
+  await expect(page.getByRole('navigation', { name: 'Stages' })).toContainText('Short-Term Rental');
+  await page.goto('/projects');
+  await expect(page.locator('tr', { hasText: `${s} Ocean Blvd Unit 1` }).locator('.stage-chips')).toContainText('Short-Term Rental · Operating (Booking Guests)');
+  await page.goto(`/projects/${p.rows[0].id}?tab=history`);
+  await expect(page.locator('main')).toContainText('set it up as a short-term rental (Operating (Booking Guests))');
+});
+
+test('People list: name, company, title, then the properties each person is tied to', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const co = await db.query(`insert into companies (name) values ($1) returning id`, [`Tied${s} Realty`]);
+  const person = await db.query(`insert into people (first_name, last_name, title, company_id) values ('Tia', $1, 'Broker', $2) returning id`, [`Tied${s}`, co.rows[0].id]);
+  const pid = person.rows[0].id;
+  for (const n of ['A', 'B']) {
+    const p = await db.query(`insert into projects (name, address) values ($1, $1) returning id`, [`${s} Tied ${n} St`]);
+    await db.query(`insert into rental_contacts (project_id, person_id) values ($1, $2)`, [p.rows[0].id, pid]);
+  }
+  await db.query(`insert into properties (address, source_person_id) values ($1, $2)`, [`${s} Sent Lot Rd`, pid]);
+  await db.end();
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/people?q=Tied${s}`);
+  const heads = await page.locator('table.t thead th').allTextContents();
+  expect(heads.slice(0, 4)).toEqual(['Name', 'Company (What They Do)', 'Title', 'Properties']);
+  const row = page.locator('tr', { hasText: `Tia Tied${s}` });
+  await expect(row.locator('td').nth(1)).toContainText(`Tied${s} Realty`);
+  await expect(row.locator('td').nth(2)).toHaveText('Broker');
+  await expect(row.getByRole('link', { name: `${s} Tied A St` })).toHaveAttribute('href', /\/projects\//);
+  await expect(row.getByRole('link', { name: `${s} Sent Lot Rd` })).toHaveAttribute('href', /\/watchlist\//);
 });

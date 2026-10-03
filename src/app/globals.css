@@ -481,3 +481,11 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .map-link { font-size: .75rem; font-weight: 600; padding: 1px 7px; border: 1px solid var(--hair); border-radius: 999px; text-decoration: none; white-space: nowrap; }
 .hood-link { display: inline-block; padding: 1px 9px; border-radius: 999px; background: #e2f6f5; border: 1px solid #a8e3e0; color: var(--aqua-deep); font-weight: 600; font-size: .85rem; text-decoration: none; }
 .hood-link:hover, .hood-link:focus-visible, .map-link:hover { text-decoration: underline; }
+/* A rental's statuses follow its type: leases or short-term guests. */
+.rental-status-short { display: none; }
+form:has(input[name=kind][value=short_term]:checked) .rental-status-short { display: block; }
+form:has(input[name=kind][value=short_term]:checked) .rental-status-lease { display: none; }
+/* Area picker: chips per kind (AreaPicker.tsx). */
+.chip-field { position: relative; }
+.chip-field .chips { margin: 4px 0; }
+.chip-x { border: 0; background: none; cursor: pointer; padding: 0 0 0 4px; font-weight: 700; color: inherit; }

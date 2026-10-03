@@ -83,9 +83,19 @@ export const subStages: Record<ProjectStage, readonly { key: string; label: stri
     { key: 'vacant', label: 'Vacant' },
   ],
 };
-export const isSubStage = (stage: string, sub: string) => isProjectStage(stage) && subStages[stage].some((s) => s.key === sub);
+// A short-term rental's statuses are its own (rentals.ts); kept here too so the stage bar can show and save them.
+const shortTermSubs = [
+  { key: 'getting_ready', label: 'Getting Ready' }, { key: 'listed', label: 'Listed on Booking Sites' },
+  { key: 'operating', label: 'Operating (Booking Guests)' }, { key: 'paused', label: 'Off Season / Paused' },
+] as const;
+/** A stage's sub-stages; a short-term rental has its own. */
+export const subStagesFor = (stage: ProjectStage, rentalKind?: string | null) => (stage === 'rental' && rentalKind === 'short_term' ? shortTermSubs : subStages[stage]);
+/** The stage's name; a rental says which kind ("Short-Term Rental"). */
+export const stageLabelFor = (stage: string, rentalKind?: string | null) =>
+  stage === 'rental' && rentalKind ? ({ long_term: 'Long-Term Rental', mid_term: 'Mid-Term Rental', short_term: 'Short-Term Rental' } as Record<string, string>)[rentalKind] ?? projectStageLabel(stage) : projectStageLabel(stage);
+export const isSubStage = (stage: string, sub: string) => isProjectStage(stage) && (subStages[stage].some((s) => s.key === sub) || (stage === 'rental' && shortTermSubs.some((s) => s.key === sub)));
 export const subStageLabel = (stage: string, sub: string | null | undefined) =>
-  (isProjectStage(stage) && sub ? subStages[stage].find((s) => s.key === sub)?.label : null) ?? null;
+  (isProjectStage(stage) && sub ? (subStages[stage].find((s) => s.key === sub) ?? (stage === 'rental' ? shortTermSubs.find((s) => s.key === sub) : undefined))?.label : null) ?? null;
 
 export const stageStateKeys = ['not_started', 'active', 'done'] as const;
 export type StageState = (typeof stageStateKeys)[number];

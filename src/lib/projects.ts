@@ -15,6 +15,7 @@ export function listProjects() {
     projectNumber: projects.projectNumber, heatedSf: projects.heatedSf, proformaSalePrice: projects.proformaSalePrice, lotCost: projects.lotCost,
     stageStates: projects.stageStates, subStages: projects.subStages,
     rentalStatus: sql<string | null>`(select r.status from ${rentals} r where r.project_id = "projects"."id")`,
+    rentalKind: sql<string | null>`(select r.kind from ${rentals} r where r.project_id = "projects"."id")`,
   }).from(projects).where(isNull(projects.archived)).orderBy(asc(projects.name));
 }
 

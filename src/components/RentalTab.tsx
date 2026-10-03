@@ -3,7 +3,7 @@ import { ActionForm } from './ActionForm';
 import { Empty, Facts, Section, Tile } from './ui';
 import { Phone } from './Phone';
 import { addLease, addRentReceipt, endLease, saveLoan, saveRental } from '@/app/(app)/rental-actions';
-import { breakEvenRent, leaseAlerts, monthly, rentByMonth, rentalStatusLabel, rentalStatuses, verdict, yearly } from '@/lib/rentals';
+import { breakEvenRent, leaseAlerts, monthly, rentByMonth, rentalKindLabel, rentalKinds, rentalStatusLabel, rentalStatuses, shortTermStatuses, verdict, yearly } from '@/lib/rentals';
 import { cents } from '@/lib/budget';
 import { formatCents, formatDate, today } from '@/lib/format';
 import type { managerOptions, rentalContactsFor, rentalFor } from '@/lib/rental-data';
@@ -77,7 +77,7 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
       <Section title="Status and Property Manager" kind="aqua" hint={r ? rentalStatusLabel(r.status) : 'Not set up yet'}>
         {r ? (
           <Facts items={[
-            ['Status', rentalStatusLabel(r.status)],
+            ['Type', rentalKindLabel(r.kind)], ['Status', rentalStatusLabel(r.status)],
             ['Asking Rent', r.askingRent ? m(cents(r.askingRent)) : null],
             ['Listed', r.listedOn ? `${formatDate(r.listedOn)}${r.listedWhere ? `, ${r.listedWhere}` : ''}` : r.listedWhere],
             ['Manager', data.rental?.managerCompany ? <Link key="m" href={`/companies/${r.managerCompanyId}`}>{data.rental.managerCompany}</Link> : null],
@@ -91,7 +91,9 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
             <ActionForm action={saveRental} submit="Save">
               <input type="hidden" name="projectId" value={projectId} />
               <div className="fields">
-                <Choice name="status" label="Status" hint="The same as the Rental row at the top of the project" options={rentalStatuses} defaultValue={r?.status ?? 'getting_ready'} color="aqua" />
+                <Choice name="kind" label="Type of Rental" options={rentalKinds.map((k) => ({ key: k.key, label: k.short }))} defaultValue={r?.kind ?? 'long_term'} color="aqua" />
+                <div className="rental-status-lease"><Choice name="status" label="Status" hint="The same as the Rental row at the top of the project" options={rentalStatuses} defaultValue={r && r.kind !== 'short_term' ? r.status : r ? null : 'getting_ready'} color="aqua" /></div>
+                <div className="rental-status-short"><Choice name="status" label="Status" hint="The same as the Rental row at the top of the project" options={shortTermStatuses} defaultValue={r?.kind === 'short_term' ? r.status : null} color="aqua" /></div>
                 <label className="f">Asking Rent<input name="askingRent" defaultValue={num(r?.askingRent)} placeholder="2,450" /></label>
                 <label className="f">Listed On<input type="date" name="listedOn" defaultValue={r?.listedOn ?? ''} /></label>
                 <label className="f">Listed Where<input name="listedWhere" defaultValue={r?.listedWhere ?? ''} placeholder="Zillow, the manager's site" /></label>

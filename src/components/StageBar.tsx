@@ -3,16 +3,18 @@
 // buttons and sub-stages beneath. Server component: buttons are forms.
 import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
-import { activeStages, projectStages, stageStateKeys, stageStateLabel, subStageLabel, subStages, type ProjectStage, type StageState } from '@/lib/project-stages';
+import { activeStages, projectStages, stageLabelFor, stageStateKeys, stageStateLabel, subStageLabel, subStagesFor, type ProjectStage, type StageState } from '@/lib/project-stages';
 import { setStageState, setSubStage } from '@/app/(app)/project-actions';
 import { ShowCurrent } from './ShowCurrent';
 
-export function StageBar({ projectId, states, subs, open, href, canEdit }: {
+export function StageBar({ projectId, states, subs, open, href, canEdit, rentalKind }: {
+  rentalKind?: string | null;
   projectId: string; states: Record<ProjectStage, StageState>; subs: Record<string, string | null | undefined>;
   open: ProjectStage; href: (stage: ProjectStage) => string; canEdit: boolean;
 }) {
   const going = activeStages(states);
-  const def = projectStages.find((s) => s.key === open)!;
+  const label = (k: ProjectStage) => stageLabelFor(k, rentalKind);
+  const def = { ...projectStages.find((s) => s.key === open)!, label: label(open) };
   const sub = subs[open] ?? null;
   return (
     <nav className="stage-bar" aria-label="Stages">
@@ -22,8 +24,8 @@ export function StageBar({ projectId, states, subs, open, href, canEdit }: {
           {projectStages.map((s) => (
             <li key={s.key}>
               <Link href={href(s.key)} scroll={false} className="stage-step" data-state={states[s.key]} data-open={s.key === open ? 'true' : undefined}
-                aria-current={s.key === open ? 'true' : undefined} title={`${s.label}: ${stageStateLabel[states[s.key]]}`}>
-                {s.label}
+                aria-current={s.key === open ? 'true' : undefined} title={`${label(s.key)}: ${stageStateLabel[states[s.key]]}`}>
+                {label(s.key)}
                 {states[s.key] === 'active' && subs[s.key] ? <small>{subStageLabel(s.key, subs[s.key])}</small> : null}
               </Link>
             </li>
@@ -33,7 +35,7 @@ export function StageBar({ projectId, states, subs, open, href, canEdit }: {
       <p className="stage-now">
         <strong>Going now:</strong>{' '}
         {going.length ? going.map((k, i) => (
-          <span key={k}>{i ? ' · ' : ''}<Link href={href(k)} scroll={false}>{projectStages.find((s) => s.key === k)!.label}{subs[k] ? ` (${subStageLabel(k, subs[k])})` : ''}</Link></span>
+          <span key={k}>{i ? ' · ' : ''}<Link href={href(k)} scroll={false}>{label(k)}{subs[k] ? ` (${subStageLabel(k, subs[k])})` : ''}</Link></span>
         )) : <span className="muted">nothing yet. Open a stage and mark it Going Now.</span>}
       </p>
 
@@ -52,7 +54,7 @@ export function StageBar({ projectId, states, subs, open, href, canEdit }: {
         <div className="stage-row sub">
           <span className="stage-label">Where It Stands</span>
           <ul className="sub-steps">
-            {subStages[open].map((x) => (
+            {subStagesFor(open, rentalKind).map((x) => (
               <li key={x.key}>
                 {canEdit && x.key !== sub
                   ? <ActionButton action={setSubStage.bind(null, projectId, open, x.key)} className="sub-step" label={x.label} done={`${def.label}: ${x.label}.`} />

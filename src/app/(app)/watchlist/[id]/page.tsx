@@ -21,6 +21,7 @@ import { checklistProgress, commercialUses, dealTypeLabel, entitlements, isBigDe
 import { db } from '@/db';
 import { companies } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { AgentsHere } from '@/components/AgentsHere';
 
 export default async function PropertyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const user = await requirePage('properties.view');
@@ -89,6 +90,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
               <Suspense fallback={<Section title="Buy Box Check" kind="aqua"><p className="small muted" style={{ margin: 0 }}>Working it out from the market…</p></Section>}>
                 <BuyBoxCheck p={{ neighborhood: p.neighborhood, address: p.address, city: p.city, askingPrice: p.askingPrice }} />
               </Suspense>
+              <Suspense fallback={null}><AgentsHere place={{ city: p.city, zip: p.zip, neighborhood: p.neighborhood }} /></Suspense>
               {check.total ? (
                 <Section title={`${p.dealType === 'commercial' ? 'Commercial' : 'Land'} Checklist`} kind="blue" hint={`${check.done} of ${check.total} done · what to look at before an offer goes firm`}>
                   <ul className="checklist">{check.items.map((i) => {

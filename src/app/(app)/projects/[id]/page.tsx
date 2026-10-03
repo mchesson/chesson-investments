@@ -16,7 +16,7 @@ import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
 import { cents, payBlocker, type CodeMoney } from '@/lib/budget';
-import { activeStages, openStage, projectStageLabel, stageStates } from '@/lib/project-stages';
+import { activeStages, openStage, projectStageLabel, stageLabelFor, stageStates } from '@/lib/project-stages';
 import { HOLDING_KINDS } from '@/lib/cost-codes';
 import { lineKinds } from '@/lib/bill-lines';
 import { scheduleFor } from '@/lib/schedule-data';
@@ -33,6 +33,7 @@ import { SalePriceTag } from '@/components/SalePriceTag';
 import { ZoningFact } from '@/components/ZoningFact';
 import { ProjectDocuments } from '@/components/ProjectDocuments';
 import { CompsTab } from '@/components/CompsTab';
+import { AgentsHere } from '@/components/AgentsHere';
 import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/comp-data';
 import { joinAddress } from '@/lib/locate-rules';
 import { hoodMapHref, placeMapHref } from '@/lib/map-links';
@@ -58,6 +59,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const base = `/projects/${id}`;
   const openItems = data.items.filter((i) => i.status === 'unpriced');
   const sched = await scheduleFor(id);
+  const rentalKind = (await rentalFor(id)).rental?.r.kind ?? null;
   const missed = sched.assignments.filter((a) => a.state === 'missed');
   const tabs = [
     { key: 'overview', label: 'Overview' },
@@ -68,13 +70,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   ];
   return (
     <>
-      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{stageLabelFor(k, rentalKind)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       {await (async () => {
         const states = stageStates(p.stage, p.stageStates);
-        const rentalStatus = (await rentalFor(id)).rental?.r.status ?? null;
+        const rentalRow = (await rentalFor(id)).rental?.r;
+        const rentalStatus = rentalRow?.status ?? null;
         return <StageBar projectId={id} states={states} subs={{ ...p.subStages, rental: rentalStatus }} open={openStage(askedStage, states)}
-          href={(k) => `${base}?${new URLSearchParams({ ...(tab !== 'overview' ? { tab } : {}), stage: k })}`} canEdit={editProject} />;
+          href={(k) => `${base}?${new URLSearchParams({ ...(tab !== 'overview' ? { tab } : {}), stage: k })}`} canEdit={editProject} rentalKind={rentalRow?.kind ?? null} />;
       })()}
       <div className="record">
         <div className="card-side">
@@ -98,8 +101,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
-          {tab === 'comps' ? <CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
-            providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /> : null}
+          {tab === 'comps' ? <><CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
+            providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /><AgentsHere place={{ city: p.city, zip: p.zip, neighborhood: p.neighborhood }} /></> : null}
           {tab === 'documents' ? <ProjectDocuments projectId={id} canAdd={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
           {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user, 'contacts.edit')} /> : null}

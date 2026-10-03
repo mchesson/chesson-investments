@@ -5,6 +5,7 @@ import { auditLog, companies, eventPeople, events, partyRoles, people, personCom
 import { isCold } from './roles';
 import { today } from './format';
 import { ref } from '@/lib/sql-ref';
+import { areasOf, worksAt } from './areas';
 
 const PAGE = 50;
 
@@ -45,7 +46,20 @@ export async function listPeople(opts: { q?: string; roles?: string[]; supply?: 
     introducedByName: sql<string | null>`(select i.first_name || ' ' || i.last_name from ${people} i where i.id = ${ref(people.introducedById)})`,
     doNotUse: people.doNotUse, doNotUseReason: people.doNotUseReason,
     companyTypes: sql<{ role: string; stage: string; supplierTypes: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types) order by r.created_at) from ${partyRoles} r where r.company_id = ${ref(people.companyId)} and r.removed_at is null), '[]')`,
-    roles: sql<{ role: string; stage: string; supplierTypes: string[] | null; areas: string | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types, 'areas', r.areas) order by r.created_at) from ${partyRoles} r where r.person_id = ${ref(people.id)} and r.removed_at is null), '[]')`,
+    roles: sql<{ role: string; stage: string; supplierTypes: string[] | null; areas: string | null; cities: string[] | null; zips: string[] | null; neighborhoods: string[] | null }[]>`coalesce((select json_agg(json_build_object('role', r.role, 'stage', r.stage, 'supplierTypes', r.supplier_types, 'areas', r.areas, 'cities', r.cities, 'zips', r.zips, 'neighborhoods', r.neighborhoods) order by r.created_at) from ${partyRoles} r where r.person_id = ${ref(people.id)} and r.removed_at is null), '[]')`,
+    // The properties they're tied to (owner, Oct 3, 2026: "a column for the property they are associated with"):
+    // our projects they worked on, billed, bid, look after or had issues on, and watched properties they sent us.
+    places: sql<{ kind: 'project' | 'property'; id: string; name: string }[]>`coalesce((select json_agg(x order by x.name) from (
+      select distinct 'project' as kind, pr.id, pr.name from projects pr where pr.archived_at is null and pr.id in (
+        select b.project_id from bills b where b.vendor_person_id = ${ref(people.id)} and b.archived_at is null
+        union select c.project_id from commitments c where c.vendor_person_id = ${ref(people.id)} and c.archived_at is null
+        union select a.project_id from assignments a where a.person_id = ${ref(people.id)} and a.archived_at is null
+        union select u.project_id from project_utilities u where u.person_id = ${ref(people.id)} and u.removed_at is null
+        union select rc.project_id from rental_contacts rc where rc.person_id = ${ref(people.id)}
+        union select vi.project_id from vendor_issues vi where vi.person_id = ${ref(people.id)} and vi.archived_at is null
+        union select bv.project_id from budget_versions bv where bv.person_id = ${ref(people.id)})
+      union select distinct 'property' as kind, w.id, w.address as name from properties w where w.source_person_id = ${ref(people.id)} and w.archived_at is null
+    ) x), '[]')`,
     total: sql<number>`count(*) over ()`.mapWith(Number),
   }).from(people).leftJoin(companies, eq(companies.id, people.companyId))
     .where(and(...where)).orderBy(asc(people.lastName), asc(people.firstName))
@@ -55,7 +69,7 @@ export async function listPeople(opts: { q?: string; roles?: string[]; supply?: 
 
 function rolesWithGc(where: ReturnType<typeof eq>) {
   return db.select({
-    id: partyRoles.id, role: partyRoles.role, stage: partyRoles.stage, trade: partyRoles.trade, areas: partyRoles.areas,
+    id: partyRoles.id, role: partyRoles.role, stage: partyRoles.stage, trade: partyRoles.trade, areas: partyRoles.areas, cities: partyRoles.cities, zips: partyRoles.zips, neighborhoods: partyRoles.neighborhoods,
     licenseNumber: partyRoles.licenseNumber, notes: partyRoles.notes, stageChangedAt: partyRoles.stageChangedAt, supplierTypes: partyRoles.supplierTypes,
     hiredThroughCompanyId: partyRoles.hiredThroughCompanyId,
     hiredThroughName: sql<string | null>`(select c.name from ${companies} c where c.id = ${ref(partyRoles.hiredThroughCompanyId)})`,
@@ -278,4 +292,15 @@ export function gcCompanyOptions() {
   return db.select({ id: companies.id, name: companies.name,
     gc: sql<boolean>`exists (select 1 from ${partyRoles} r where r.company_id = ${ref(companies.id)} and r.removed_at is null and r.role = 'gc')` })
     .from(companies).where(isNull(companies.archived)).orderBy(asc(companies.name)).limit(2000);
+}
+
+/** Agents who say they work where this place is (its neighborhood, ZIP or city), best match first. */
+export async function agentsWorkingAt(place: { city?: string | null; zip?: string | null; neighborhood?: string | null }) {
+  const rows = await db.select({
+    personId: partyRoles.personId, companyId: partyRoles.companyId, areas: partyRoles.areas, cities: partyRoles.cities, zips: partyRoles.zips, neighborhoods: partyRoles.neighborhoods,
+    name: sql<string>`coalesce((select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${ref(partyRoles.personId)}), (select c.name from ${companies} c where c.id = ${ref(partyRoles.companyId)}))`,
+    phone: sql<string | null>`(select p.phone from ${people} p where p.id = ${ref(partyRoles.personId)})`,
+  }).from(partyRoles).where(and(eq(partyRoles.role, 'agent'), isNull(partyRoles.removed)));
+  return rows.map((r) => ({ ...r, matched: worksAt(areasOf(r), place) })).filter((r) => r.matched.length && r.name)
+    .sort((a, b) => b.matched.length - a.matched.length || a.name.localeCompare(b.name)).slice(0, 12);
 }
