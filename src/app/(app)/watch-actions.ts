@@ -1,5 +1,6 @@
 'use server';
 
+import { placeAndZoneQuickly } from '@/lib/locate';
 import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -107,6 +108,8 @@ export async function saveProperty(_: FormResult, d: FormData): Promise<FormResu
     if (ch) await audit({ userId: user.id, entity: 'property', entityId: id, action: 'update', summary: `edited ${Object.keys(ch.after).join(', ')}`, ...ch }, tx);
     return id;
   });
+  // Where it is and its zoning, from the county records (a few seconds at most).
+  await placeAndZoneQuickly('property', savedId, user.id);
   redirect(`/watchlist/${savedId}`);
 }
 

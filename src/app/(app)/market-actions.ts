@@ -11,6 +11,7 @@ import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { isCounty, sources } from '@/lib/market-sources';
 import { countSince, locateOurPlaces, nextSince, runStep } from '@/lib/market-sync';
+import { placeAndZoneAll } from '@/lib/locate';
 import { isFeed, updatePermits, updateRates, updateRedfin } from '@/lib/market-feeds-sync';
 import { FEEDS_TAG } from '@/lib/market-feeds-data';
 
@@ -68,7 +69,9 @@ export async function updateFeed(key: string): Promise<{ ok?: string; problem?: 
 export async function placeOurPlaces() {
   const user = await requireAction('market.update');
   const n = await locateOurPlaces();
-  await audit({ userId: user.id, entity: 'market', entityId: user.id, action: 'locate', summary: `put ${n} of our projects and watched properties on the map` });
+  // Anything the parcel match missed, from the address points; and its zoning.
+  const r = await placeAndZoneAll(user.id);
+  await audit({ userId: user.id, entity: 'market', entityId: user.id, action: 'locate', summary: `put ${n + r.placed} of our projects and watched properties on the map; zoning for ${r.zoned}` });
   revalidatePath('/market');
 }
 

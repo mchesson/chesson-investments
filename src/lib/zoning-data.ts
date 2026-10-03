@@ -56,6 +56,7 @@ const cached = unstable_cache(lookUp, ['zoning-at-v1'], { revalidate: 60 * 60 * 
 
 /** The zoning at a spot, or null (outside both counties, or the map didn't answer). */
 export async function zoningAt(lat: number | string | null | undefined, lng: number | string | null | undefined): Promise<ZoningInfo | null> {
+  if (process.env.COUNTY_LOOKUPS === 'off') return null; // tests: never the real county maps
   const y = Number(lat), x = Number(lng);
   if (!Number.isFinite(y) || !Number.isFinite(x) || !y || !x) return null;
   const a = Math.round(y * 1e5) / 1e5, b = Math.round(x * 1e5) / 1e5;

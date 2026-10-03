@@ -10,6 +10,6 @@ export default defineConfig({
     url: 'http://localhost:3200/signin',
     reuseExistingServer: true,
     timeout: 180_000,
-    env: { DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci', DEV_LOGIN: 'true', AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret', AUTH_TRUST_HOST: 'true' },
+    env: { DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci', DEV_LOGIN: 'true', AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret', AUTH_TRUST_HOST: 'true', COUNTY_LOOKUPS: 'off' },
   },
 });

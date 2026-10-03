@@ -1,5 +1,6 @@
 'use server';
 
+import { placeAndZoneQuickly } from '@/lib/locate';
 import { and, eq, isNull } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -88,6 +89,7 @@ export async function saveProject(_: FormResult, d: FormData): Promise<FormResul
       }
       return id;
     });
+    await placeAndZoneQuickly('project', savedId, user.id);
     redirect(`/projects/${savedId}`);
   });
   return r as FormResult;
