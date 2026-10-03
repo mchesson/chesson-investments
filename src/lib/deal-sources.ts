@@ -28,6 +28,7 @@ export const sourceKinds = [
   { key: 'driving', label: 'Driving the Area' },
   { key: 'mail', label: 'Letters / Mail' },
   { key: 'online', label: 'Online Listing' },
+  { key: 'website', label: 'Our Website' },
   { key: 'other', label: 'Other' },
 ] as const;
 export type SourceKind = (typeof sourceKinds)[number]['key'];

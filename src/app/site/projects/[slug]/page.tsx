@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { publishedProject } from '@/lib/site-data';
 import { siteBase } from '@/lib/site-host';
-import { siteContent } from '@/lib/site-content';
+import { siteSettings } from '@/lib/site-settings';
+import { countView } from '@/lib/site-views';
+import { phoneLink, phoneShown } from '@/lib/site-leads';
 import { slugify } from '@/lib/site';
 import { Gallery } from '@/components/site/Gallery';
 import { photoSrc, Stats } from '@/components/site/parts';
@@ -28,7 +30,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SiteProject({ params }: Props) {
   const p = await load((await params).slug);
   if (!p) notFound();
-  const { href } = await siteBase();
+  const [{ href }, s] = await Promise.all([siteBase(), siteSettings(), countView(`/projects/${p.slug}`)]);
+  const tel = phoneLink(s.phone);
   const src = (id: string) => photoSrc(href, id);
   const of = (kind: string) => p.photos.filter((f) => f.kind === kind).map((f) => ({ src: src(f.id), alt: f.caption ?? `${p.name}` }));
   const after = of('after'), before = of('before'), progress = of('progress'), plans = p.photos.filter((f) => f.kind === 'plan');
@@ -36,6 +39,7 @@ export default async function SiteProject({ params }: Props) {
   const rest = lead ? p.team.slice(1) : p.team;
   return (
     <>
+      <nav className="crumbs wrap" aria-label="Where you are"><Link href={href('/')}>Home</Link> › <Link href={href('/projects')}>Projects</Link> › <span aria-current="page">{p.name}</span></nav>
       <header className="phero" style={p.cover ? { backgroundImage: `url(${src(p.cover.id)})` } : undefined}>
         <div className="wrap">
           <span className="badge">{p.statusLabel}</span>
@@ -95,8 +99,9 @@ export default async function SiteProject({ params }: Props) {
       <section className="block contact">
         <div className="wrap">
           <div className="label">Interested?</div>
-          <p className="big"><a href={`tel:${siteContent.phone}`}>{siteContent.phoneShown}</a></p>
-          <Link className="back" href={`${href('/')}#projects`}>‹ All Projects</Link>
+          {tel ? <p className="big"><a href={tel}>{phoneShown(s.phone)}</a></p> : null}
+          <Link className="btnlink" href={href('/contact')}>Ask Us About This Project</Link>
+          <div><Link className="back" href={href('/projects')}>‹ All Projects</Link></div>
         </div>
       </section>
     </>

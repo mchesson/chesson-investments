@@ -30,6 +30,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'users', column: 'person_id', does: 'clear', label: 'a guest sign-in linked to them (the link only)' },
     { table: 'entity_members', column: 'person_id', does: 'clear', label: 'places as a member of our business entities (the link only; the name stays)' },
     { table: 'comps', column: 'provided_by_person_id', does: 'clear', label: 'comps they gave us (who only)' },
+    { table: 'site_leads', column: 'person_id', does: 'clear', label: 'website leads linked to them (the link only; the lead stays)' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },

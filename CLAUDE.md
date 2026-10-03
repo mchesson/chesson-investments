@@ -378,6 +378,45 @@ this app; GoDaddy keeps only the domain and email.
 - Claude can't write to production itself (a standing import door was refused by
   the safety system, Oct 2, 2026): the owner runs imports from the Import page.
 
+## Website rebuild and leads (Oct 3, 2026)
+Owner: "there is no contact us bar ... make it clickable and you click in a
+project and the top bar should be a site level bar", "a place to track leads
+through the website and track what happens like on google analytics".
+- **Every /site page** has the top bar (`src/components/site/Nav.tsx`: name →
+  home, Projects, What We Do, About, Contact, Sell Us Your Property, the phone
+  when one is set; a Menu button under 1020px) and the footer (`parts.tsx`).
+  Pages: home, `/projects` (all cards, each card one link), `/projects/<slug>`,
+  `/what-we-do`, `/about`, `/contact`, `/sell`; all in sitemap.xml.
+- **Website Settings** (`/leads/settings`, `website.edit`; app_settings
+  `website`, read through `siteSettings()` in `src/lib/site-settings.ts`,
+  cached with tag `site`): phone (empty hides it), email, area, the About /
+  What We Do / Sell / Contact texts (empty = the starting words in
+  site-content.ts), the **Google Analytics** measurement ID (gtag on /site
+  pages only) and the **Search Console** HTML-tag code. History entity
+  `website_settings`.
+- **Leads**: Contact Us and Sell Us Your Property save to `site_leads`
+  (`submitLead`, `src/app/site/lead-actions.ts`, History "via website form",
+  no user): the fields, where they came from (referrer host only, first page,
+  utm_source/medium/campaign kept in sessionStorage by `SourceTracker`, the
+  form's page), status New / Contacted / Qualified / Closed / Not a Fit and
+  who handles it. Hidden honeypot field; at most 3 in 10 minutes and 10 a day
+  per address, counted by a salted daily hash (`ip_hash`), never the address.
+  The owner and admins get an alert email after the answer (only when Resend
+  is set up; a failed email never fails the form). Rules pure and tested in
+  `src/lib/site-leads.ts`.
+- **Leads page** (`/leads`, "Leads" in the left menu after People;
+  `contacts.view`, changes `contacts.edit`): filters by status and form, the
+  lead page (status, handled by, notes in `site_lead_notes`, Archive, History
+  entity `site_lead`), **Create Person** (Add Person filled in, with its
+  duplicate checks; `siteLeadId` links it) or link to someone with the same
+  email or phone, and for a Sell lead **Add to Watchlist** (source kind "Our
+  Website"). Delete rule: a person's leads are unlinked.
+- **Website Visits**: `site_page_views` (day, path, views), counted on the
+  server after the page is sent (`countView`, `src/lib/site-views.ts`); no
+  cookies, nothing about who; prefetches, bots and headless browsers left
+  out. Shown on Leads with Leads by Source (utm_source, else the other site,
+  else Direct).
+
 ## Environment variables (Vercel; never in the repo or chat)
 `DATABASE_URL` (Supabase transaction pooler, port 6543), `AUTH_SECRET`,
 `AUTH_MICROSOFT_ENTRA_ID_ID` / `_SECRET` / `_ISSUER`, `OWNER_EMAILS`,

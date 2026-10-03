@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { budgetLines, costCodes, projects, properties, partyRoles } from '@/db/schema';
+import { budgetLines, costCodes, projects, properties, partyRoles, siteLeads } from '@/db/schema';
 import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { bool, str, uuidOrNull } from '@/lib/forms';
@@ -88,6 +88,15 @@ export async function saveProperty(_: FormResult, d: FormData): Promise<FormResu
     if (!id) {
       const [p] = await tx.insert(properties).values({ ...f, createdBy: user.id }).returning();
       await audit({ userId: user.id, entity: 'property', entityId: p.id, action: 'create', summary: `added ${p.address} to the watchlist`, after: f }, tx);
+      // Added from a website lead (Leads → Add to Watchlist): the lead points at it now.
+      const leadId = uuidOrNull(d, 'siteLeadId');
+      if (leadId) {
+        const [lead] = await tx.update(siteLeads).set({ propertyId: p.id, updated: new Date() }).where(and(eq(siteLeads.id, leadId), isNull(siteLeads.propertyId))).returning({ id: siteLeads.id });
+        if (lead) {
+          await audit({ userId: user.id, entity: 'site_lead', entityId: lead.id, action: 'property', summary: `added ${p.address} to the watchlist from this lead`, via: 'Leads', after: { propertyId: p.id } }, tx);
+          await audit({ userId: user.id, entity: 'property', entityId: p.id, action: 'site-lead', summary: 'came in through Sell Us Your Property on the website', via: 'Leads' }, tx);
+        }
+      }
       if (f.sourceCompanyId) await audit({ userId: user.id, entity: 'company', entityId: f.sourceCompanyId, action: 'deal-sent', summary: `sent us ${p.address}` }, tx);
       if (f.sourcePersonId) {
         await audit({ userId: user.id, entity: 'person', entityId: f.sourcePersonId, action: 'deal-sent', summary: `sent us ${p.address}` }, tx);

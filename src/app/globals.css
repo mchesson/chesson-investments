@@ -467,3 +467,8 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .comp-add { margin-top: 12px; }
 .comp-add > summary { list-style: none; display: inline-block; cursor: pointer; }
 .comp-add > summary::-webkit-details-marker { display: none; }
+
+/* Website Leads: visits per day as small bars */
+.visit-bars { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin: 0 0 14px; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.visit-bars span { flex: 1; min-width: 3px; max-width: 40px; background: var(--true-blue); border-radius: 2px 2px 0 0; opacity: .85; }
+.lead-message { white-space: pre-wrap; margin: 0; }

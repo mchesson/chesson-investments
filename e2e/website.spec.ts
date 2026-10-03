@@ -82,3 +82,142 @@ test('a project goes on the website with its photos, and comes off again', async
   await expect(page.getByText('took it off the website').first()).toBeVisible();
   await pub.close();
 });
+
+test('the website’s top bar, its pages and both forms reach Website Leads', async ({ page, request }) => {
+  const stamp = Date.now().toString().slice(-6);
+  // Each run is its own visitor address, so the per-address limit on forms doesn't carry over between runs.
+  const ip = `10.${Number(stamp.slice(0, 2))}.${Number(stamp.slice(2, 4))}.${Number(stamp.slice(4))}`;
+  const pub = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL, extraHTTPHeaders: { 'x-forwarded-for': ip } });
+  const visitor = await pub.newPage();
+  // Arrives from a link with utm tags: the lead remembers where they came from.
+  await visitor.goto('/site?utm_source=e2e-mailer&utm_medium=email');
+  const bar = visitor.getByRole('navigation', { name: 'Main' });
+  for (const name of ['Projects', 'What We Do', 'About', 'Contact', 'Sell Us Your Property']) await expect(bar.getByRole('link', { name, exact: true })).toBeVisible();
+  await expect(bar.getByRole('link', { name: '(919) 795-8948' })).toBeVisible();
+  await expect(visitor.locator('footer')).toContainText('© ');
+  for (const [link, heading] of [['What We Do', 'Three ways we build value'], ['About', 'About Chesson Investments'], ['Projects', 'Our work']] as const) {
+    await bar.getByRole('link', { name: link, exact: true }).click();
+    await expect(visitor.getByRole('heading', { level: 1 })).toHaveText(heading);
+    await expect(bar.getByRole('link', { name: link, exact: true })).toHaveAttribute('aria-current', 'page');
+  }
+
+  // Contact Us: an error keeps what was typed, then the thank-you.
+  await bar.getByRole('link', { name: 'Contact', exact: true }).click();
+  await visitor.getByLabel('Your Name').fill(`Casey Contact${stamp}`);
+  await visitor.getByLabel('Your Message').fill('Do you build custom homes on our own lot?');
+  await visitor.getByRole('button', { name: 'Send the Message' }).click();
+  await expect(visitor.locator('.form-error')).toContainText('email address or a phone number');
+  await expect(visitor.getByLabel('Your Name')).toHaveValue(`Casey Contact${stamp}`);
+  await visitor.getByLabel('Email', { exact: true }).fill(`casey${stamp}@example.com`);
+  await visitor.locator('.pills label', { hasText: 'Working With Us' }).click();
+  await visitor.getByRole('button', { name: 'Send the Message' }).click();
+  await expect(visitor.locator('.thanks')).toContainText('Your message reached us');
+
+  // Sell Us Your Property.
+  await bar.getByRole('link', { name: 'Sell Us Your Property', exact: true }).click();
+  await visitor.getByLabel('Your Name').fill(`Sam Seller${stamp}`);
+  await visitor.getByLabel('Phone', { exact: true }).fill(`(919) 555-${stamp.slice(-4)}`);
+  await visitor.getByLabel('Property Address').fill(`${stamp} Ridge Rd`);
+  await visitor.getByLabel('City', { exact: true }).fill('Raleigh');
+  await visitor.locator('.pills label', { hasText: 'Teardown' }).first().click();
+  await visitor.locator('.pills label', { hasText: 'Should Come Down' }).click();
+  await visitor.locator('.pills label', { hasText: 'Just Exploring' }).click();
+  await visitor.getByLabel(/Asking Price/).fill('300k');
+  await visitor.getByRole('button', { name: 'Send the Property' }).click();
+  await expect(visitor.locator('.thanks')).toContainText('We have the details of your property');
+
+  // A bot filling the hidden field gets thanked and nothing is kept (checked on the Leads page below).
+  await visitor.goto('/site/contact');
+  await visitor.getByLabel('Your Name').fill(`Bot Spam${stamp}`);
+  await visitor.getByLabel('Email', { exact: true }).fill('bot@example.com');
+  await visitor.getByLabel('Your Message').fill('Buy now');
+  await visitor.locator(`input[name=company_website]`).fill('http://spam.example', { force: true });
+  await visitor.getByRole('button', { name: 'Send the Message' }).click();
+  await expect(visitor.locator('.thanks')).toContainText('Thank you');
+
+  // The sitemap lists the new pages.
+  const map = await (await request.get('/site/sitemap.xml')).text();
+  for (const p of ['/sell', '/contact', '/about', '/what-we-do', '/projects']) expect(map).toContain(`https://chessoninvestments.com${p}<`);
+  await pub.close();
+
+  // Staff see both on Website Leads, with where they came from.
+  await signIn(page, 'Sample Owner');
+  await page.getByRole('link', { name: 'Leads', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Website Leads');
+  await expect(page.getByRole('link', { name: `Casey Contact${stamp}` })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Sam Seller${stamp}` })).toBeVisible();
+  await expect(page.getByText(`Bot Spam${stamp}`)).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /Website Visits/ })).toBeVisible();
+  await expect(page.locator('section', { has: page.getByRole('heading', { name: 'Leads by Source' }) }).getByText('e2e-mailer')).toBeVisible();
+  await page.getByRole('link', { name: 'Sell Us Your Property', exact: true }).click();
+  await expect(page.getByRole('link', { name: `Casey Contact${stamp}` })).toHaveCount(0);
+
+  // Work the sell lead: status, a note, then add the property to the watchlist.
+  await page.getByRole('link', { name: `Sam Seller${stamp}` }).click();
+  await page.waitForURL(/\/leads\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sam Seller${stamp}`);
+  await expect(page.locator('main')).toContainText(`${stamp} Ridge Rd`);
+  const leadUrl = page.url();
+  await expect(page.locator('main')).toContainText('e2e-mailer');
+  await choose(page, 'status', 'contacted');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.page-head .chip', { hasText: 'Contacted' })).toBeVisible();
+  await page.getByRole('link', { name: 'Add to Watchlist' }).click();
+  await expect(page.getByLabel('Address')).toHaveValue(`${stamp} Ridge Rd`);
+  await page.getByRole('button', { name: 'Add to Watchlist' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${stamp} Ridge Rd`);
+  await expect(page.locator('main')).toContainText('Our Website');
+  await page.goto(leadUrl);
+  await expect(page.getByRole('link', { name: `${stamp} Ridge Rd` })).toBeVisible();
+  await page.getByRole('link', { name: /^Notes/ }).click();
+  await page.getByLabel('Note').fill('Called, left a message.');
+  await page.getByRole('button', { name: 'Add the Note' }).click();
+  await expect(page.locator('main .rows')).toContainText('Called, left a message.');
+
+  // Create Person from the lead, through Add Person and its duplicate check.
+  await page.getByRole('link', { name: 'Overview' }).click();
+  await page.getByRole('link', { name: 'Create Person' }).click();
+  await expect(page.getByLabel('First Name', { exact: true })).toHaveValue('Sam');
+  await expect(page.getByLabel('Last Name', { exact: true })).toHaveValue(`Seller${stamp}`);
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Sam Seller${stamp}`);
+
+  // History on the lead tells the whole story.
+  await page.goto('/leads?kind=sell');
+  await page.getByRole('link', { name: `Sam Seller${stamp}` }).click();
+  await expect(page.locator('main').getByRole('link', { name: `Sam Seller${stamp}` })).toBeVisible();
+  await page.getByRole('link', { name: 'History', exact: true }).click();
+  const hist = page.locator('main');
+  await expect(hist.getByText(/sent a property through the website/)).toBeVisible();
+  await expect(hist.getByText(/moved it to Contacted \(was New\)/)).toBeVisible();
+  await expect(hist.getByText(/added a note: Called, left a message\./)).toBeVisible();
+  await expect(hist.getByText(/added .* Ridge Rd to the watchlist from this lead/)).toBeVisible();
+  await expect(hist.getByText(new RegExp(`created Sam Seller${stamp} from this lead`))).toBeVisible();
+  await expect(hist.getByText('via website form').first()).toBeVisible();
+});
+
+test('Website Settings: Google Analytics and Search Console go on the website only when set', async ({ page, request }) => {
+  await signIn(page, 'Sample Owner');
+  await page.goto('/leads/settings');
+  await page.getByLabel(/^Google Analytics Measurement ID/).fill('UA-12345');
+  await page.getByRole('button', { name: 'Save the Settings' }).click();
+  await expect(page.locator('.notice.error')).toContainText('starts with G-');
+  await page.getByLabel(/^Google Analytics Measurement ID/).fill('G-NOTREAL123');
+  await page.getByLabel(/^Search Console Verification/).fill('<meta name="google-site-verification" content="e2eVerifyCode_123" />');
+  await page.getByRole('button', { name: 'Save the Settings' }).click();
+  await expect(page.locator('.notice').filter({ hasText: 'Saved.' })).toBeVisible();
+  const html = await (await request.get('/site/about')).text();
+  expect(html).toContain('googletagmanager.com/gtag/js?id=G-NOTREAL123');
+  expect(html).toContain('e2eVerifyCode_123');
+  // Never on the app's own pages.
+  await page.goto('/leads');
+  expect(await page.content()).not.toContain('googletagmanager');
+  // Take them off again.
+  await page.goto('/leads/settings');
+  await page.getByLabel(/^Google Analytics Measurement ID/).fill('');
+  await page.getByLabel(/^Search Console Verification/).fill('');
+  await page.getByRole('button', { name: 'Save the Settings' }).click();
+  await expect(page.locator('.notice').filter({ hasText: 'Saved.' })).toBeVisible();
+  expect(await (await request.get('/site/about')).text()).not.toContain('googletagmanager');
+  await expect(page.locator('main').getByText(/changed the website settings/).first()).toBeVisible();
+});

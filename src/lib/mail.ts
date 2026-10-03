@@ -30,7 +30,7 @@ export function linkEmail(o: { title: string; intro: string; button: string; url
 <tr><td style="background:#212121;color:#ffffff;padding:16px 24px;font-family:Georgia,serif;font-size:20px;border-radius:8px 8px 0 0">Chesson <span style="color:#7fc4f0">Investments</span></td></tr>
 <tr><td style="height:4px;background:#0D71BA"></td></tr>
 <tr><td style="padding:24px"><h1 style="font-family:Georgia,serif;font-size:22px;margin:0 0 12px">${esc(o.title)}</h1>
-<p style="font-size:15px;line-height:1.5;margin:0 0 20px">${esc(o.intro)}</p>
+<p style="font-size:15px;line-height:1.5;margin:0 0 20px;white-space:pre-line">${esc(o.intro)}</p>
 <p style="margin:0 0 20px"><a href="${esc(o.url)}" style="display:inline-block;background:#0D71BA;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px">${esc(o.button)}</a></p>
 <p style="font-size:13px;color:#5f6368;line-height:1.5;margin:0">${esc(o.note)}</p></td></tr>
 </table></td></tr></table></body></html>`;

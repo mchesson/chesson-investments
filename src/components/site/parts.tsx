@@ -1,20 +1,9 @@
 import Link from 'next/link';
-import { siteContent } from '@/lib/site-content';
 import { formatNumber, type PublicProject } from '@/lib/site';
 
 export const photoSrc = (base: (p: string) => string, id: string) => base(`/photos/${id}`);
 
-export function Mark({ size = 38, light = false }: { size?: number; light?: boolean }) {
-  const a = light ? '#FFFFFF' : '#1E4D7B', b = light ? '#A7B0BC' : '#707A89';
-  return (
-    <svg width={size} height={size} viewBox="0 0 120 120" aria-hidden="true">
-      <path d="M90.38 47.11 A33 33 0 1 0 90.38 72.89" fill="none" stroke={a} strokeWidth="5" strokeLinecap="round" />
-      <line x1="49" y1="40" x2="71" y2="40" stroke={b} strokeWidth="4" strokeLinecap="round" />
-      <line x1="60" y1="40" x2="60" y2="80" stroke={b} strokeWidth="4" strokeLinecap="round" />
-      <line x1="49" y1="80" x2="71" y2="80" stroke={b} strokeWidth="4" strokeLinecap="round" />
-    </svg>
-  );
-}
+export { Mark } from './Mark';
 
 const icons: Record<string, React.ReactNode> = {
   house: <><path d="M3 11l9-7 9 7" /><path d="M5 9.5V20h14V9.5" /><path d="M10 20v-5h4v5" /></>,
@@ -25,33 +14,36 @@ export function Icon({ name }: { name: string }) {
   return <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">{icons[name]}</svg>;
 }
 
-export function SiteNav({ href }: { href: (p: string) => string }) {
-  return (
-    <nav className="top" aria-label="Main">
-      <div className="nav-inner">
-        <Link href={href('/')} className="brand"><Mark /><span className="n">CHESSON<small>INVESTMENTS</small></span></Link>
-        <div className="nav-links">
-          <Link href={`${href('/')}#services`} className="wide">What We Do</Link>
-          <Link href={`${href('/')}#projects`}>Projects</Link>
-          <Link href={`${href('/')}#contact`}>Contact</Link>
-        </div>
-      </div>
-    </nav>
-  );
-}
+/** The website's pages, in the top bar's order. */
+export const sitePages = [
+  { path: '/projects', label: 'Projects' },
+  { path: '/what-we-do', label: 'What We Do' },
+  { path: '/about', label: 'About' },
+  { path: '/contact', label: 'Contact' },
+  { path: '/sell', label: 'Sell Us Your Property' },
+] as const;
 
-export function SiteFooter() {
+export function SiteFooter({ href, phone, email, area }: { href: (p: string) => string; phone: { shown: string; link: string } | null; email: string | null; area: string }) {
   return (
     <footer>
       <div className="wrap">
         <div className="foot-grid">
-          <div className="name">CHESSON<small>INVESTMENTS</small></div>
+          <div>
+            <Link href={href('/')} className="name">CHESSON<small>INVESTMENTS</small></Link>
+            <p className="foot-area">{area}</p>
+          </div>
+          <nav className="foot-links" aria-label="Website pages">
+            <Link href={href('/')}>Home</Link>
+            {sitePages.map((p) => <Link key={p.path} href={href(p.path)}>{p.label}</Link>)}
+          </nav>
           <div className="site">
-            <span>{siteContent.domain}</span>
-            <a href={`tel:${siteContent.phone}`}>{siteContent.phoneShown}</a>
+            <span className="foot-h">Contact</span>
+            {phone ? <a href={phone.link}>{phone.shown}</a> : null}
+            {email ? <a href={`mailto:${email}`}>{email}</a> : null}
+            <Link href={href('/contact')}>Send Us a Message</Link>
           </div>
         </div>
-        <div className="foot-bottom">© {new Date().getFullYear()} Chesson Investments. All rights reserved.</div>
+        <div className="foot-bottom">© {new Date().getFullYear()} Chesson Investments, LLC. All rights reserved.</div>
       </div>
     </footer>
   );
@@ -85,4 +77,9 @@ export function Stats({ p }: { p: PublicProject }) {
   ].filter(Boolean) as [string, string][];
   if (!items.length) return null;
   return <div className="stats">{items.map(([n, c]) => <div key={c} className="stat"><div className="num">{n}</div><div className="cap">{c}</div></div>)}</div>;
+}
+
+/** Text typed on Website Settings: a blank line starts a new paragraph. */
+export function Paragraphs({ text }: { text: string }) {
+  return <>{text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p, i) => <p key={i}>{p}</p>)}</>;
 }

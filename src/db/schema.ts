@@ -3,7 +3,7 @@
 // anon / authenticated roles get nothing (see CLAUDE.md "Security").
 
 import {
-  boolean, customType, date, index, integer, jsonb, numeric, pgEnum, pgSequence, pgTable,
+  boolean, customType, date, index, integer, jsonb, numeric, pgEnum, pgSequence, pgTable, primaryKey,
   text, timestamp, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -1073,3 +1073,55 @@ export const comps = pgTable('comps', {
   updated: updated(),
   archived: archived(),
 }, (t) => [index('comps_project').on(t.projectId), index('comps_property').on(t.propertyId)]).enableRLS();
+// Leads from the public website's forms (owner, Oct 3, 2026: "a place to track
+// leads through the website and track what happens"): Contact Us and Sell Us
+// Your Property, where they came from, and how we worked them. Rules in
+// src/lib/site-leads.ts. `ip_hash` is a salted hash of the sender's address,
+// changing daily, kept only to slow down repeat sending; never the address itself.
+export const siteLeads = pgTable('site_leads', {
+  id: id(),
+  kind: text('kind').notNull(), // contact / sell
+  status: text('status').notNull().default('new'), // new / contacted / qualified / closed / not_a_fit
+  name: text('name').notNull(),
+  email: text('email'),
+  phone: text('phone'),
+  topic: text('topic'),
+  message: text('message'),
+  propertyAddress: text('property_address'),
+  propertyCity: text('property_city'),
+  propertyKind: text('property_kind'),
+  condition: text('condition'),
+  timeline: text('timeline'),
+  askingPrice: text('asking_price'),
+  referrer: text('referrer'),
+  landingPage: text('landing_page'),
+  formPage: text('form_page'),
+  utmSource: text('utm_source'),
+  utmMedium: text('utm_medium'),
+  utmCampaign: text('utm_campaign'),
+  ipHash: text('ip_hash'),
+  handledBy: uuid('handled_by').references(() => users.id),
+  statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
+  personId: uuid('person_id').references(() => people.id),
+  propertyId: uuid('property_id').references(() => properties.id),
+  alertSent: boolean('alert_sent'),
+  created: created(),
+  updated: updated(),
+  archived: archived(),
+}, (t) => [index('site_leads_status').on(t.status, t.created), index('site_leads_ip').on(t.ipHash, t.created)]).enableRLS();
+
+export const siteLeadNotes = pgTable('site_lead_notes', {
+  id: id(),
+  leadId: uuid('lead_id').notNull().references(() => siteLeads.id),
+  text: text('text').notNull(),
+  userId: uuid('user_id').references(() => users.id),
+  created: created(),
+}, (t) => [index('site_lead_notes_lead').on(t.leadId, t.created)]).enableRLS();
+
+// Visits to the website, counted on our own server: a page and a day, nothing
+// about who (no cookies, no addresses). Search engines and link checkers aren't counted.
+export const sitePageViews = pgTable('site_page_views', {
+  day: date('day').notNull(),
+  path: text('path').notNull(),
+  views: integer('views').notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.day, t.path] })]).enableRLS();
