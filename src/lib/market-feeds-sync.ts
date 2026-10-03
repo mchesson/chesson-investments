@@ -4,8 +4,9 @@ import { createGunzip } from 'node:zlib';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { marketPermits, marketRates, marketSyncs, marketTrends } from '@/db/schema';
-import { FRED_30YR, headerCols, parseFredCsv, parseRedfinLine, PERMIT_PAGE, permitQuery, permitSources, redfinFiles, redfinMetros, type PermitRow, type TrendRow } from './market-feeds';
+import { headerCols, parseRedfinLine, PERMIT_PAGE, permitQuery, permitSources, redfinFiles, redfinMetros, type PermitRow, type TrendRow } from './market-feeds';
 import { addDays, today } from './format';
+import { parseEffr, parseFred, parsePmms, parseTreasury, rateSeries, rateSourceUrls, type RateKey, type RatePoint } from './rate-sources';
 
 // Reading the free sources into the app (read-only on each). Each update is a
 // market_syncs row (county = 'rates' / 'redfin' / 'permits') so the page can
@@ -40,18 +41,37 @@ async function lastDone(key: FeedKey) {
 
 export async function updateRates(userId: string | null, fetcher: typeof fetch = fetch) {
   return record('rates', '2015-01-01', userId, async () => {
-    const r = await fetcher(FRED_30YR, { signal: AbortSignal.timeout(30_000), cache: 'no-store', headers: { 'user-agent': 'Mozilla/5.0 (compatible; ChessonInvestments/1.0)', accept: 'text/csv' } });
-    if (!r.ok) throw new Error(`the Federal Reserve answered ${r.status}`);
-    const weeks = parseFredCsv(await r.text()).filter((w) => w.week >= '2015-01-01');
-    if (!weeks.length) throw new Error('no rates in what came back');
+    const urls = rateSourceUrls(today());
+    const get = async (url: string, accept = 'text/csv') => {
+      const r = await fetcher(url, { signal: AbortSignal.timeout(20_000), cache: 'no-store', headers: { 'user-agent': 'Mozilla/5.0 (compatible; ChessonInvestments/1.0)', accept } });
+      if (!r.ok) throw new Error(`answered ${r.status}`);
+      return r;
+    };
+    // Each rate: its first source, then FRED. Any one that answers is enough.
+    const tries: { label: string; run: () => Promise<RatePoint[]> }[] = [
+      { label: 'Freddie Mac', run: async () => { const p = parsePmms(await (await get(urls.pmms)).text()); if (!p.length) throw new Error('nothing readable'); return p; } },
+      { label: 'Treasury', run: async () => { const p = (await Promise.all(urls.treasury.map(async (u) => parseTreasury(await (await get(u)).text())))).flat(); if (!p.length) throw new Error('nothing readable'); return p; } },
+      { label: 'New York Fed', run: async () => { const p = parseEffr(await (await get(urls.effr(addDays(today(), -3 * 365 - 30)), 'application/json')).json()); if (!p.length) throw new Error('nothing readable'); return p; } },
+    ];
+    const fred: Record<RateKey, string> = { '30yr': 'MORTGAGE30US', '15yr': 'MORTGAGE15US', '10yr': 'DGS10', fedfunds: 'DFF' };
+    const results = await Promise.allSettled(tries.map((t) => t.run()));
+    const points: RatePoint[] = [];
+    const problems: string[] = [];
+    results.forEach((r, i) => { if (r.status === 'fulfilled') points.push(...r.value); else problems.push(`${tries[i].label}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`); });
+    const missing = rateSeries.map((x) => x.key).filter((k) => !points.some((p) => p.series === k));
+    const back = await Promise.allSettled(missing.map(async (k) => { const p = parseFred(await (await get(urls.fred(fred[k]))).text(), k); if (!p.length) throw new Error('nothing readable'); return p; }));
+    back.forEach((r, i) => { if (r.status === 'fulfilled') points.push(...r.value); else problems.push(`FRED ${missing[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`); });
+    const kept = points.filter((p) => p.week >= '2015-01-01');
+    if (!kept.length) throw new Error(`no rates came back (${problems.join('; ')})`);
     let added = 0;
-    for (let i = 0; i < weeks.length; i += 500) {
-      const rows = weeks.slice(i, i + 500).map((w) => ({ series: '30yr', week: w.week, rate: String(w.rate) }));
+    for (let i = 0; i < kept.length; i += 500) {
+      const rows = kept.slice(i, i + 500).map((w) => ({ series: w.series, week: w.week, rate: String(w.rate) }));
       const res = await db.insert(marketRates).values(rows).onConflictDoUpdate({ target: [marketRates.series, marketRates.week], set: { rate: sql`excluded.rate` } })
         .returning({ added: sql<boolean>`xmax = 0` });
       added += res.filter((x) => x.added).length;
     }
-    return { rows: weeks.length, added };
+    if (problems.length) console.warn('rates: some sources failed', problems.join('; '));
+    return { rows: kept.length, added };
   });
 }
 

@@ -1076,6 +1076,9 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
     const week = new Date(Date.UTC(2026, 8, 24) - i * 7 * 864e5).toISOString().slice(0, 10);
     await db.query(`insert into market_rates (series, week, rate) values ('30yr', $1, $2) on conflict (series, week) do update set rate = excluded.rate`, [week, (6.3 + Math.sin(i / 20) * 0.6).toFixed(2)]);
   }
+  // The government's rates (made up; Treasury, the New York Fed and Freddie Mac are never called in tests).
+  for (const [series, week, rate] of [['10yr', '2026-09-24', 4.11], ['10yr', '2025-09-24', 4.5], ['fedfunds', '2026-09-24', 4.08], ['15yr', '2026-09-24', 5.49]] as const)
+    await db.query(`insert into market_rates (series, week, rate) values ($1, $2, $3) on conflict (series, week) do update set rate = excluded.rate`, [series, week, rate]);
   // Redfin's numbers for a made-up ZIP, now and a year earlier, and Wake County's month.
   for (const [end, dom] of [['2026-08-31', 14], ['2025-08-31', 31]] as const)
     await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_sale_price, median_ppsf, inventory, months_of_supply, median_dom, sale_to_list, price_drops, off_market_2wk)
@@ -1095,6 +1098,10 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
   const rates = page.locator('section', { hasText: 'Rates and Buyers' }).first();
   await expect(rates.locator('.tile', { hasText: '30-Year Rate Now' })).toContainText('6.30%');
   await expect(rates.locator('svg.rate-chart')).toBeVisible();
+  await expect(rates.locator('.tile', { hasText: 'Fed Funds Rate' })).toContainText('4.08%');
+  await expect(rates.locator('.tile', { hasText: '10-Year Treasury' })).toContainText('down 0.39 from a year ago');
+  await expect(rates.locator('.tile', { hasText: '15-Year Mortgage' })).toContainText('5.49%');
+  await expect(rates.locator('.tile', { hasText: 'Mortgage Over the 10-Year' })).toContainText('2.19 pts');
   await expect(rates.locator('tr', { hasText: '$1.5M and Up' })).toContainText(/\$\d{1,3},\d{3}/); // a monthly payment
   const zips = page.locator('.zip-table tr', { hasText: zip }).first(); // fastest, with enough sales: in the open top 20
   await expect(zips).toContainText('14');

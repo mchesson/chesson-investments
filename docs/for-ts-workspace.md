@@ -110,3 +110,13 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   guessed. It's rules-based (no Claude call), so it's instant and free. The
   same pattern fits TS Workspace's "what's happening at this account" or "in
   this market / skill": a short story from the key numbers above the tables.
+- **A free outside source needs a backup** (Oct 3, 2026): FRED timed out
+  from Vercel on every run, so the Market Map showed no rates for a whole day
+  with no alert. Now each rate has a first source and a backup:
+  - mortgage rates: Freddie Mac's file, then FRED;
+  - the 10-year: Treasury.gov;
+  - fed funds: the New York Fed.
+
+  Any one answering is enough, and what failed is logged. The lesson for TS
+  Workspace's feeds (Crelate, Redfin-style public data): use fallbacks, and
+  show a stale-data warning on the page, not just a failed row in a log table.

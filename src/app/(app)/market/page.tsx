@@ -11,8 +11,8 @@ import { AreaRows, Filters, query } from '@/components/MarketParts';
 import { MarketSync } from '@/components/MarketSync';
 import { lastAutoUpdates } from '@/lib/market-auto';
 import { formatDateTime } from '@/lib/format';
-import { Builders, CountyTiles, RatesAndBuyers, ZipTable } from '@/components/MarketFeeds';
-import { bandsAndRates, countyTrends, permitsByArea, rateSummary, topBuilders, zipTrends } from '@/lib/market-feeds-data';
+import { Builders, CountyTiles, GovRates, RatesAndBuyers, ZipTable } from '@/components/MarketFeeds';
+import { bandsAndRates, countyTrends, latestRates, permitsByArea, rateSummary, topBuilders, zipTrends } from '@/lib/market-feeds-data';
 import { heatLabel, marketHeat, trendTypes } from '@/lib/market-feeds';
 import { Empty, PageHead, Section, Tile } from '@/components/ui';
 import { sql } from 'drizzle-orm';
@@ -26,9 +26,9 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const f = readFilters(sp);
   const zipType = trendTypes.some((t) => t.key === sp.zipType) ? sp.zipType! : 'all';
-  const [bands, hoods, streets, towns, places, counts, syncs, rates, zips, countyRows, builders, permitAreas] = await Promise.all([
+  const [bands, hoods, streets, towns, places, counts, syncs, rates, zips, countyRows, builders, permitAreas, latest] = await Promise.all([
     bandTrends(f), areaTable('neighborhood', f), areaTable('street', f), areaTable('city', f, 25), ourPlaces(), marketCounts(), lastSyncs(),
-    rateSummary(), zipTrends(zipType), countyTrends(), topBuilders(), permitsByArea(),
+    rateSummary(), zipTrends(zipType), countyTrends(), topBuilders(), permitsByArea(), latestRates(),
   ]);
   // Opened from a link: a place (?lat=&lng=&label=) or a neighborhood (?hood=) to center on.
   const focus = await focusFrom(sp);
@@ -63,7 +63,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           From closed county sales. Days on market, homes for sale and price cuts are under Time on Market by ZIP Code (Redfin).
         </p>
       </Section>
-      <Section title="Rates and Buyers" kind="energy" hint="What a house costs a month at today’s rate, and which price bands move with rates">
+      <Section title="Rates and Buyers" kind="energy" hint="The government’s rates, what a house costs a month at today’s rate, and which price bands move with rates">
+        <GovRates latest={latest} />
         {rates && rateBands ? <RatesAndBuyers rates={rates} bands={rateBands} /> : <Empty>No rates loaded yet. Press Update Rates under Update Market Data.</Empty>}
       </Section>
       <Section title="Time on Market by ZIP Code" kind="aqua" hint={zips[0] ? `Redfin, the 3 months to ${zips[0].periodEnd.slice(0, 7)}; fastest first` : 'Redfin’s free market data'}>
