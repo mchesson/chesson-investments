@@ -485,3 +485,7 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .rental-status-short { display: none; }
 form:has(input[name=kind][value=short_term]:checked) .rental-status-short { display: block; }
 form:has(input[name=kind][value=short_term]:checked) .rental-status-lease { display: none; }
+/* Area picker: chips per kind (AreaPicker.tsx). */
+.chip-field { position: relative; }
+.chip-field .chips { margin: 4px 0; }
+.chip-x { border: 0; background: none; cursor: pointer; padding: 0 0 0 4px; font-weight: 700; color: inherit; }

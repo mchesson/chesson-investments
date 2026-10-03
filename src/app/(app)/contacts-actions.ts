@@ -15,6 +15,7 @@ import { firstStage, isStage, roleDef, roleLabel, stageLabel, cleanSupplierTypes
 import type { FormResult } from '@/components/ActionForm';
 import { howMetProblem, splitName } from '@/lib/how-met';
 import { likeCompanies, likePeople } from '@/lib/duplicates';
+import { areaSummary, cleanAreas } from '@/lib/areas';
 
 const touchKinds = ['call', 'email', 'text', 'meeting', 'site_walk', 'event'] as const;
 type TouchKind = (typeof touchKinds)[number];
@@ -40,6 +41,13 @@ async function likeCompanyOnFile(name: string, selfId: string | null) {
   const on = await db.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived));
   const like = likeCompanies(name, on, selfId).slice(0, 4);
   return like.length ? like.map((c) => c.name).join(', ') : null;
+}
+
+/** Where they work: from the area picker (cities, ZIPs, neighborhoods) or the old one-line box. */
+function areaFields(d: FormData) {
+  if (!d.get('areasPicked')) return { areas: str(d, 'areas') };
+  const a = cleanAreas({ cities: d.getAll('areaCity').map(String), zips: d.getAll('areaZip').map(String), neighborhoods: d.getAll('areaHood').map(String) });
+  return { areas: areaSummary(a) || null, cities: a.cities.length ? a.cities : null, zips: a.zips.length ? a.zips : null, neighborhoods: a.neighborhoods.length ? a.neighborhoods : null };
 }
 
 function personFields(d: FormData) {
@@ -117,7 +125,7 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
       const kinds = cleanSupplierTypes(d.getAll('supplierTypes').map(String));
       const picked = [...new Set([...d.getAll('roles').map(String), str(d, 'role') ?? '', kinds.length ? 'supplier' : ''])].filter((r) => roleDef(r));
       for (const role of picked) {
-        await tx.insert(partyRoles).values({ personId: p.id, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), supplierTypes: role === 'supplier' && kinds.length ? kinds : null });
+        await tx.insert(partyRoles).values({ personId: p.id, role, stage: firstStage(role), trade: str(d, 'trade'), ...areaFields(d), licenseNumber: str(d, 'licenseNumber'), supplierTypes: role === 'supplier' && kinds.length ? kinds : null });
       }
       await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map((r) => roleTag({ role: r, supplierTypes: kinds })).join(', ')}` : ''}`, after: f }, tx);
       if (f.introducedById) await audit({ userId: user.id, entity: 'person', entityId: f.introducedById, action: 'introduced', summary: `introduced us to ${p.firstName} ${p.lastName}`, after: { personId: p.id, note: f.introNote } }, tx);
@@ -179,7 +187,7 @@ export async function saveCompany(_: FormResult, d: FormData): Promise<FormResul
     if (!id) {
       const [c] = await tx.insert(companies).values({ ...f, createdBy: user.id }).returning();
       const role = str(d, 'role');
-      if (role && roleDef(role)) await tx.insert(partyRoles).values({ companyId: c.id, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber') });
+      if (role && roleDef(role)) await tx.insert(partyRoles).values({ companyId: c.id, role, stage: firstStage(role), trade: str(d, 'trade'), ...areaFields(d), licenseNumber: str(d, 'licenseNumber') });
       await audit({ userId: user.id, entity: 'company', entityId: c.id, action: 'create', summary: `added the company ${c.name}${role ? ` as ${roleLabel(role)}` : ''}`, after: f }, tx);
       return c.id;
     }
@@ -206,7 +214,7 @@ export async function addRole(_: FormResult, d: FormData): Promise<FormResult> {
   await db.transaction(async (tx) => {
     const through = uuidOrNull(d, 'hiredThroughCompanyId');
     const sk = role === 'supplier' && kinds.length ? kinds : null;
-    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), hiredThroughCompanyId: through, supplierTypes: sk });
+    await tx.insert(partyRoles).values({ personId, companyId, role, stage: firstStage(role), trade: str(d, 'trade'), ...areaFields(d), licenseNumber: str(d, 'licenseNumber'), hiredThroughCompanyId: through, supplierTypes: sk });
     await audit({ userId: user.id, entity: personId ? 'person' : 'company', entityId: personId ?? companyId, action: 'role-add', summary: `added the role ${roleTag({ role, supplierTypes: sk })} (${stageLabel(role, firstStage(role))})${through ? ', through a GC' : ''}` }, tx);
   });
   revalidatePath('/', 'layout');
@@ -222,7 +230,7 @@ export async function updateRole(_: FormResult, d: FormData): Promise<FormResult
   const stage = str(d, 'stage') ?? r.stage;
   if (!isStage(r.role, stage)) return { error: 'Pick a stage.' };
   const kinds = d.get('hasSupplierTypes') ? cleanSupplierTypes(d.getAll('supplierTypes').map(String)) : (r.supplierTypes ?? []);
-  const next = { stage, trade: str(d, 'trade'), areas: str(d, 'areas'), licenseNumber: str(d, 'licenseNumber'), notes: str(d, 'notes'), supplierTypes: r.role === 'supplier' && kinds.length ? kinds : null };
+  const next = { stage, trade: str(d, 'trade'), ...areaFields(d), licenseNumber: str(d, 'licenseNumber'), notes: str(d, 'notes'), supplierTypes: r.role === 'supplier' && kinds.length ? kinds : null };
   const ch = diff(r as Record<string, unknown>, next);
   if (!ch) return { ok: 'No changes.' };
   await db.transaction(async (tx) => {

@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/format';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
 import { Pager, RoleChips } from '@/components/contacts';
+import { areaSummary, areasOf } from '@/lib/areas';
 
 export const metadata = { title: 'People' };
 
@@ -80,7 +81,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                     <td>{p.companyName ? <><Link href={`/companies/${p.companyId}`}>{p.companyName}</Link>{p.companyTypes.length ? <div className="small muted">{p.companyTypes.map(roleTag).join(' · ')}</div> : null}</> : '—'}</td>
                     <td>{p.title ?? '—'}</td>
                     <td className="small">{p.places.length ? <>{p.places.slice(0, 3).map((x, i) => <span key={x.id}>{i ? ', ' : ''}<Link href={x.kind === 'project' ? `/projects/${x.id}` : `/watchlist/${x.id}`}>{x.name}</Link></span>)}{p.places.length > 3 ? <span className="muted"> +{p.places.length - 3} more</span> : null}</> : '—'}</td>
-                    <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} />{p.roles.filter((r) => r.role === 'agent' && r.areas).map((r, i) => <div key={i} className="small specialty">Specializes in {r.areas}</div>)}</td>
+                    <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} />{p.roles.filter((r) => r.role === 'agent' && areaSummary(areasOf(r))).map((r, i) => <div key={i} className="small specialty">Specializes in {areaSummary(areasOf(r))}</div>)}</td>
                     <td><Phone value={p.phone} /></td>
                     <td>{p.lastTouch ? formatDate(p.lastTouch) : <span className="muted">Never</span>}</td>
                     <td>{p.introducedById ? <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link> : '—'}</td>

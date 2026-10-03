@@ -635,20 +635,42 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await expect(page.locator('.issue-card', { hasText: `Loose threshold ${s}` })).toContainText(`Tile${s} Pros`);
 });
 
-test('agents: the areas they specialize in', async ({ page }) => {
+test('agents: the areas they specialize in, as cities, ZIPs and neighborhoods; agents who work at a watched property', async ({ page }) => {
   await signIn(page, 'Sample Owner');
   const s = Date.now().toString().slice(-6);
+  const hood = `Agentwood ${s}`;
   await page.goto('/people/new');
   await page.getByLabel('First Name', { exact: true }).fill('Ava');
   await page.getByLabel('Last Name', { exact: true }).fill(`Agent${s}`);
   await page.getByLabel('Real Estate Agent / Broker', { exact: true }).check();
-  await page.locator('input[name=areas]').fill('Five Points, Oakwood');
   await expect(page.locator('input[name=city]')).toHaveAttribute('list', 'city-options');
-  await page.getByRole('button', { name: 'Add Person' }).click();
-  await expect(page.locator('main').getByText('Specializes in Five Points, Oakwood')).toBeVisible();
+  const areas = page.locator('fieldset.area-picker');
+  await areas.getByLabel('ZIP Codes').fill('27604');
+  await areas.getByLabel('ZIP Codes').press('Enter');
+  await areas.getByLabel('Neighborhoods').fill(hood);
+  await areas.getByLabel('Neighborhoods').press('Enter');
+  await areas.getByLabel('Neighborhoods').fill('Oakwood');
+  await areas.getByLabel('Neighborhoods').press('Enter');
+  await expect(areas.locator('.chip')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Add Person', exact: true }).last().click();
+  await expect(page.locator('main').getByText(`Specializes in 27604 · ${hood}, Oakwood`)).toBeVisible();
   await page.goto(`/people?roles=agent&q=Agent${s}`);
-  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText('Specializes in Five Points, Oakwood');
+  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText(`Specializes in 27604 · ${hood}, Oakwood`);
+  // A search for the ZIP finds them.
+  await page.goto(`/people?roles=agent&q=27604`);
+  await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toBeVisible();
+  // A watched property in that neighborhood lists them.
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const w = await db.query(`insert into properties (address, city, neighborhood) values ($1, 'Raleigh', $2) returning id`, [`${s} Agent Way`, hood]);
+  await db.end();
+  await page.goto(`/watchlist/${w.rows[0].id}`);
+  const here = page.locator('section', { has: page.getByRole('heading', { name: /Agents Who Work Here/ }) });
+  await expect(here).toContainText(`Ava Agent${s}`);
+  await expect(here).toContainText(`works ${hood}`);
 });
+
 
 test('the market map: filters and layer buttons, sales in view, neighborhoods and the trend by price', async ({ page }) => {
   // Made-up sales (the counties are never called in tests).

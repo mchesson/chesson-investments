@@ -33,6 +33,7 @@ import { SalePriceTag } from '@/components/SalePriceTag';
 import { ZoningFact } from '@/components/ZoningFact';
 import { ProjectDocuments } from '@/components/ProjectDocuments';
 import { CompsTab } from '@/components/CompsTab';
+import { AgentsHere } from '@/components/AgentsHere';
 import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/comp-data';
 import { joinAddress } from '@/lib/locate-rules';
 import { hoodMapHref, placeMapHref } from '@/lib/map-links';
@@ -100,8 +101,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
-          {tab === 'comps' ? <CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
-            providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /> : null}
+          {tab === 'comps' ? <><CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
+            providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /><AgentsHere place={{ city: p.city, zip: p.zip, neighborhood: p.neighborhood }} /></> : null}
           {tab === 'documents' ? <ProjectDocuments projectId={id} canAdd={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
           {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user, 'contacts.edit')} /> : null}
