@@ -31,6 +31,7 @@ import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
 import { SalePriceTag } from '@/components/SalePriceTag';
 import { ZoningFact } from '@/components/ZoningFact';
+import { ProjectDocuments } from '@/components/ProjectDocuments';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -58,7 +59,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
-    { key: 'rental', label: 'Rental' }, { key: 'vendors', label: 'Vendors and Issues' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
+    { key: 'documents', label: 'Documents' }, { key: 'rental', label: 'Rental' }, { key: 'vendors', label: 'Vendors and Issues' }, { key: 'utilities', label: 'Utilities' }, { key: 'website', label: 'Website' }, { key: 'log', label: 'Daily Log' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' },
   ];
   return (
     <>
@@ -92,6 +93,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
+          {tab === 'documents' ? <ProjectDocuments projectId={id} canAdd={editProject} /> : null}
           {tab === 'rental' ? await (async () => { const rd = await rentalFor(id); return <RentalTab projectId={id} data={rd} allIn={data.allIn} marketValue={p.marketValue ? cents(p.marketValue) : null} companies={await companyOptions()} managers={await managerOptions(rd.rental?.r.managerCompanyId)} contacts={await rentalContactsFor(id)} canEdit={editProject} canMoney={seeMoney} />; })() : null}
           {tab === 'vendors' ? <ProjectVendors projectId={id} status={issueStatus ?? null} canEdit={can(user, 'contacts.edit')} /> : null}
           {tab === 'utilities' ? <Utilities projectId={id} rows={await utilitiesFor(id)} companies={await utilityCompanyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}

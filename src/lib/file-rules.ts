@@ -10,3 +10,17 @@ export function detectFile(b: Uint8Array): { type: string; ext: string; image: b
   if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70 && [0x68, 0x6d].includes(b[8])) return { type: 'image/heic', ext: 'heic', image: true };
   return null;
 }
+
+/** A dropped document: a PDF or photo by its bytes, or a Word or Excel file (kept to download). */
+export function detectDropFile(b: Uint8Array, name: string): { type: string; ext: string; image: boolean } | null {
+  const k = detectFile(b);
+  if (k) return k;
+  const ext = (name.toLowerCase().match(/\.(docx|xlsx|doc|xls)$/) ?? [])[1];
+  const zip = b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+  const ole = b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
+  if (ext === 'docx' && zip) return { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', ext, image: false };
+  if (ext === 'xlsx' && zip) return { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ext, image: false };
+  if (ext === 'doc' && ole) return { type: 'application/msword', ext, image: false };
+  if (ext === 'xls' && ole) return { type: 'application/vnd.ms-excel', ext, image: false };
+  return null;
+}

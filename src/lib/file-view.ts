@@ -6,6 +6,7 @@ import type { Permission } from './permissions';
 export const fileNeeds: Record<string, Permission> = {
   property: 'properties.view', project: 'projects.view', daily_log: 'projects.view', bill: 'money.view', bid: 'money.view', lease: 'money.view',
   entity: 'sensitive.view', // business entities' documents: operating agreements, tax returns, EIN letters
+  inbox: 'projects.edit', // dropped documents waiting to be filed
 };
 export const fileNeed = (entity: string): Permission => fileNeeds[entity] ?? 'users.manage';
 
