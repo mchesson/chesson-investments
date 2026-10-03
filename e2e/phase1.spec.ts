@@ -1237,7 +1237,7 @@ test('remove someone added by mistake, every save says how it went, and an assoc
   const s = Date.now().toString().slice(-6);
   // Added as staff by mistake, never signed in: Remove takes them off, and the message box says so.
   await page.goto('/admin/users');
-  const add = page.locator('section', { hasText: 'Add Staff or an Accountant' }).last();
+  const add = page.locator('section', { hasText: 'Add Staff, a Partner or an Accountant' }).last();
   await add.getByLabel('Email').fill(`mistake${s}@technicalsource.com`);
   await add.getByRole('button', { name: 'Add' }).click();
   await expect(page.locator('.toast', { hasText: 'Added' })).toBeVisible();
@@ -1346,4 +1346,38 @@ test('market data updates itself: the scheduled route needs its secret, and Upda
   await page.reload();
   await expect(page.locator('.auto-update')).toContainText(/Map places, zoning and bills: \d/);
   await expect(page.locator('.auto-update')).toContainText(/linked \d+ bills/);
+});
+
+test('a partner from outside Technical Source: a sign-in link, sees everything but restricted records', async ({ page, browser }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  await page.goto('/admin/users');
+  const add = page.locator('section', { hasText: 'Add Staff, a Partner or an Accountant' }).last();
+  await expect(async () => {
+    await add.getByLabel('Email').fill(`partner${s}@example.org`);
+    await add.getByLabel('Name').fill(`Pat Partner${s}`);
+    await add.locator('select[name=role]').selectOption('partner');
+    await add.getByRole('button', { name: 'Add' }).click();
+    await expect(add.locator('.copy-link input')).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
+  const link = await add.locator('.copy-link input').inputValue();
+  expect(link).toMatch(/\/signin\/link\?t=/);
+  await page.reload();
+  await expect(page.locator('.user-card', { hasText: `partner${s}@example.org` })).toContainText('Send a New Sign-In Link');
+
+  const ctx = await browser.newContext();
+  const g = await ctx.newPage();
+  await g.goto(link.replace(/^https?:\/\/[^/]+/, ''));
+  await g.getByRole('button', { name: 'Sign In' }).click();
+  await g.waitForURL((u) => !u.pathname.startsWith('/signin'));
+  await g.goto('/projects');
+  await expect(g.getByRole('link', { name: '109 Plainview Ave' }).first()).toBeVisible();
+  await g.goto('/people');
+  await expect(g.getByRole('heading', { level: 1 })).toHaveText('People');
+  // Restricted records and managing users stay with the owner.
+  await g.goto('/entities');
+  await expect(g.getByText('This page could not be found.')).toBeVisible();
+  await g.goto('/admin/users');
+  await expect(g.getByText('This page could not be found.')).toBeVisible();
+  await ctx.close();
 });

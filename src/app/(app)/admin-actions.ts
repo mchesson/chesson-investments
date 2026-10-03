@@ -8,7 +8,7 @@ import { appSettings, guestAccess, projects, users } from '@/db/schema';
 import { readStandards, STANDARDS_KEY, STANDARDS_TAG } from '@/lib/access-standards';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
-import { editableRoles, effectivePermissions, isPermission, isRole, mayManage, permissionLabel, roleNames, roleStandard } from '@/lib/permissions';
+import { editableRoles, linkRoles, effectivePermissions, isPermission, isRole, mayManage, permissionLabel, roleNames, roleStandard } from '@/lib/permissions';
 import { cleanAbilities, cleanExtras, guestAbilities, guestTypeLabel, isGuestType, partnerStandard } from '@/lib/guests';
 import { appUrl, createLink } from '@/lib/sign-in-links';
 import { linkEmail, mailReady, sendMail } from '@/lib/mail';
@@ -27,7 +27,7 @@ export async function addUser(_: FormResult, d: FormData): Promise<FormResult> {
   if ((role === 'owner' || role === 'admin') && me.role !== 'owner') return { error: 'Only the owner can make someone an Owner or an Admin.' };
   // Microsoft sign-in only takes Technical Source accounts (owner, Oct 2, 2026: a contractor got no email and couldn't sign in).
   const outside = !email.endsWith('@technicalsource.com');
-  if (outside && role !== 'accountant') return { error: `${email} isn’t a Technical Source account, so they can’t sign in with Microsoft. Use Invite an Outside Partner for a contractor, agent, lender or other partner (they sign in with a link), or pick Accountant for an outside bookkeeper.` };
+  if (outside && role !== 'accountant' && role !== 'partner') return { error: `${email} isn’t a Technical Source account, so they can’t sign in with Microsoft. Pick Partner (Sees Everything) for someone who sees everything, Accountant for an outside bookkeeper, or use Invite an Outside Partner for someone on chosen projects only.` };
   const [exists] = await db.select().from(users).where(eq(users.email, email));
   if (exists) return { error: 'They’re already listed.' };
   const id = await db.transaction(async (tx) => {
@@ -53,7 +53,7 @@ export async function setUserRole(_: FormResult, d: FormData): Promise<FormResul
   const guard = mayManage(me, u, role);
   if (guard) return { error: guard };
   if ((u.role === 'guest') !== (role === 'guest')) return { error: 'Outside partners stay outside partners: invite a Technical Source account as staff instead.' };
-  if ((role === 'owner' || role === 'admin' || role === 'staff') && !u.email.endsWith('@technicalsource.com')) return { error: `${u.email} can’t sign in with Microsoft, so they can be an Outside Partner or an Accountant only.` };
+  if ((role === 'owner' || role === 'admin' || role === 'staff') && !u.email.endsWith('@technicalsource.com')) return { error: `${u.email} can’t sign in with Microsoft, so they can be a Partner, an Accountant or an Outside Partner.` };
   if (u.role === role && u.active === active) return { ok: 'No changes.' };
   await db.transaction(async (tx) => {
     await tx.update(users).set({ role, active }).where(eq(users.id, id));
@@ -154,7 +154,7 @@ export async function newGuestLink(_: FormResult, d: FormData): Promise<FormResu
   const me = await requireAction('users.manage');
   const id = str(d, 'id');
   const [u] = id ? await db.select().from(users).where(eq(users.id, id)) : [];
-  if (!u || (u.role !== 'guest' && u.role !== 'accountant') || msAccount(u.email)) return { error: 'Only outside people sign in with a link.' };
+  if (!u || !linkRoles.includes(u.role) || msAccount(u.email)) return { error: 'Only outside people sign in with a link.' };
   if (!u.active) return { error: 'Turn their access back on first.' };
   const { url, sent } = await inviteLink(u.id, u.email, me.id, 'Here is a new link to sign in to Chesson Investments.');
   return sent.sent ? { ok: `Sent to ${u.email}. The link:`, link: url } : { ok: `Email isn’t set up yet: copy this link and send it to ${u.email}.`, link: url };

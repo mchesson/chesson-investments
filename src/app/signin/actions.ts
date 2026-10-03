@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { signInLinks, users } from '@/db/schema';
 import { audit } from '@/lib/audit';
 import { normalizeEmail } from '@/lib/format';
+import { linkRoles } from '@/lib/permissions';
 import { str } from '@/lib/forms';
 import { appUrl, createLink } from '@/lib/sign-in-links';
 import { linkEmail, mailReady, sendMail } from '@/lib/mail';
@@ -22,7 +23,7 @@ export async function requestLink(_: FormResult, d: FormData): Promise<FormResul
   const same = { ok: mailReady() ? 'If that email has access, a sign-in link is on its way. It works once, for 30 minutes.' : 'Email sign-in isn’t switched on yet. Ask Chesson Investments to send you a new link.' };
   if (!mailReady()) return same;
   const [u] = await db.select().from(users).where(eq(users.email, email));
-  if (!u || !u.active || (u.role !== 'guest' && u.role !== 'accountant')) return same;
+  if (!u || !u.active || !linkRoles.includes(u.role)) return same;
   const [recent] = await db.select({ n: sql<number>`count(*)::int` }).from(signInLinks)
     .where(and(eq(signInLinks.userId, u.id), eq(signInLinks.purpose, 'sign_in'), gt(signInLinks.created, new Date(Date.now() - 3600_000))));
   if ((recent?.n ?? 0) >= 3) return same;

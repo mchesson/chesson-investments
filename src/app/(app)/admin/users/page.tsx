@@ -14,7 +14,7 @@ import { ActionForm } from '@/components/ActionForm';
 import { addUser, inviteGuest, newGuestLink, savePartnerStandard, saveRoleStandard, setGuestAccess, setGuestType, setUserPermissions, setUserRole, removeUser } from '../../admin-actions';
 
 export const metadata = { title: 'Users and Access' };
-const assignable: Role[] = ['owner', 'admin', 'staff', 'accountant', 'pending'];
+const assignable: Role[] = ['owner', 'admin', 'staff', 'partner', 'accountant', 'pending'];
 
 function PermissionBoxes({ id, role, own, std }: { id: string; role: Role; own: string[] | null; std: RoleStandards }) {
   const on = effectivePermissions(role, own, std);
@@ -101,7 +101,7 @@ export default async function Users() {
                     <PermissionBoxes id={u.id} role={u.role} own={u.permissions} std={standards.roles} />
                   </details>
                 )}
-              {u.role === 'accountant' && !u.email.endsWith('@technicalsource.com') ? (
+              {(u.role === 'accountant' || u.role === 'partner') && !u.email.endsWith('@technicalsource.com') ? (
                 <ActionForm action={newGuestLink} submit="Send a New Sign-In Link" submitClass="link-btn small"><input type="hidden" name="id" value={u.id} /></ActionForm>
               ) : null}
             </li>
@@ -211,7 +211,7 @@ export default async function Users() {
           })}</ul>
         </Section>
 
-        <Section title="Add Staff or an Accountant" kind="grey" hint="Technical Source Microsoft accounts sign in with Microsoft; an outside accountant gets a sign-in link">
+        <Section title="Add Staff, a Partner or an Accountant" kind="grey" hint="Technical Source accounts sign in with Microsoft; a Partner (sees everything but restricted records) or an outside accountant gets a sign-in link by email">
           <ActionForm action={addUser} submit="Add" resetOnOk>
             <div className="fields">
               <label className="f">Email<input name="email" type="email" required /></label>

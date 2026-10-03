@@ -3,7 +3,7 @@
 // of them for one person (owner, Oct 2, 2026: "a checkbox with all the
 // available things on the app"), kept in users.permissions.
 
-export type Role = 'pending' | 'owner' | 'admin' | 'staff' | 'accountant' | 'guest';
+export type Role = 'pending' | 'owner' | 'admin' | 'staff' | 'accountant' | 'partner' | 'guest';
 
 /** Every permission, grouped as the Users page shows them. */
 export const permissionGroups = [
@@ -53,18 +53,25 @@ export const roleDefaults: Record<Role, Permission[]> = {
     'projects.view', 'projects.edit', 'website.edit', 'money.view', 'bills.edit',
   ],
   accountant: ['projects.view', 'money.view', 'bills.edit', 'bills.pay'],
+  // Partners we look at deals with (owner, Oct 3, 2026: Jason DeGroff and James
+  // Bailey, "I want him to see everything but is not a TS person"): everything
+  // but restricted records, managing users and deleting permanently. They sign
+  // in with an emailed link.
+  partner: allPermissions.filter((p) => p !== 'sensitive.view' && p !== 'users.manage' && p !== 'records.delete'),
   // Guests (contractors, partners) never use the staff pages: they see only the
   // projects they're invited to, through /guest, with that project's checkboxes.
   guest: [],
 };
 
 export const roleNames: Record<Role, string> = {
-  pending: 'Waiting for Access', owner: 'Owner', admin: 'Admin', staff: 'Staff', accountant: 'Accountant', guest: 'Outside Partner',
+  pending: 'Waiting for Access', owner: 'Owner', admin: 'Admin', staff: 'Staff', accountant: 'Accountant', partner: 'Partner (Sees Everything)', guest: 'Outside Partner',
 };
 
 /** The owner's own standard sets per role (Users page → Standard Access by Type), saved in app_settings. */
-export type RoleStandards = Partial<Record<'admin' | 'staff' | 'accountant', string[]>>;
-export const editableRoles = ['admin', 'staff', 'accountant'] as const;
+export type RoleStandards = Partial<Record<'admin' | 'staff' | 'accountant' | 'partner', string[]>>;
+export const editableRoles = ['admin', 'staff', 'accountant', 'partner'] as const;
+/** Roles for people outside Technical Source: they sign in with an emailed link, not Microsoft. */
+export const linkRoles: Role[] = ['guest', 'accountant', 'partner'];
 
 /** A role's standard set: the owner's if saved, else the built-in one. */
 export function roleStandard(role: Role, standards?: RoleStandards | null): Permission[] {
