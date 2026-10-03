@@ -1381,3 +1381,38 @@ test('a partner from outside Technical Source: a sign-in link, sees everything b
   await expect(g.getByText('This page could not be found.')).toBeVisible();
   await ctx.close();
 });
+
+test('drop documents: many at once, the same file skipped, filed from the inbox onto a project’s Documents tab', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const pdf = (n: string) => ({ name: `${n}-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${n} ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
+  await page.goto('/documents/drop');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drop Documents');
+  // Claude is off in tests: files wait in the inbox; a text file isn't taken.
+  await page.locator('input[type=file]').setInputFiles([pdf('deed'), pdf('receipt'), { name: `notes-${s}.txt`, mimeType: 'text/plain', buffer: Buffer.from('hello') }]);
+  await expect(page.locator('.toast', { hasText: /Done: 3 files sent/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('tr', { hasText: `deed-${s}.pdf` })).toContainText('Needs You');
+  await expect(page.locator('tr', { hasText: `notes-${s}.txt` })).toContainText('Not Kept');
+  // The same file again is skipped.
+  await page.locator('input[type=file]').setInputFiles([pdf('deed')]);
+  await expect(page.locator('tr', { hasText: `deed-${s}.pdf` }).last()).toContainText('Already Here', { timeout: 30_000 });
+
+  // File the deed on 109 Plainview by hand.
+  await page.reload();
+  const item = page.locator('li', { hasText: `deed-${s}.pdf` });
+  await item.locator('summary', { hasText: 'File It' }).click();
+  await expect(async () => {
+    await item.getByRole('combobox', { name: /Where It Goes/ }).fill('Plainview');
+    await page.getByRole('option', { name: /109 Plainview Ave/ }).first().click({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await item.locator('select[name=type]').selectOption('Deed');
+  await item.locator('input[name=title]').fill(`Recorded deed ${s}`);
+  await item.getByRole('button', { name: 'File It' }).click();
+  await expect(page.locator('.toast', { hasText: 'Filed on 109 Plainview Ave' })).toBeVisible();
+
+  await page.goto('/projects');
+  await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
+  await page.locator('.tabs').getByRole('link', { name: 'Documents' }).click();
+  const deeds = page.locator('section', { hasText: 'Deed, Title and Survey' });
+  await expect(deeds).toContainText(`Recorded deed ${s}`);
+});
