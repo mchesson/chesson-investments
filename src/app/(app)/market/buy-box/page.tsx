@@ -74,12 +74,13 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
       <Section title={by === 'street' ? 'Streets' : 'Neighborhoods'} kind="blue" hint={`${listed.length} shown`}>
         {listed.length ? (
           <div className="table-wrap"><table className="t buy-table">
-            <thead><tr><th>{by === 'street' ? 'Street' : 'Neighborhood'}</th><th>Verdict</th><th className="num">Downtown</th><th className="num">Finished $/sf</th><th className="num">New House Sells For</th><th className="num">We Can Pay for the Lot</th><th className="num">Lots and Teardowns Sell For</th><th className="num">Sales at That Price</th><th className="num">When We’d Sell: Low / Mid / High</th><th className="num">Building Nearby</th><th>Why</th></tr></thead>
+            <thead><tr><th>{by === 'street' ? 'Street' : 'Neighborhood'}</th><th>Verdict</th><th className="num">Downtown</th><th className="num">Days on Market</th><th className="num">Finished $/sf</th><th className="num">New House Sells For</th><th className="num">We Can Pay for the Lot</th><th className="num">Lots and Teardowns Sell For</th><th className="num">Sales at That Price</th><th className="num">When We’d Sell: Low / Mid / High</th><th className="num">Building Nearby</th><th>Why</th></tr></thead>
             <tbody>{listed.map((z) => (
               <tr key={`${z.name}|${z.city}|${z.county}`}>
                 <td><strong>{z.name}</strong><div className="small muted">{z.city ?? ''}{z.county ? ` · ${z.county === 'wake' ? 'Wake' : 'Durham'}` : ''}</div></td>
                 <td><span className={`chip verdict-${z.verdict}`}>{verdictLabel[z.verdict]}</span></td>
                 <td className="num">{z.near.miles} mi<div className="small muted">{z.near.name.replace('Downtown ', '')}</div></td>
+                <td className="num">{z.dom === null || z.dom === undefined ? '—' : <span className={z.dom <= 20 ? 'pace-faster' : z.dom > settings.maxDom ? 'pace-slower' : ''}>{Math.round(z.dom)} days</span>}{z.zip ? <div className="small muted">ZIP {z.zip}</div> : null}</td>
                 <td className="num">{z.finishedPsf ? `$${z.finishedPsf}` : '—'}<div className="small muted">{z.finished} {z.basis}</div></td>
                 <td className="num">{money(z.money?.value)}</td>
                 <td className="num"><strong>{money(z.money?.maxLot)}</strong></td>
@@ -99,6 +100,7 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
           less {settings.sellingPct}% selling, the build at ${settings.buildPerSf}/sf, {settings.softPct}% soft and holding, and {settings.profitPct}% profit, divided by 1 + {settings.financingPct}% financing = what we can pay for the lot.
           Lots and teardowns = land sales and houses built before 1970 under 1,600 sf, last 3 years.
           When we’d sell: Mid carries the zone’s own $/sf trend (last 12 months against the 12 before, capped at ±15% a year) forward {settings.monthsToSell} months; Low takes {settings.downsidePct}% off, High adds {settings.upsidePct}%. “Holds up” means the Low case still covers what lots sell for there.
+          Days on market is Redfin’s median for the zone’s ZIP over the last 3 months (all homes); a buy zone slower than {settings.maxDom} days is only a watch, and zones selling within a month are listed first.
           Building nearby counts new-home and demolition permits (Raleigh and Durham) within half a mile, and names the local builders there (national and large builders left out; see <Link href="/market/builders">Builders</Link>).
         </p>
       </Section>

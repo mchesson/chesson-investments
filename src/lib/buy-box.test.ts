@@ -68,3 +68,18 @@ test('looking ahead: the zone’s trend carried to when we sell, and whether the
   assert.ok(z.reasons.some((r) => r.includes('if prices fall 10%')));
   assert.ok(z.reasons.some((r) => r.includes('up 10% in a year')));
 });
+
+test('days on market: a slow ZIP makes a buy zone a watch; fast ones say so and come first', async () => {
+  const s = { ...defaultBuyBox, maxDom: 60 };
+  const base = { name: 'X', city: 'Raleigh', county: 'wake', lat: 35.79, lng: -78.64, finished: 10, finishedPsf: 900, entryCount: 4, entryPrice: 300_000, bandCounts: { '15m': 6 } as Record<string, number>, zip: '27608' };
+  assert.equal(judgeZone({ ...base, dom: null }, s).verdict, 'buy');
+  const slow = judgeZone({ ...base, dom: 75 }, s);
+  assert.equal(slow.verdict, 'watch');
+  assert.ok(slow.reasons.some((r) => r.includes('take about 75 days to sell')));
+  const fast = judgeZone({ ...base, name: 'Fast', dom: 12 }, s);
+  assert.equal(fast.verdict, 'buy');
+  assert.ok(fast.reasons.some((r) => r.includes('sell in about 12 days')));
+  // Among buy zones near a downtown, the one selling within a month comes first.
+  const middling = judgeZone({ ...base, name: 'Middling', dom: 45, entryPrice: 200_000 }, s);
+  assert.deepEqual(rankZones([middling, fast], s).map((z) => z.name), ['Fast', 'Middling']);
+});
