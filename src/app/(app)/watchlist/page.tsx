@@ -7,6 +7,9 @@ import { pricePerLotSf, propertyStageLabel } from '@/lib/properties';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { Pager } from '@/components/contacts';
 import { dealTypeLabel, dealTypes, isDealType } from '@/lib/deal-sources';
+import { isZoningFamily, zoningFamilies, zoningFamilyLabel } from '@/lib/zoning';
+import { ActionButton } from '@/components/ActionButton';
+import { findLocationsAndZoning } from '../locate-actions';
 
 export const metadata = { title: 'Watchlist' };
 
@@ -19,12 +22,15 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const view = (views.find((v) => v.key === sp.view)?.key ?? 'active') as WatchView;
   const dealType = isDealType(sp.type) ? sp.type : null;
-  const { rows, total, page, pageSize } = await listProperties({ view, q: sp.q, page: Number(sp.page) || 1, dealType });
-  const href = (o: Record<string, string | null>) => { const q = new URLSearchParams(Object.entries({ view: view === 'active' ? null : view, type: dealType, ...o }).filter(([, v]) => v) as [string, string][]).toString(); return q ? `/watchlist?${q}` : '/watchlist'; };
+  // Zoning: several can be picked (Houses, Houses and Townhomes...), kept in the address.
+  const zoning = (sp.zoning ?? '').split(',').filter(isZoningFamily);
+  const { rows, total, page, pageSize } = await listProperties({ view, q: sp.q, page: Number(sp.page) || 1, dealType, zoning });
+  const toggle = (k: string) => { const n = zoning.includes(k as never) ? zoning.filter((z) => z !== k) : [...zoning, k]; return n.length ? n.join(',') : null; };
+  const href = (o: Record<string, string | null>) => { const q = new URLSearchParams(Object.entries({ view: view === 'active' ? null : view, type: dealType, zoning: zoning.length ? zoning.join(',') : null, ...o }).filter(([, v]) => v) as [string, string][]).toString(); return q ? `/watchlist?${q}` : '/watchlist'; };
   return (
     <>
       <PageHead title="Watchlist" sub="Every lot we like, bid on or watch. Sold ones stay as comparables."
-        actions={<><Link className="btn secondary" href="/watchlist/sources">Deal Sources</Link>{can(user, 'properties.edit') ? <Link className="btn" href={`/watchlist/new${dealType ? `?type=${dealType}` : ''}`}>Add a Property</Link> : null}</>} />
+        actions={<>{can(user, 'properties.edit') ? <ActionButton action={findLocationsAndZoning} className="btn secondary" label="Find Locations and Zoning" done="Done." /> : null}<Link className="btn secondary" href="/watchlist/sources">Deal Sources</Link>{can(user, 'properties.edit') ? <Link className="btn" href={`/watchlist/new${dealType ? `?type=${dealType}` : ''}`}>Add a Property</Link> : null}</>} />
       <Section title="Find Properties" kind="grey">
         <nav className="chips" style={{ marginBottom: 10 }} aria-label="Which properties">
           {views.map((v) => (
@@ -35,7 +41,13 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
           <Link className="role-btn" aria-pressed={!dealType} href={href({ type: null })}>Every Kind</Link>
           {dealTypes.map((t) => <Link key={t.key} className="role-btn" aria-pressed={dealType === t.key} href={href({ type: t.key })}>{t.label}</Link>)}
         </nav>
+        <nav className="role-pick" aria-label="Zoning"><span className="filter-label">Zoning</span>
+          <Link className="role-btn" aria-pressed={!zoning.length} href={href({ zoning: null })}>Any Zoning</Link>
+          {zoningFamilies.map((f) => <Link key={f.key} className="role-btn" aria-pressed={zoning.includes(f.key)} href={href({ zoning: toggle(f.key) })} title={'hint' in f ? f.hint : undefined}>{f.label}</Link>)}
+        </nav>
+        {zoning.length ? <p className="small muted" style={{ margin: '0 0 8px' }}>Zoning comes from the Wake and Durham county maps. A property without its location shows only under Any Zoning: press Find Locations and Zoning.</p> : null}
         <form className="find-bar">
+          {zoning.length ? <input type="hidden" name="zoning" value={zoning.join(',')} /> : null}
           {view !== 'active' ? <input type="hidden" name="view" value={view} /> : null}
           {dealType ? <input type="hidden" name="type" value={dealType} /> : null}
           <label className="f grow">Search<input name="q" defaultValue={sp.q ?? ''} placeholder="Address, city, neighborhood, ZIP, zoning" /></label>
@@ -57,14 +69,14 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
                   <td className="num">{formatMoney(price)}</td>
                   <td className="num">{r.lotSf ? `${r.lotSf.toLocaleString()} sf` : '—'}</td>
                   <td className="num">{ppsf ? `$${ppsf.toFixed(2)}` : '—'}</td>
-                  <td>{r.zoning ?? '—'}</td>
+                  <td>{r.zoning ?? '—'}{r.zoningFamily ? <div className="small muted">{zoningFamilyLabel(r.zoningFamily)}{r.zoningPlace ? ` · ${r.zoningPlace}` : ''}</div> : null}</td>
                   <td>{r.sourceId ? <Link href={`/people/${r.sourceId}`}>{r.sourceName}</Link> : <span className="muted">Us</span>}</td>
                 </tr>
               );
             })}</tbody>
           </table></div>
         ) : <Empty>Nothing here yet.</Empty>}
-        <Pager base="/watchlist" page={page} total={total} pageSize={pageSize} params={{ view: view === 'active' ? undefined : view, q: sp.q, type: dealType ?? undefined }} />
+        <Pager base="/watchlist" page={page} total={total} pageSize={pageSize} params={{ view: view === 'active' ? undefined : view, q: sp.q, type: dealType ?? undefined, zoning: zoning.length ? zoning.join(',') : undefined }} />
       </Section>
     </>
   );

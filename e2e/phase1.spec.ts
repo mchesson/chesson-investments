@@ -1294,3 +1294,39 @@ test('remove someone added by mistake, every save says how it went, and an assoc
   await expect(page.getByRole('columnheader', { name: 'What They Do' })).toBeVisible();
   await expect(page.locator('table.t .chip', { hasText: 'Association' })).toBeVisible();
 });
+
+test('the watchlist filtered by what the zoning allows; Find Locations and Zoning says what it did', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  for (const name of [`${s} Houses Ln`, `${s} Mixed Way`]) {
+    await page.goto('/watchlist/new');
+    await page.getByLabel('Address').fill(name);
+    await page.getByRole('button', { name: 'Add to Watchlist' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
+  }
+  // The county maps aren't called in tests: set what they'd have found.
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`update properties set zoning = 'R-4', zoning_family = 'houses', zoning_place = 'Raleigh', zoning_checked_at = now() where address = $1`, [`${s} Houses Ln`]);
+  await db.query(`update properties set zoning = 'CX-3', zoning_family = 'mixed', zoning_place = 'Raleigh', zoning_checked_at = now() where address = $1`, [`${s} Mixed Way`]);
+  await db.end();
+
+  await page.goto(`/watchlist?q=${s}`);
+  await expect(page.getByRole('link', { name: `${s} Houses Ln` })).toBeVisible();
+  await expect(page.getByRole('link', { name: `${s} Mixed Way` })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Zoning' }).getByRole('link', { name: 'Houses', exact: true }).click();
+  await expect(page).toHaveURL(/zoning=houses/);
+  await expect(page.getByRole('link', { name: `${s} Houses Ln` })).toBeVisible();
+  await expect(page.getByRole('link', { name: `${s} Mixed Way` })).toHaveCount(0);
+  await expect(page.locator('tr', { hasText: `${s} Houses Ln` })).toContainText('Houses · Raleigh');
+  // A second family adds to it; the search keeps the filter.
+  await page.getByRole('navigation', { name: 'Zoning' }).getByRole('link', { name: 'Mixed Use', exact: true }).click();
+  await expect(page.getByRole('link', { name: `${s} Mixed Way` })).toBeVisible();
+  await expect(page.getByRole('link', { name: `${s} Houses Ln` })).toBeVisible();
+
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Find Locations and Zoning' }).click({ timeout: 2000 });
+    await expect(page.locator('.toast', { hasText: /Done: placed \d+ on the map/ })).toBeVisible({ timeout: 15000 });
+  }).toPass({ timeout: 60000 });
+});
