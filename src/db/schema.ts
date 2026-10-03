@@ -926,3 +926,62 @@ export const marketPermits = pgTable('market_permits', {
   status: text('status'),
   updated: updated(),
 }, (t) => [uniqueIndex('market_permits_key').on(t.source, t.permitNo), index('market_permits_latlng').on(t.lat, t.lng), index('market_permits_year').on(t.kind, t.year)]).enableRLS();
+
+// Business entities (owner, Oct 3, 2026: "give me a place in the system to
+// track business docs like this and a section for tax IDs"): the companies we
+// own or hold a share of (Chesson Investments, WJ Investment Group), who owns
+// what, their documents (files with entity 'entity') and their tax IDs. Seen
+// only with the restricted-records permission (sensitive.view).
+export const entities = pgTable('entities', {
+  id: id(),
+  name: text('name').notNull(),
+  kind: text('kind').notNull().default('llc'), // llc / corporation / partnership / trust / other
+  state: text('state'), // where it was formed
+  formedOn: date('formed_on'),
+  status: text('status').notNull().default('active'), // active / dissolved
+  taxForm: text('tax_form'), // how it files: 1065 partnership, 1120-S, disregarded (Schedule C/E) ...
+  fiscalYearEnd: text('fiscal_year_end'), // "12/31"
+  address: text('address'),
+  registeredAgent: text('registered_agent'),
+  website: text('website'),
+  companyId: uuid('company_id').references(() => companies.id), // the same business as a CRM company (for bills and contacts)
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  updated: updated(),
+  archived: archived(),
+}, (t) => [index('entities_company').on(t.companyId)]).enableRLS();
+
+// Who owns an entity, and how much: a person, another of our entities (Chesson
+// Investments owns 65% of WJ Investment Group) or just a name.
+export const entityMembers = pgTable('entity_members', {
+  id: id(),
+  entityId: uuid('entity_id').notNull().references(() => entities.id),
+  name: text('name').notNull(),
+  personId: uuid('person_id').references(() => people.id),
+  memberEntityId: uuid('member_entity_id').references(() => entities.id),
+  percent: numeric('percent', { precision: 7, scale: 4 }),
+  capital: money('capital'), // capital contribution
+  role: text('role'), // member / manager / member_manager
+  since: date('since'),
+  notes: text('notes'),
+  created: created(),
+  removed: timestamp('removed_at', { withTimezone: true }),
+}, (t) => [index('entity_members_entity').on(t.entityId), index('entity_members_person').on(t.personId), index('entity_members_member_entity').on(t.memberEntityId)]).enableRLS();
+
+// Tax and registration numbers (EIN, state tax and withholding IDs, Secretary of
+// State ID). Kept encrypted (AES-256-GCM, src/lib/secret-box.ts); the page shows
+// the last 4, and every Show is written to History.
+export const entityTaxIds = pgTable('entity_tax_ids', {
+  id: id(),
+  entityId: uuid('entity_id').notNull().references(() => entities.id),
+  kind: text('kind').notNull(), // ein / state_tax / withholding / sales_tax / sos / other
+  label: text('label'),
+  cipher: text('cipher').notNull(),
+  last4: text('last4').notNull(),
+  issuedOn: date('issued_on'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  updated: updated(),
+  archived: archived(),
+}, (t) => [index('entity_tax_ids_entity').on(t.entityId)]).enableRLS();

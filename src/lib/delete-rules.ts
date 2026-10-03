@@ -28,6 +28,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'vendor_issues', column: 'person_id', does: 'block', label: 'issues with them' },
     { table: 'issue_people', column: 'person_id', does: 'delete', label: 'places as someone involved in an issue' },
     { table: 'users', column: 'person_id', does: 'clear', label: 'a guest sign-in linked to them (the link only)' },
+    { table: 'entity_members', column: 'person_id', does: 'clear', label: 'places as a member of our business entities (the link only; the name stays)' },
   ],
   company: [
     { table: 'person_companies', column: 'company_id', does: 'delete', label: 'work history at it' },
@@ -38,6 +39,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'assignments', column: 'company_id', does: 'clear', label: 'schedule commitments (who only)' },
     { table: 'project_utilities', column: 'company_id', does: 'clear', label: 'property utilities (company only)' },
     { table: 'properties', column: 'source_company_id', does: 'clear', label: 'watchlist leads they sent (the credit only)' },
+    { table: 'entities', column: 'company_id', does: 'clear', label: 'a business entity it is the same as (the link only)' },
     { table: 'bills', column: 'vendor_company_id', does: 'block', label: 'bills from them' },
     { table: 'commitments', column: 'vendor_company_id', does: 'block', label: 'commitments with them' },
     { table: 'budget_versions', column: 'company_id', does: 'block', label: 'bids from them' },

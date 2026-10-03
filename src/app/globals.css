@@ -417,3 +417,7 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .checklist li { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--hair); }
 .checklist li.done strong { text-decoration: line-through; color: var(--muted); }
 .checklist form { margin: 0; }
+
+/* Business entities */
+.tax-id { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tax-id-value { font-size: 1rem; letter-spacing: .04em; background: #f4f4f4; padding: 2px 8px; border-radius: 6px; }
