@@ -94,7 +94,7 @@ function ZipRows({ rows }: { rows: ZipTrend[] }) {
         const h = marketHeat(z);
         return (
           <tr key={z.zip}>
-            <td><strong>{z.zip}</strong><div className="small muted">{[z.city, z.county === 'wake' ? 'Wake' : z.county === 'durham' ? 'Durham' : null].filter(Boolean).join(' · ')}</div></td>
+            <td><strong><Link href={`/market/zip/${z.zip}`}>{z.zip}</Link></strong><div className="small muted">{[z.city, z.county === 'wake' ? 'Wake' : z.county === 'durham' ? 'Durham' : null].filter(Boolean).join(' · ')}</div></td>
             <td className="num">{z.medianDom === null ? '—' : Math.round(z.medianDom)}{z.domYearAgo !== null && z.medianDom !== null ? <div className="small muted">{Math.round(z.domYearAgo)} a year ago</div> : null}</td>
             <td>{h ? <span className={`chip heat-${h}`}>{heatLabel[h]}</span> : '—'}{z.monthsOfSupply !== null ? <div className="small muted">{z.monthsOfSupply} months of supply</div> : null}</td>
             <td className="num">{z.homesSold ?? '—'}</td>

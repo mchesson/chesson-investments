@@ -104,3 +104,9 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   (E1), a business card snapped into a contact, or a signed timesheet photo.
   Lesson: money shown in a message needs `formatMoney(x, { cents: true })`,
   or $84.17 reads "$84".
+- **"What's happening in this ZIP" in plain words** (built Oct 3, 2026;
+  `zip-report-rules.ts`, `/market/zip/<zip>`): a headline plus one sentence
+  per number we actually have. A missing number drops its sentence; nothing is
+  guessed. It's rules-based (no Claude call), so it's instant and free. The
+  same pattern fits TS Workspace's "what's happening at this account" or "in
+  this market / skill": a short story from the key numbers above the tables.

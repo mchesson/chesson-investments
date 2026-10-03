@@ -6,6 +6,7 @@ import { lastSyncs } from '@/lib/market-sync';
 import { bandSentence, paceLabel, priceBands, soldWithin } from '@/lib/market-stats';
 import { landUses } from '@/lib/market-sources';
 import { MarketMap } from '@/components/MarketMap';
+import { ZipLookup } from '@/components/ZipLookup';
 import { AreaRows, Filters, query } from '@/components/MarketParts';
 import { MarketSync } from '@/components/MarketSync';
 import { lastAutoUpdates } from '@/lib/market-auto';
@@ -44,7 +45,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageHead title="Market Map" sub="What’s selling, where and for how much, from Wake and Durham County public records. Zoom in to street level; the buttons above the map add or take away what it shows."
-        actions={<><Link className="btn secondary" href="/market/builders">Builders</Link><Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link></>} />
+        actions={<><ZipLookup /><Link className="btn secondary" href="/market/builders">Builders</Link><Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link></>} />
+      {sp.zipError ? <div className="notice error" role="alert">Type a 5-digit ZIP code, like 27608.</div> : null}
       <Section title="Filters" kind="grey"><Filters f={f} /></Section>
       <Section title="Map" kind="aqua" hint={totalSales ? `${totalSales.toLocaleString()} sales on file` : 'No sales loaded yet'}>
         <MarketMap focus={focus} query={query(f)} projects={places.projects} watch={places.watch} areas={hoods} zips={zipLabels} parcelInfo />

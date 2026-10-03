@@ -504,3 +504,9 @@ form:has(input[name=kind][value=short_term]:checked) .rental-status-lease { disp
 .snap-btn { font-size: 1.05rem; padding: 14px 22px; cursor: pointer; }
 .snap-confirm { display: flex; flex-direction: column; gap: 10px; }
 .snap-preview { max-width: min(320px, 100%); max-height: 320px; object-fit: contain; border: 1px solid var(--hair); border-radius: 8px; }
+
+/* Look up a ZIP code (Market Map) */
+.zip-lookup { display: inline-flex; gap: 6px; align-items: center; }
+.zip-lookup input { width: 8.5em; }
+.zip-story { margin: 8px 0 0; padding-left: 1.2em; }
+.zip-story li { margin: 4px 0; }
