@@ -13,8 +13,9 @@ export const siteContent = {
   ],
   projectsTitle: 'Our work',
   projectsIntro: 'A look at the homes we’ve built and reimagined — each one with new systems, new layouts, and a careful eye on the details.',
-  phone: '+19197958948',
-  phoneShown: '(919) 795-8948',
+  // No phone on the website (owner, Oct 3, 2026: "just put a contact us form on the site vs my cell number"):
+  // visitors use the Contact Us form. A phone shows only if one is entered on Website Settings.
+  phone: null as string | null,
   domain: 'chessoninvestments.com',
   area: 'Raleigh and the Triangle, North Carolina',
   email: null as string | null,
