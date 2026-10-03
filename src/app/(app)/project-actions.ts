@@ -50,6 +50,7 @@ function projectFields(d: FormData) {
     proformaSalePrice: money(d, 'proformaSalePrice', 'Pro forma sale price'),
     saleHigh: money(d, 'saleHigh', 'High sale price'),
     closingCostAtSale: money(d, 'closingCostAtSale', 'Closing cost at sale'),
+    actualSaleCosts: money(d, 'actualSaleCosts', 'Actual cost of sale'),
     keptAssetsValue: money(d, 'keptAssetsValue', 'What we keep'),
     taxRatePct: pct(d, 'taxRatePct', 'Tax rate'),
     marketValue: money(d, 'marketValue', 'Market value'),

@@ -6,6 +6,8 @@ import { listProjects, projectMoney } from '@/lib/projects';
 import { formatCents } from '@/lib/format';
 import { formatMoney } from '@/lib/format';
 import { PageHead, Section, Empty } from '@/components/ui';
+import { SalePriceTag, saleBasis } from '@/components/SalePriceTag';
+import { saleCosts } from '@/lib/budget';
 
 export const metadata = { title: 'Projects' };
 
@@ -21,14 +23,18 @@ export default async function Projects() {
       <Section title="Projects" kind="aqua" hint={`${rows.length}`}>
         {rows.length ? (
           <div className="table-wrap"><table className="t">
-            <thead><tr><th>No.</th><th>Project</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale (Pro Forma)</th></> : null}</tr></thead>
+            <thead><tr><th>No.</th><th>Address</th><th>City</th><th>State</th><th>ZIP</th><th>Neighborhood</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale Price</th></> : null}</tr></thead>
             <tbody>{rows.map((p) => (
               <tr key={p.id}>
                 <td className="small">{p.projectNumber ? `P-${p.projectNumber}` : ''}</td>
-                <td><Link href={`/projects/${p.id}`}>{p.name}</Link><div className="small muted">{p.city}</div></td>
+                <td><Link href={`/projects/${p.id}`}>{p.address || p.name}</Link>{p.address && p.name !== p.address ? <div className="small muted">{p.name}</div> : null}</td>
+                <td>{p.city ?? '—'}</td>
+                <td>{p.state ?? '—'}</td>
+                <td>{p.zip ?? '—'}</td>
+                <td>{p.neighborhood ?? '—'}</td>
                 <td><StageChips p={p} /></td>
                 <td className="num">{p.heatedSf?.toLocaleString() ?? '—'}</td>
-                {seeMoney ? <><td className="num">{formatMoney(p.lotCost)}</td><td className="num">{formatMoney(p.proformaSalePrice)}</td></> : null}
+                {seeMoney ? <><td className="num">{formatMoney(p.lotCost)}</td><td className="num">{saleBasis(p) ? <>{formatMoney(saleBasis(p)!.value)} <SalePriceTag p={p} /></> : '—'}</td></> : null}
               </tr>
             ))}</tbody>
           </table></div>
@@ -42,9 +48,10 @@ export default async function Projects() {
               if (!d) return null;
               const p = d.project;
               const value = p.actualSalePrice ?? p.marketValue ?? p.proformaSalePrice;
-              const basis = p.actualSalePrice ? 'sold' : p.marketValue ? 'market' : 'pro forma';
+              const basis = p.actualSalePrice ? 'actual sale' : p.marketValue ? 'market value' : 'projected';
               const v = value ? Math.round(Number(value) * 100) : null;
-              const profit = v !== null ? v - Math.round((v * Number(p.sellingCostPct ?? 0)) / 100) - Math.round(Number(p.closingCostAtSale ?? 0) * 100) - (d.allIn - Math.round(Number(p.keptAssetsValue ?? 0) * 100)) : null;
+              const costs = v !== null ? saleCosts({ sale: v, pct: Number(p.sellingCostPct ?? 0), closing: Math.round(Number(p.closingCostAtSale ?? 0) * 100), actual: p.actualSalePrice && p.actualSaleCosts ? Math.round(Number(p.actualSaleCosts) * 100) : null }).total : 0;
+              const profit = v !== null ? v - costs - (d.allIn - Math.round(Number(p.keptAssetsValue ?? 0) * 100)) : null;
               return (
                 <tr key={rows[i].id} className={profit !== null && profit < 0 ? 'over' : undefined}>
                   <td><Link href={`/projects/${p.id}`}>{p.name}</Link></td>

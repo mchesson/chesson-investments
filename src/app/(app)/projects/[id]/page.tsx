@@ -28,6 +28,7 @@ import { ProjectVendors } from '@/components/VendorRecordTabs';
 import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
+import { SalePriceTag } from '@/components/SalePriceTag';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -135,8 +136,8 @@ function Overview({ data, seeMoney, openItems, edit }: { data: Money; seeMoney: 
         <div className="table-wrap"><table className="t">
           <thead><tr><th></th><th className="num">Pro Forma</th><th className="num">Projected</th><th className="num">Actual to Date</th></tr></thead>
           <tbody>
-            <tr><td>Sale price</td><td className="num">{m(pnl.proforma.sale)}</td><td className="num">{m(pnl.projected.sale)}</td><td className="num">{p.actualSalePrice ? formatMoney(p.actualSalePrice) : '—'}</td></tr>
-            <tr><td>Selling costs ({Number(p.sellingCostPct ?? 0)}%)</td><td className="num">−{m(pnl.proforma.selling)}</td><td className="num">−{m(pnl.projected.selling)}</td><td className="num">—</td></tr>
+            <tr><td>Sale price <SalePriceTag p={p} /></td><td className="num">{m(pnl.proforma.sale)}</td><td className="num">{m(pnl.projected.sale)}</td><td className="num">{p.actualSalePrice ? formatMoney(p.actualSalePrice) : '—'}</td></tr>
+            <tr><td>Selling costs {p.actualSalePrice && p.actualSaleCosts ? '(from the settlement statement)' : `(${Number(p.sellingCostPct ?? 0)}% commissions${Number(p.closingCostAtSale ?? 0) ? ' + closing' : ''})`}</td><td className="num">−{m(pnl.proforma.selling)}</td><td className="num">−{m(pnl.projected.selling)}</td><td className="num">—</td></tr>
             <tr><td>Staging, listing and marketing</td><td className="num">−{m(pnl.proforma.staging)}</td><td className="num">−{m(pnl.projected.staging)}</td><td className="num">{m(pnl.projected.staging)}</td></tr>
             <tr><td>Lot (with closing costs)</td><td className="num">−{m(pnl.proforma.lot)}</td><td className="num">−{m(pnl.projected.lot)}</td><td className="num">{m(pnl.actualToDate.lot)}</td></tr>
             <tr><td>Build</td><td className="num">−{m(pnl.proforma.build)}</td><td className="num">−{m(pnl.projected.build)}</td><td className="num">{m(pnl.actualToDate.build)} billed</td></tr>

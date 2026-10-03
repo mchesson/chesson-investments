@@ -101,6 +101,11 @@ test('the accountant sees projects and money, not contacts', async ({ page }) =>
   await expect(page.getByText('This page could not be found.')).toBeVisible();
   await page.goto('/projects');
   await expect(page.getByRole('link', { name: '109 Plainview Ave' }).first()).toBeVisible();
+  // Address, city, state, ZIP and neighborhood each in their own column; a sale price not yet real says Projected.
+  for (const h of ['Address', 'City', 'State', 'ZIP', 'Neighborhood', 'Sale Price']) await expect(page.getByRole('columnheader', { name: h, exact: true }).first()).toBeVisible();
+  const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: '109 Plainview Ave' }) }).first();
+  await expect(row.getByRole('cell', { name: 'Raleigh', exact: true })).toBeVisible();
+  await expect(row.getByText('Projected', { exact: true })).toBeVisible();
 });
 
 test('import a file: preview first, then people, a sub through the GC and a bill', async ({ page }) => {
@@ -1016,7 +1021,8 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
   await db.query(`update market_trends set homes_sold = 52 where region = $1`, [zip]);
   await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_sale_price, median_dom, months_of_supply, inventory)
     values ('county', 'Wake County, NC', 'Raleigh, NC', 'all', '2026-08-31', 480000, 33, 3.4, 5100) on conflict do nothing`);
-  // A builder's new homes: enough to top the list whatever else is loaded.
+  // A builder's new homes: enough to top the list whatever else is loaded (earlier runs' taken off first).
+  await db.query(`delete from market_permits where permit_no like 'FB%-%' and builder like 'Testbuild%'`);
   await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, zip, lat, lng, builder, cost)
     select 'raleigh', 'wake', $1 || g, 'new_home', current_date - 30, extract(year from current_date), $2, 35.81, -78.62, $3, 400000 from generate_series(1, 400) g`,
     [`FB${s}-`, zip, `Testbuild${s} Homes, LLC`]);
