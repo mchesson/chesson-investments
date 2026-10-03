@@ -72,17 +72,18 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         {rows.length ? (
           <div className="table-wrap">
             <table className="t">
-              <thead><tr><th>Name</th><th>Title</th><th>Company (What They Do)</th><th>Introduced By</th><th>Their Roles</th><th>Phone</th><th>Last Touch</th></tr></thead>
+              <thead><tr><th>Name</th><th>Company (What They Do)</th><th>Title</th><th>Properties</th><th>Their Roles</th><th>Phone</th><th>Last Touch</th><th>Introduced By</th></tr></thead>
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
                     <td><Link href={`/people/${p.id}`}>{p.firstName} {p.lastName}</Link></td>
-                    <td>{p.title ?? '—'}</td>
                     <td>{p.companyName ? <><Link href={`/companies/${p.companyId}`}>{p.companyName}</Link>{p.companyTypes.length ? <div className="small muted">{p.companyTypes.map(roleTag).join(' · ')}</div> : null}</> : '—'}</td>
-                    <td>{p.introducedById ? <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link> : '—'}</td>
+                    <td>{p.title ?? '—'}</td>
+                    <td className="small">{p.places.length ? <>{p.places.slice(0, 3).map((x, i) => <span key={x.id}>{i ? ', ' : ''}<Link href={x.kind === 'project' ? `/projects/${x.id}` : `/watchlist/${x.id}`}>{x.name}</Link></span>)}{p.places.length > 3 ? <span className="muted"> +{p.places.length - 3} more</span> : null}</> : '—'}</td>
                     <td>{p.doNotUse ? <span className="chip red" title={p.doNotUseReason ?? undefined}>Do Not Use</span> : null} <RoleChips items={p.roles} />{p.roles.filter((r) => r.role === 'agent' && r.areas).map((r, i) => <div key={i} className="small specialty">Specializes in {r.areas}</div>)}</td>
                     <td><Phone value={p.phone} /></td>
                     <td>{p.lastTouch ? formatDate(p.lastTouch) : <span className="muted">Never</span>}</td>
+                    <td>{p.introducedById ? <Link href={`/people/${p.introducedById}`}>{p.introducedByName}</Link> : '—'}</td>
                   </tr>
                 ))}
               </tbody>

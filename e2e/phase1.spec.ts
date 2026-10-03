@@ -1685,3 +1685,28 @@ test('a short-term rental is called that, with its own statuses, on the project 
   await page.goto(`/projects/${p.rows[0].id}?tab=history`);
   await expect(page.locator('main')).toContainText('set it up as a short-term rental (Operating (Booking Guests))');
 });
+
+test('People list: name, company, title, then the properties each person is tied to', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const co = await db.query(`insert into companies (name) values ($1) returning id`, [`Tied${s} Realty`]);
+  const person = await db.query(`insert into people (first_name, last_name, title, company_id) values ('Tia', $1, 'Broker', $2) returning id`, [`Tied${s}`, co.rows[0].id]);
+  const pid = person.rows[0].id;
+  for (const n of ['A', 'B']) {
+    const p = await db.query(`insert into projects (name, address) values ($1, $1) returning id`, [`${s} Tied ${n} St`]);
+    await db.query(`insert into rental_contacts (project_id, person_id) values ($1, $2)`, [p.rows[0].id, pid]);
+  }
+  await db.query(`insert into properties (address, source_person_id) values ($1, $2)`, [`${s} Sent Lot Rd`, pid]);
+  await db.end();
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/people?q=Tied${s}`);
+  const heads = await page.locator('table.t thead th').allTextContents();
+  expect(heads.slice(0, 4)).toEqual(['Name', 'Company (What They Do)', 'Title', 'Properties']);
+  const row = page.locator('tr', { hasText: `Tia Tied${s}` });
+  await expect(row.locator('td').nth(1)).toContainText(`Tied${s} Realty`);
+  await expect(row.locator('td').nth(2)).toHaveText('Broker');
+  await expect(row.getByRole('link', { name: `${s} Tied A St` })).toHaveAttribute('href', /\/projects\//);
+  await expect(row.getByRole('link', { name: `${s} Sent Lot Rd` })).toHaveAttribute('href', /\/watchlist\//);
+});
