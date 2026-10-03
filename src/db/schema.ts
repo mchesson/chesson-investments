@@ -184,6 +184,8 @@ export const events = pgTable('events', {
   name: text('name').notNull(),
   happenedOn: date('happened_on').notNull(),
   location: text('location'),
+  // The association that held it (a company with the Association role).
+  associationId: uuid('association_id').references(() => companies.id),
   notes: text('notes'),
   createdBy: uuid('created_by').references(() => users.id),
   created: created(),

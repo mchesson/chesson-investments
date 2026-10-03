@@ -35,6 +35,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'party_roles', column: 'company_id', does: 'delete', label: 'what they do' },
     { table: 'tasks', column: 'company_id', does: 'delete', label: 'tasks about it' },
     { table: 'people', column: 'company_id', does: 'clear', label: 'people working there (their company only)' },
+    { table: 'events', column: 'association_id', does: 'clear', label: 'events they held (the link only)' },
     { table: 'party_roles', column: 'hired_through_company_id', does: 'clear', label: 'subs and suppliers through them (the link only)' },
     { table: 'assignments', column: 'company_id', does: 'clear', label: 'schedule commitments (who only)' },
     { table: 'project_utilities', column: 'company_id', does: 'clear', label: 'property utilities (company only)' },

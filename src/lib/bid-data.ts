@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { budgetVersions, companies, files } from '@/db/schema';
 import type { BidLine } from './bids';
+import { ref } from '@/lib/sql-ref';
 
 /** A project's GC bids and our estimates, newest first, with who sent each and its file. */
 export async function bidsFor(projectId: string) {
@@ -21,7 +22,7 @@ export async function bidsFor(projectId: string) {
 
 /** Every bid a company has sent, on any project (their page). */
 export function bidsFromCompany(companyId: string) {
-  return db.select({ id: budgetVersions.id, projectId: budgetVersions.projectId, projectName: sql<string>`(select p.name from projects p where p.id = ${budgetVersions.projectId})`,
+  return db.select({ id: budgetVersions.id, projectId: budgetVersions.projectId, projectName: sql<string>`(select p.name from projects p where p.id = ${ref(budgetVersions.projectId)})`,
     totalCents: budgetVersions.totalCents, submittedOn: budgetVersions.submittedOn, status: budgetVersions.status })
     .from(budgetVersions).where(and(eq(budgetVersions.companyId, companyId), eq(budgetVersions.kind, 'bid'))).orderBy(desc(budgetVersions.created));
 }

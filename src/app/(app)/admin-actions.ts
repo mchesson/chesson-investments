@@ -261,3 +261,37 @@ export async function savePartnerStandard(_: FormResult, d: FormData): Promise<F
   revalidatePath('/admin/users');
   return { ok: applyNow ? `Saved, and applied to ${applied} ${applied === 1 ? 'person' : 'people'} of this type.` : 'Saved. New invitations of this type start with it; tick “apply to everyone” to change the ones already invited.' };
 }
+
+/**
+ * Takes someone off the list (owner, Oct 3, 2026: Jason was added as staff by
+ * mistake). Someone who never signed in and has nothing recorded under their
+ * name is removed; anyone else has their sign-in turned off, so History keeps
+ * who did what. Inviting the same email as an Outside Partner also works.
+ */
+export async function removeUser(_: FormResult, d: FormData): Promise<FormResult> {
+  const me = await requireAction('users.manage');
+  const id = str(d, 'id');
+  const [u] = id ? await db.select().from(users).where(eq(users.id, id)) : [];
+  if (!u) return { error: 'Not found.' };
+  if (u.id === me.id) return { error: 'You can’t remove yourself.' };
+  if (u.role === 'owner') return { error: 'The owner can’t be removed.' };
+  const guard = mayManage(me, u, u.role);
+  if (guard) return { error: guard };
+  if (!u.lastSignIn) {
+    try {
+      await db.transaction(async (tx) => {
+        await tx.delete(guestAccess).where(eq(guestAccess.userId, u.id));
+        await tx.delete(users).where(eq(users.id, u.id));
+        await audit({ userId: me.id, entity: 'user', entityId: u.id, action: 'delete', summary: `removed ${u.email} (${roleNames[u.role]}, never signed in)`, before: { email: u.email, name: u.name, role: u.role } }, tx);
+      });
+      revalidatePath('/admin/users');
+      return { ok: `Removed ${u.email}. You can invite them again any time, for example as an Outside Partner.` };
+    } catch { /* something is recorded under them: turn them off instead */ }
+  }
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ active: false }).where(eq(users.id, u.id));
+    await audit({ userId: me.id, entity: 'user', entityId: u.id, action: 'update', summary: `turned off ${u.email}'s sign-in (kept because History names them)`, before: { active: u.active }, after: { active: false } }, tx);
+  });
+  revalidatePath('/admin/users');
+  return { ok: `${u.email} can no longer sign in. They stay listed (turned off) because things in History were done by them.` };
+}

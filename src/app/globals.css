@@ -421,3 +421,22 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 /* Business entities */
 .tax-id { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .tax-id-value { font-size: 1rem; letter-spacing: .04em; background: #f4f4f4; padding: 2px 8px; border-radius: 6px; }
+
+/* Save messages (Toast.tsx): bottom centre, above everything, readable on a phone. */
+.toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; width: min(560px, calc(100vw - 32px)); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #212121; color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: .95rem; line-height: 1.4; animation: toast-in .18s ease-out; }
+.toast.error { background: #fff; color: var(--red); border: 2px solid var(--red); }
+.toast-icon { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .85rem; background: var(--aqua); color: #212121; }
+.toast.error .toast-icon { background: var(--red); color: #fff; }
+.toast-text { flex: 1; }
+.toast-x { flex: none; background: none; border: 0; color: inherit; font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 2px; opacity: .8; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* Type-to-find picker (SearchPicker.tsx). */
+.picker { position: relative; }
+.picker-list { position: absolute; z-index: 50; left: 0; right: 0; top: 100%; margin: 2px 0 0; padding: 4px 0; list-style: none; background: #fff; border: 1px solid var(--hair); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.12); max-height: 280px; overflow: auto; font-weight: 400; }
+.picker-list li { padding: 8px 12px; cursor: pointer; }
+.picker-list li[aria-selected="true"] { background: #e5f0f9; }
+.picker-picked { display: block; margin-top: 2px; font-weight: 400; }
+.met-list { margin: 4px 0 0 1.1em; padding: 0; font-size: .92rem; }

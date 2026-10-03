@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
-import { gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
+import { associationEvents, gcOptions, activeStaff, getCompany, historyFor, tasksForRecord, vendorBills } from '@/lib/contacts';
 import { VendorSpend } from '@/components/VendorSpend';
 import { VendorGrades, VendorIssues } from '@/components/VendorRecordTabs';
 import { GradeBadge } from '@/components/Grades';
@@ -30,6 +30,9 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const edit = can(user, 'contacts.edit');
   const base = `/companies/${id}`;
   const seeMoney = can(user, 'money.view');
+  // An association's events and who we met at each (owner, Oct 3, 2026).
+  const evs = await associationEvents(id);
+  const isAssociation = roles.some((r) => r.role === 'association') || evs.length > 0;
   return (
     <>
       <PageHead eyebrow="Company" title={c.name} sub={<span className="sub-row"><GradeBadge letter={gs.overall?.letter} size="sm" /><RoleChips items={roles} /></span>}
@@ -50,7 +53,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user, 'records.delete')} />
         </div>
         <div>
-          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
+          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, ...(isAssociation ? [{ key: 'events', label: 'Events', count: evs.length }] : []), { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
               {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
@@ -67,6 +70,21 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
                 </Section>
               ) : null}
               {c.notes ? <Section title="Notes" kind="energy"><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{c.notes}</p></Section> : null}
+            </div>
+          ) : null}
+          {tab === 'events' && isAssociation ? (
+            <div className="stack">
+              <Section title="Their Events and Who We Met" kind="aqua" hint={`${evs.length}`}>
+                {evs.length ? <ul className="rows">{evs.map((e) => (
+                  <li key={e.id}>
+                    <Link href={`/events/${e.id}`}><strong>{e.name}</strong></Link> <span className="small muted">{formatDate(e.happenedOn)}{e.location ? ` · ${e.location}` : ''} · {e.met.length} met</span>
+                    {e.met.length ? <ul className="met-list">{e.met.map((m) => (
+                      <li key={m.personId}><Link href={`/people/${m.personId}`}>{m.name}</Link>{m.companyName ? <span className="muted">, {m.companyName}</span> : null}{m.note ? <span className="small"> · {m.note}</span> : null}</li>
+                    ))}</ul> : null}
+                  </li>
+                ))}</ul> : <Empty>No events logged for them yet.</Empty>}
+                <p className="small" style={{ marginBottom: 0 }}><Link href="/events">Add an Event</Link> and pick {c.name} as the association.</p>
+              </Section>
             </div>
           ) : null}
           {tab === 'people' ? (

@@ -26,22 +26,22 @@ test('log a GC you met, with who introduced them', async ({ page }) => {
   await page.getByLabel('About the Introduction').fill('Met through Jordan at the REIA meetup.');
   await page.getByRole('button', { name: 'Add Person' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Riley Builder${stamp}`);
-  await expect(page.getByText('Where we are with them: Met').first()).toBeVisible();
+  await expect(page.locator('main').getByText('Where we are with them: Met').first()).toBeVisible();
   await expect(page.locator('.page-head .chip', { hasText: 'General Contractor' })).toBeVisible();
   await expect(page.locator('.page-head .chip', { hasText: 'Networking Contact' })).toBeVisible();
   await expect(page.locator('.page-head')).not.toContainText('· Met');
   const personUrl = page.url();
   await page.getByRole('link', { name: `Jordan Intro${stamp}` }).click();
   await page.getByRole('link', { name: /Introductions/ }).click();
-  await expect(page.getByText('Met through Jordan at the REIA meetup.')).toBeVisible();
+  await expect(page.locator('main').getByText('Met through Jordan at the REIA meetup.')).toBeVisible();
   await page.goto(personUrl);
   await page.getByRole('link', { name: 'Log a Touch' }).first().click();
   await choose(page, 'kind', 'site_walk');
   await page.getByLabel('What Happened').fill('Walked the lot together.');
   await page.getByRole('button', { name: 'Log It' }).click();
-  await expect(page.getByText('Logged.')).toBeVisible();
+  await expect(page.locator('main').getByText('Logged.')).toBeVisible();
   await page.getByRole('link', { name: 'History', exact: true }).click();
-  await expect(page.getByText(/logged a site walk/)).toBeVisible();
+  await expect(page.locator('main').getByText(/logged a site walk/)).toBeVisible();
 });
 
 test('add a watched lot, then mark it sold as a comparable', async ({ page }) => {
@@ -53,7 +53,7 @@ test('add a watched lot, then mark it sold as a comparable', async ({ page }) =>
   await page.getByLabel('Zoning', { exact: true }).fill('r-10');
   await page.getByRole('button', { name: 'Add to Watchlist' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${stamp} Oakwood Ave`);
-  await expect(page.getByText('$53.13')).toBeVisible();
+  await expect(page.locator('main').getByText('$53.13')).toBeVisible();
   await page.getByLabel('Sold For').fill('440,000');
   await page.getByLabel('Sold On').fill('2026-09-30');
   await page.getByRole('button', { name: 'Mark Sold' }).click();
@@ -66,12 +66,12 @@ test("109 Plainview's budget, a split GC bill, and the lien waiver rule", async 
   await signIn(page, 'Sample Owner');
   await page.goto('/projects');
   await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
-  await expect(page.getByText('Build Budget')).toBeVisible();
+  await expect(page.locator('main').getByText('Build Budget')).toBeVisible();
   await page.getByRole('link', { name: 'Budget', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Edit Budget' })).toBeVisible();
-  await expect(page.getByText('$818,710').first()).toBeVisible();
-  await expect(page.getByText('$973,201').first()).toBeVisible();
-  await expect(page.getByText('Outdoor patio fireplace')).toBeVisible();
+  await expect(page.locator('main').getByText('$818,710').first()).toBeVisible();
+  await expect(page.locator('main').getByText('$973,201').first()).toBeVisible();
+  await expect(page.locator('main').getByText('Outdoor patio fireplace')).toBeVisible();
   await page.getByRole('link', { name: /^Bills/ }).click();
   await page.getByLabel('Or Vendor Name').fill(`Test GC ${stamp}`);
   await page.getByLabel('Invoice #').fill(stamp);
@@ -83,7 +83,7 @@ test("109 Plainview's budget, a split GC bill, and the lien waiver rule", async 
   await page.getByLabel('Line 2 holding kind').selectOption('Utilities');
   await page.getByLabel('Line 2 amount').fill('64.94');
   await page.getByRole('button', { name: 'Save Bill' }).click();
-  await expect(page.getByText('Saved.')).toBeVisible();
+  await expect(page.locator('main').getByText('Saved.')).toBeVisible();
   const bill = page.locator('li', { hasText: `Test GC ${stamp} #${stamp}` });
   await expect(bill.getByText('$1,364.94')).toBeVisible();
   await bill.getByRole('button', { name: 'Approve' }).click();
@@ -92,7 +92,7 @@ test("109 Plainview's budget, a split GC bill, and the lien waiver rule", async 
   await bill.getByRole('button', { name: 'Mark Paid' }).click();
   await expect(bill.getByText('Paid', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'History', exact: true }).click();
-  await expect(page.getByText(`entered a bill for $1,364.94 (#${stamp}) in 2 lines`)).toBeVisible();
+  await expect(page.locator('main').getByText(`entered a bill for $1,364.94 (#${stamp}) in 2 lines`)).toBeVisible();
 });
 
 test('the accountant sees projects and money, not contacts', async ({ page }) => {
@@ -124,14 +124,14 @@ test('import a file: preview first, then people, a sub through the GC and a bill
   await expect(page.getByRole('button', { name: 'Import It' })).toBeVisible();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/Imported 1 people, 2 companies, 0 projects, 1 bills and 0 photos/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Imported 1 people, 2 companies, 0 projects, 1 bills and 0 photos/)).toBeVisible();
   await page.goto(`/people?q=Sub${stamp}`);
   await page.getByRole('link', { name: `Emma Sub${stamp}` }).click();
-  await expect(page.getByText('Where we are with them: Hired').first()).toBeVisible();
-  await expect(page.getByText(new RegExp(`Through GC Co ${stamp}`))).toBeVisible();
+  await expect(page.locator('main').getByText('Where we are with them: Hired').first()).toBeVisible();
+  await expect(page.locator('main').getByText(new RegExp(`Through GC Co ${stamp}`))).toBeVisible();
   await page.goto(`/companies?q=GC Co ${stamp}`);
   await page.getByRole('link', { name: `GC Co ${stamp}` }).click();
-  await expect(page.getByText('Subs and Suppliers Through Them')).toBeVisible();
+  await expect(page.locator('main').getByText('Subs and Suppliers Through Them')).toBeVisible();
 });
 
 test('budget stages, a GC milestone and an owner-supplied commitment that moves with it', async ({ page }) => {
@@ -144,10 +144,10 @@ test('budget stages, a GC milestone and an owner-supplied commitment that moves 
   await page.locator('select[name=kind]').selectOption('rough');
   await page.getByLabel('Prepared by').fill('Luxury Oaks');
   await page.getByRole('button', { name: "Save Today's Budget as This Stage" }).click();
-  await expect(page.getByText('Saved as the Rough Estimate.')).toBeVisible();
+  await expect(page.locator('main').getByText('Saved as the Rough Estimate.')).toBeVisible();
   await page.locator('select[name=kind]').selectOption('approved');
   await page.getByRole('button', { name: "Save Today's Budget as This Stage" }).click();
-  await expect(page.getByText('Approved: this is now the baseline.')).toBeVisible();
+  await expect(page.locator('main').getByText('Approved: this is now the baseline.')).toBeVisible();
   await page.goto(`${base}?tab=schedule`);
   await page.getByText('Add a Milestone').click();
   await page.getByLabel('Name', { exact: true }).fill(`Trim-Out ${stamp}`);
@@ -165,7 +165,7 @@ test('budget stages, a GC milestone and an owner-supplied commitment that moves 
   const row = page.locator('tr', { hasText: `Appliances ${stamp}` });
   await expect(row.getByText('3/10/2027')).toBeVisible();
   await expect(row.getByText("$47,000")).toBeVisible();
-  await expect(page.getByText(/Owner-supplied savings: \$[0-9,]+/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Owner-supplied savings: \$[0-9,]+/)).toBeVisible();
 });
 
 test('post-project review: the numbers and the lessons', async ({ page }) => {
@@ -178,8 +178,8 @@ test('post-project review: the numbers and the lessons', async ({ page }) => {
   await page.getByLabel('First Estimate (Build)').fill('900,000');
   await page.getByLabel('What We Should Have Done').fill(`Lesson ${stamp}`);
   await page.getByRole('button', { name: 'Save Review' }).click();
-  await expect(page.getByText('Saved.')).toBeVisible();
-  await expect(page.getByText(/The build (ran over|came in under) the first estimate/)).toBeVisible();
+  await expect(page.locator('main').getByText('Saved.')).toBeVisible();
+  await expect(page.locator('main').getByText(/The build (ran over|came in under) the first estimate/)).toBeVisible();
 });
 
 test('the account menu closes on a click outside and on Esc', async ({ page }) => {
@@ -260,11 +260,11 @@ test('bills under a longer name link to the company, which shows every invoice a
   await page.locator('input[type=file]').setInputFiles({ name: 'haul.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/Imported .* 2 bills/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Imported .* 2 bills/)).toBeVisible();
   await page.goto(`/companies?q=Haul${s}`);
   await page.getByRole('link', { name: `Haul${s} Brothers`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'What We’ve Spent With Them' })).toBeVisible();
-  await expect(page.getByText('$800.50 in all · 1 project · 2 invoices')).toBeVisible();
+  await expect(page.locator('main').getByText('$800.50 in all · 1 project · 2 invoices')).toBeVisible();
   await page.getByText(/109 Plainview Ave: 2 invoices/).click();
   await expect(page.getByRole('cell', { name: `A${s}` })).toBeVisible();
   await expect(page.getByRole('cell', { name: `B${s}` })).toBeVisible();
@@ -284,7 +284,7 @@ test('archive, restore and delete permanently; a company with bills can only be 
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   await page.waitForURL('**/people');
   await page.goto(`/people?q=Soon${s}`);
-  await expect(page.getByText('No one matches')).toBeVisible();
+  await expect(page.locator('main').getByText('No one matches')).toBeVisible();
 
   await page.goto('/admin/archived');
   const row = page.locator('li', { hasText: `Gone Soon${s}` });
@@ -295,13 +295,13 @@ test('archive, restore and delete permanently; a company with bills can only be 
 
   await page.goto(url);
   await page.getByRole('link', { name: 'Delete Permanently…' }).click();
-  await expect(page.getByText('1 roles')).toBeVisible();
+  await expect(page.locator('main').getByText('1 roles')).toBeVisible();
   await page.getByLabel(/Type the name to confirm/).fill('wrong name');
   await page.getByRole('button', { name: 'Delete Permanently' }).click();
-  await expect(page.getByText(`Type the name exactly: Gone Soon${s}`)).toBeVisible();
+  await expect(page.locator('main').getByText(`Type the name exactly: Gone Soon${s}`)).toBeVisible();
   await page.getByLabel(/Type the name to confirm/).fill(`gone soon${s}`);
   await page.getByRole('button', { name: 'Delete Permanently' }).click();
-  await expect(page.getByText(`Deleted Gone Soon${s} permanently`)).toBeVisible();
+  await expect(page.locator('main').getByText(`Deleted Gone Soon${s} permanently`)).toBeVisible();
   expect((await page.goto(url))?.status()).toBe(404);
 
   // Money history blocks a delete.
@@ -311,11 +311,11 @@ test('archive, restore and delete permanently; a company with bills can only be 
   await page.locator('input[type=file]').setInputFiles({ name: 'keep.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/Imported .* 1 bills/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Imported .* 1 bills/)).toBeVisible();
   await page.goto(`/companies?q=Keep${s}`);
   await page.getByRole('link', { name: `Keep${s} Lumber`, exact: true }).click();
   await page.getByRole('link', { name: 'Delete Permanently…' }).click();
-  await expect(page.getByText(/It has 1 bills from them/)).toBeVisible();
+  await expect(page.locator('main').getByText(/It has 1 bills from them/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Delete Permanently' })).toHaveCount(0);
 });
 
@@ -332,7 +332,7 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
   await page.locator('input[type=file]').setInputFiles({ name: 'bid.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
 
   await page.goto('/projects');
   await page.getByRole('link', { name: `Bid Test ${s}` }).first().click();
@@ -350,7 +350,7 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
   await (await code('21')).fill('30,000');
   await form.locator('input[name=file]').setInputFiles({ name: `estimate-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
   await form.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(page.getByText('Estimate added.')).toBeVisible();
+  await expect(page.locator('main').getByText('Estimate added.')).toBeVisible();
 
   // Every saved document opens in the app, or downloads.
   const budgetUrl = page.url();
@@ -377,7 +377,7 @@ test('GC bids next to our estimate, the gaps flagged, and Select the Winning Bud
   await item.getByRole('button', { name: 'Select the Winning Budget' }).click();
   await expect(page.locator('table.bids th', { hasText: `Oak${s} Builders` })).toContainText('Winner');
   await page.getByRole('link', { name: 'History' }).last().click();
-  await expect(page.getByText(new RegExp(`chose Oak${s} Builders’s bid .* as the winning budget`)).first()).toBeVisible();
+  await expect(page.locator('main').getByText(new RegExp(`chose Oak${s} Builders’s bid .* as the winning budget`)).first()).toBeVisible();
 });
 
 test('a rental: status and manager, the lease, rent in, the loan, and whether it makes money', async ({ page }) => {
@@ -392,7 +392,7 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await page.locator('input[type=file]').setInputFiles({ name: 'rent.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
   await page.goto('/projects');
   await page.getByRole('link', { name: `Rent Test ${s}` }).first().click();
   await page.locator('.tabs').getByRole('link', { name: 'Rental', exact: true }).click();
@@ -411,7 +411,7 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await setup.getByLabel(`Ben Agent${s}`).check();
   await setup.locator(`.contact-row:has-text("Ben Agent${s}") input[type=radio]`).check();
   await setup.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Making money each month')).toBeVisible();
+  await expect(page.locator('main').getByText('Making money each month')).toBeVisible();
   const people = page.locator('section', { hasText: 'Status and Property Manager' }).first();
   await expect(people.locator('li', { hasText: `Ben Agent${s}` })).toContainText('Main');
   await expect(people.locator('li', { hasText: `Ann Lead${s}` })).not.toContainText('Main');
@@ -425,7 +425,7 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await lf.locator('input[name=deposit]').fill('2,500');
   await lf.getByRole('button', { name: 'Add the Lease' }).click();
   await expect(page.locator('section', { hasText: 'Status and Property Manager' }).first()).toContainText('Leased');
-  await expect(page.getByText(`Pat Tenant ${s}`).first()).toBeVisible();
+  await expect(page.locator('main').getByText(`Pat Tenant ${s}`).first()).toBeVisible();
 
   await page.locator('summary', { hasText: 'Record Money Received' }).click();
   const rf = page.locator('form:has(input[name=receivedOn])');
@@ -441,11 +441,11 @@ test('a rental: status and manager, the lease, rent in, the loan, and whether it
   await lo.locator('input[name=originalAmount]').fill('150,000');
   await lo.locator('input[name=monthlyPayment]').fill('3,000');
   await lo.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Losing money each month')).toBeVisible();
-  await expect(page.getByText(/Break-even rent: \$[0-9,]+ a month/)).toBeVisible();
+  await expect(page.locator('main').getByText('Losing money each month')).toBeVisible();
+  await expect(page.locator('main').getByText(/Break-even rent: \$[0-9,]+ a month/)).toBeVisible();
 
   await page.getByRole('link', { name: 'History' }).last().click();
-  await expect(page.getByText(`added the lease with Pat Tenant ${s}: $2,500 a month from 2026-09-01 to 2027-08-31`)).toBeVisible();
+  await expect(page.locator('main').getByText(`added the lease with Pat Tenant ${s}: $2,500 a month from 2026-09-01 to 2027-08-31`)).toBeVisible();
 });
 
 test('stages: several going at once, each with its sub-stages, all in History and on the list', async ({ page }) => {
@@ -456,7 +456,7 @@ test('stages: several going at once, each with its sub-stages, all in History an
   await page.locator('input[type=file]').setInputFiles({ name: 'stage.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
   await page.goto('/projects');
   await page.getByRole('link', { name: `Stage Test ${s}` }).first().click();
 
@@ -489,9 +489,9 @@ test('stages: several going at once, each with its sub-stages, all in History an
   await expect(bar.locator('.sub-step[aria-current=true]')).toHaveText('On the Market');
 
   await page.getByRole('link', { name: 'History', exact: true }).click();
-  await expect(page.getByText('moved Permits to In Review').first()).toBeVisible();
-  await expect(page.getByText(/marked Permits Going Now/).first()).toBeVisible();
-  await expect(page.getByText(/moved Rental to On the Market; Rental is going now/).first()).toBeVisible();
+  await expect(page.locator('main').getByText('moved Permits to In Review').first()).toBeVisible();
+  await expect(page.locator('main').getByText(/marked Permits Going Now/).first()).toBeVisible();
+  await expect(page.locator('main').getByText(/moved Rental to On the Market; Rental is going now/).first()).toBeVisible();
 
   await page.goto('/projects');
   const row = page.locator('tr', { hasText: `Stage Test ${s}` }).first();
@@ -513,7 +513,7 @@ test('like names: a nickname or typo stops and asks, and Possible Duplicates lis
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Robert Smithers${s}`);
   await add('Bob', `Smithrs${s}`);
   await page.getByRole('button', { name: 'Add Person' }).click();
-  await expect(page.getByText(`This looks like someone already on file: Robert Smithers${s}`)).toBeVisible();
+  await expect(page.locator('main').getByText(`This looks like someone already on file: Robert Smithers${s}`)).toBeVisible();
   await page.getByLabel(/Different person/).check();
   await page.getByRole('button', { name: 'Add Person' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Bob Smithrs${s}`);
@@ -525,7 +525,7 @@ test('like names: a nickname or typo stops and asks, and Possible Duplicates lis
   await page.goto('/companies/new');
   await page.getByLabel('Name', { exact: true }).fill(`Baggett${s} Construction, Inc.`);
   await page.getByRole('button', { name: /Add Company|Save/ }).first().click();
-  await expect(page.getByText(`A company with a name like this is already on file: Baggett${s}`)).toBeVisible();
+  await expect(page.locator('main').getByText(`A company with a name like this is already on file: Baggett${s}`)).toBeVisible();
 
   await page.goto('/admin/duplicates');
   const pair = page.locator('.dup-rows li', { hasText: `Robert Smithers${s}` });
@@ -546,7 +546,7 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await page.locator('input[type=file]').setInputFiles({ name: 'tile.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
   await page.goto(`/companies?q=Tile${s}`);
   await page.getByRole('link', { name: `Tile${s} Pros`, exact: true }).click();
   await page.waitForURL(/\/companies\/[0-9a-f-]{36}/);
@@ -559,7 +559,7 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await page.locator('textarea[name=justification]').fill('Short.');
   await page.locator('textarea[name=justification]').evaluate((el: HTMLTextAreaElement) => el.removeAttribute('minlength'));
   await page.getByRole('button', { name: 'Save the Grade' }).click();
-  await expect(page.getByText(/Say why they got D/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Say why they got D/)).toBeVisible();
   await page.locator('textarea[name=justification]').fill('Grout lines uneven in both baths; had to come back twice and still left a cracked tile.');
   await page.getByRole('button', { name: 'Save the Grade' }).click();
   await expect(page.locator('.dnu-banner')).toContainText('Overall grade D from 1 job');
@@ -570,7 +570,7 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await page.locator('textarea[name=reason]').fill('Only tile crew free this month; owner approved');
   await page.getByRole('button', { name: 'Keep Them Usable' }).click();
   await expect(page.locator('.dnu-banner')).toHaveCount(0);
-  await expect(page.getByText(/Kept usable despite the grade/)).toBeVisible();
+  await expect(page.locator('main').getByText(/Kept usable despite the grade/)).toBeVisible();
 
   // An issue: open, then fixed, with who was involved and the days to fix.
   await page.goto(`${companyUrl}?tab=issues`);
@@ -595,9 +595,9 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await expect(fixed).toContainText('Replaced the tile');
 
   await page.goto(`${companyUrl}?tab=history`);
-  await expect(page.getByText(/graded them D on 109 Plainview Ave/).first()).toBeVisible();
-  await expect(page.getByText(/marked them Do Not Use: Overall grade D/).first()).toBeVisible();
-  await expect(page.getByText(/moved issue #\d+ from Open to Fixed/).first()).toBeVisible();
+  await expect(page.locator('main').getByText(/graded them D on 109 Plainview Ave/).first()).toBeVisible();
+  await expect(page.locator('main').getByText(/marked them Do Not Use: Overall grade D/).first()).toBeVisible();
+  await expect(page.locator('main').getByText(/moved issue #\d+ from Open to Fixed/).first()).toBeVisible();
 
   // The job's Vendors tab shows them with their grade.
   await page.goto('/projects');
@@ -616,7 +616,7 @@ test('agents: the areas they specialize in', async ({ page }) => {
   await page.locator('input[name=areas]').fill('Five Points, Oakwood');
   await expect(page.locator('input[name=city]')).toHaveAttribute('list', 'city-options');
   await page.getByRole('button', { name: 'Add Person' }).click();
-  await expect(page.getByText('Specializes in Five Points, Oakwood')).toBeVisible();
+  await expect(page.locator('main').getByText('Specializes in Five Points, Oakwood')).toBeVisible();
   await page.goto(`/people?roles=agent&q=Agent${s}`);
   await expect(page.locator('tr', { hasText: `Ava Agent${s}` })).toContainText('Specializes in Five Points, Oakwood');
 });
@@ -691,7 +691,7 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   await page.locator('input[type=file]').setInputFiles({ name: 'g.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
   await page.goto(`/companies?q=Guest${s}`);
   await page.getByRole('link', { name: `Guest${s} Framing`, exact: true }).click();
   await page.waitForURL(/\/companies\/[0-9a-f-]{36}/);
@@ -819,7 +819,7 @@ test('merging duplicates: everything moves to the one kept, the extra is archive
   await page.locator('input[type=file]').setInputFiles({ name: 'm.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Import It' }).click();
-  await expect(page.getByText(/^Imported /)).toBeVisible();
+  await expect(page.locator('main').getByText(/^Imported /)).toBeVisible();
 
   // Companies: keep the one with the bill; the LLC's person and website come over.
   await page.goto('/admin/duplicates');
@@ -829,9 +829,9 @@ test('merging duplicates: everything moves to the one kept, the extra is archive
   await page.locator('label.choice-opt', { hasText: new RegExp(`^.?\\s*Mergeco${s} \\(`) }).click();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Merge Them' }).click();
-  await expect(page.getByText(`Merged Mergeco${s} LLC into this record`)).toBeVisible();
+  await expect(page.locator('main').getByText(`Merged Mergeco${s} LLC into this record`)).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Mergeco${s}`);
-  await expect(page.getByText(`mergeco${s}.example`)).toBeVisible();
+  await expect(page.locator('main').getByText(`mergeco${s}.example`)).toBeVisible();
   await page.locator('.tabs').getByRole('link', { name: /People/ }).click();
   await expect(page.getByRole('link', { name: `Samuel Pike${s}` })).toBeVisible();
   await page.goto(`/companies?q=Mergeco${s}`);
@@ -845,10 +845,10 @@ test('merging duplicates: everything moves to the one kept, the extra is archive
   await page.locator('label.choice-opt', { hasText: `Samuel Pike${s} (left)` }).click();
   page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'Merge Them' }).click();
-  await expect(page.getByText(`Merged Sam Pike${s} into this record`)).toBeVisible();
-  await expect(page.getByText(`sam${s}@mergeco.example`).first()).toBeVisible();
+  await expect(page.locator('main').getByText(`Merged Sam Pike${s} into this record`)).toBeVisible();
+  await expect(page.locator('main').getByText(`sam${s}@mergeco.example`).first()).toBeVisible();
   await page.locator('.tabs').getByRole('link', { name: 'History', exact: true }).click();
-  await expect(page.getByText(new RegExp(`merged Sam Pike${s} into this record`)).first()).toBeVisible();
+  await expect(page.locator('main').getByText(new RegExp(`merged Sam Pike${s} into this record`)).first()).toBeVisible();
 });
 
 test('outside partner types: a wholesaler sees only the deals they sent us', async ({ page, browser }) => {
@@ -969,7 +969,7 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await page.locator('input[name=buildPerSf]').fill('190');
   await page.locator('input[name=minLot]').fill(String(76000 + Number(s.slice(-3))));
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone is worked out again/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('main').getByText(/Saved: every zone is worked out again/)).toBeVisible({ timeout: 20_000 });
   await page.goto('/market/buy-box?show=buy');
   await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
   const row = page.locator('.buy-table tr', { hasText: hood });
@@ -984,14 +984,14 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   // Raising the build cost makes it too expensive; then back.
   await page.locator('input[name=buildPerSf]').fill('700');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('main').getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
   await page.goto('/market/buy-box?show=pass');
   await expect(page.locator('.market-map.leaflet-container')).toBeVisible();
   await expect(page.locator('.buy-table tr', { hasText: hood })).toContainText('Too Expensive');
   await page.locator('input[name=buildPerSf]').fill('190');
   await page.locator('input[name=minLot]').fill('75000');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
-  await expect(page.getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('main').getByText(/Saved: every zone/)).toBeVisible({ timeout: 20_000 });
 
   // The watched lot in that zone is checked against it.
   await page.goto('/watchlist');
@@ -1000,7 +1000,7 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await expect(check).toContainText('Buy Zone');
   await expect(check).toContainText(/The asking price of \$400,000 is .* under what we can pay/);
   await page.goto('/admin/history');
-  await expect(page.getByText(/changed the buy box: Build Cost per sf \(\$\) 190 → 700/).first()).toBeVisible();
+  await expect(page.locator('main').getByText(/changed the buy box: Build Cost per sf \(\$\) 190 → 700/).first()).toBeVisible();
 });
 
 test('free market data: rates and what buyers can afford, time on market by ZIP, and who is building', async ({ page }) => {
@@ -1083,14 +1083,14 @@ test('a land deal from a wholesaler: its facts, the checklist, and the Deal Sour
   await expect(land).toContainText('$50,000'); // 1.2M ÷ 24 lots
   await expect(land).toContainText('$60,000'); // per acre
   await expect(land).toContainText('Nearby: Would Need Extending');
-  await expect(page.getByText('Were off: said 24 acres, it’s 20')).toBeVisible();
+  await expect(page.locator('main').getByText('Were off: said 24 acres, it’s 20')).toBeVisible();
   // The checklist: tick the first step.
   const list = page.locator('section', { has: page.getByRole('heading', { name: /Land Checklist/ }) });
   await expect(list).toContainText('0 of 10 done');
   await list.locator('li', { hasText: 'Zoning and what it allows' }).getByRole('button', { name: 'Done' }).click();
   await expect(list).toContainText('1 of 10 done', { timeout: 20_000 });
   await page.getByRole('link', { name: 'History' }).click();
-  await expect(page.getByText(/checked off “Zoning and what it allows”/)).toBeVisible();
+  await expect(page.locator('main').getByText(/checked off “Zoning and what it allows”/)).toBeVisible();
 
   // The scoreboard: Lana as a wholesaler, one deal, numbers that didn't hold up, too early to say.
   await page.goto('/watchlist/sources?type=land');
@@ -1168,7 +1168,7 @@ test('business entities: who owns what, documents, and tax IDs kept encrypted an
   await add.locator('input[name=percent]').fill('35');
   await add.getByRole('button', { name: 'Add the Member' }).click();
   await expect(page.locator('.members-table tr', { hasText: `James Test${s}` })).toContainText('35%', { timeout: 20_000 });
-  await expect(page.getByText('100% recorded')).toBeVisible();
+  await expect(page.locator('main').getByText('100% recorded')).toBeVisible();
 
   // A document, restricted.
   await page.getByRole('link', { name: /^Documents/ }).click();
@@ -1183,7 +1183,7 @@ test('business entities: who owns what, documents, and tax IDs kept encrypted an
   await page.getByRole('link', { name: /^Tax IDs/ }).click();
   await page.locator('input[name=value]').fill('987654321');
   await page.getByRole('button', { name: 'Save It' }).click();
-  await expect(page.getByText('Saved: •••• 4321.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('main').getByText('Saved: •••• 4321.')).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('.tax-id-value').first()).toHaveText('•••• 4321');
   await page.getByRole('button', { name: 'Show' }).first().click();
   await expect(page.locator('.tax-id-value').first()).toHaveText('98-7654321');
@@ -1196,8 +1196,8 @@ test('business entities: who owns what, documents, and tax IDs kept encrypted an
   expect(stored.rows[0].cipher).not.toContain('7654321'); // never kept as plain text
   expect(logged.rows.map((r) => r.summary).sort()).toEqual(['added the Federal EIN (•••• 4321)', 'viewed the Federal EIN (•••• 4321)']);
   await page.getByRole('link', { name: 'History' }).click();
-  await expect(page.getByText('viewed the Federal EIN (•••• 4321)')).toBeVisible();
-  await expect(page.getByText('7654321')).toHaveCount(0);
+  await expect(page.locator('main').getByText('viewed the Federal EIN (•••• 4321)')).toBeVisible();
+  await expect(page.locator('main').getByText('7654321')).toHaveCount(0);
 
   // Staff without restricted-records access: no menu link, the page and the document are not found.
   const ctx = await browser.newContext();
@@ -1208,4 +1208,68 @@ test('business entities: who owns what, documents, and tax IDs kept encrypted an
   await expect(st.getByText('This page could not be found.')).toBeVisible();
   expect((await st.request.get(docHref!.replace('/documents/', '/files/'))).status()).toBe(404);
   await ctx.close();
+});
+
+test('remove someone added by mistake, every save says how it went, and an association with its events and who we met', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  // Added as staff by mistake, never signed in: Remove takes them off, and the message box says so.
+  await page.goto('/admin/users');
+  const add = page.locator('section', { hasText: 'Add Staff or an Accountant' }).last();
+  await add.getByLabel('Email').fill(`mistake${s}@technicalsource.com`);
+  await add.getByRole('button', { name: 'Add' }).click();
+  await expect(page.locator('.toast', { hasText: 'Added' })).toBeVisible();
+  await page.reload();
+  const card = page.locator('.user-card', { hasText: `mistake${s}@technicalsource.com` });
+  page.on('dialog', (d) => d.accept());
+  await expect(async () => {
+    await card.getByRole('button', { name: 'Remove' }).click({ timeout: 2000 });
+    await expect(page.locator('.toast', { hasText: `Removed mistake${s}@technicalsource.com` })).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
+  await page.reload();
+  await expect(page.locator('.user-card', { hasText: `mistake${s}@technicalsource.com` })).toHaveCount(0);
+
+  // An association, and a person to meet.
+  await page.goto('/companies/new');
+  await page.getByLabel('Name', { exact: true }).fill(`Triangle REIA ${s}`);
+  await page.getByLabel('What They Are to Us').selectOption('association');
+  await page.getByRole('button', { name: /Add Company|Save/ }).first().click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Triangle REIA ${s}`);
+  await expect(page.locator('.page-head .chip', { hasText: 'Association' })).toBeVisible();
+  const companyUrl = page.url();
+  await page.goto('/people/new');
+  await page.getByLabel('First Name', { exact: true }).fill('Morgan');
+  await page.getByLabel('Last Name', { exact: true }).fill(`Meetup${s}`);
+  await page.getByLabel('Networking Contact', { exact: true }).check();
+  await page.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Morgan Meetup${s}`);
+
+  // The event, held by the association (picked by typing), and who we met there and how.
+  await page.goto('/events');
+  await page.getByLabel('Name', { exact: true }).fill(`October Meetup ${s}`);
+  await expect(async () => {
+    await page.getByRole('combobox', { name: /Association/ }).fill(`REIA ${s}`);
+    await page.getByRole('option', { name: new RegExp(`Triangle REIA ${s}`) }).click({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
+  await page.getByRole('button', { name: 'Add Event' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`October Meetup ${s}`);
+  await expect(page.locator('.toast', { hasText: 'Saved' })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Triangle REIA ${s}` })).toBeVisible();
+  await page.locator('summary', { hasText: 'Add Someone You Met' }).click();
+  await page.getByRole('combobox', { name: /Who/ }).fill(`Meetup${s}`);
+  await page.getByRole('option', { name: new RegExp(`Morgan Meetup${s}`) }).click();
+  await page.getByLabel(/How You Met/).fill('Introduced by the host; building in Five Points');
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.locator('.toast', { hasText: 'Added' })).toBeVisible();
+
+  // The association's Events tab lists the event and who we met, with how.
+  await page.goto(`${companyUrl}?tab=events`);
+  const ev = page.locator('section', { hasText: 'Their Events and Who We Met' });
+  await expect(ev).toContainText(`October Meetup ${s}`);
+  await expect(ev).toContainText(`Morgan Meetup${s}`);
+  await expect(ev).toContainText('Introduced by the host');
+  // The Companies list says what they do, not "Roles".
+  await page.goto(`/companies?q=Triangle REIA ${s}`);
+  await expect(page.getByRole('columnheader', { name: 'What They Do' })).toBeVisible();
+  await expect(page.locator('table.t .chip', { hasText: 'Association' })).toBeVisible();
 });

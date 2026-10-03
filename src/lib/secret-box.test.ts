@@ -10,7 +10,10 @@ test('sealed values open with the same key, never another; each seal differs', (
   assert.ok(!a.includes('3456789'));
   assert.equal(open(a, KEY), '12-3456789');
   assert.throws(() => open(a, 'another-secret-another-secret'));
-  assert.throws(() => open(a.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')), KEY)); // tampered
+  // Tampered: one character of the body changed (not the last, whose low bits can be unused).
+  const parts = a.split('.');
+  parts[3] = (parts[3][0] === 'A' ? 'B' : 'A') + parts[3].slice(1);
+  assert.throws(() => open(parts.join('.'), KEY));
   assert.throws(() => open('nonsense', KEY));
   assert.throws(() => seal('x', 'short'));
 });

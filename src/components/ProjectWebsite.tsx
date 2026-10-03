@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Empty, Section } from './ui';
@@ -80,7 +81,7 @@ export async function ProjectWebsite({ p, canEdit }: { p: P; canEdit: boolean })
                       <label className="f">Order<input name="sort" type="number" min={0} max={999} defaultValue={f.sort} /></label>
                       <label className="check"><input type="checkbox" name="onSite" defaultChecked={f.onSite} /> On the website</label>
                     </ActionForm>
-                    <form action={archivePhoto.bind(null, f.id)} style={{ marginTop: 6 }}><button className="link-btn small" type="submit">Take this photo away</button></form>
+                    <div style={{ marginTop: 6 }}><ActionButton action={archivePhoto.bind(null, f.id)} className="link-btn small" label="Take this photo away" done="Photo taken off the website." /></div>
                   </details>
                 ) : null}
               </figure>

@@ -1,5 +1,6 @@
 // Grades for a contractor's or vendor's work (owner, Oct 2, 2026): a letter per
 // job with the justification, the overall grade, and the Do Not Use rule.
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Choice } from './Choice';
@@ -84,7 +85,7 @@ export function GradesTab({ who, data, projects, canEdit, override }: {
                 {gradeParts.some((p) => g[p.key]) ? <div className="grade-parts">{gradeParts.filter((p) => g[p.key]).map((p) => <span key={p.key} className="chip">{p.label}: <b>{g[p.key]}</b></span>)}</div> : null}
                 <p className="grade-why"><span className="small muted">Justification:</span> {g.justification}</p>
               </div>
-              {canEdit ? <form action={archiveGrade.bind(null, who.personId ?? null, who.companyId ?? null, g.id)}><button className="link-btn small" type="submit">Remove</button></form> : null}
+              {canEdit ? <ActionButton action={archiveGrade.bind(null, who.personId ?? null, who.companyId ?? null, g.id)} className="link-btn small" label="Remove" done="Grade removed." /> : null}
             </li>
           ))}</ul>
         ) : <Empty>No grades yet.</Empty>}

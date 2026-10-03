@@ -2,6 +2,7 @@ import 'server-only';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { entities, entityMembers, entityTaxIds, files, projects } from '@/db/schema';
+import { ref } from '@/lib/sql-ref';
 
 // Our business entities: who owns what, their documents and tax IDs (the
 // numbers stay sealed here; only revealTaxId in entity-actions opens one).
@@ -22,9 +23,9 @@ export const entityDocTypes = [
 export async function listEntities() {
   const rows = await db.select({
     id: entities.id, name: entities.name, kind: entities.kind, state: entities.state, formedOn: entities.formedOn, status: entities.status, taxForm: entities.taxForm,
-    members: sql<number>`(select count(*)::int from entity_members m where m.entity_id = ${entities.id} and m.removed_at is null)`,
-    docs: sql<number>`(select count(*)::int from files f where f.entity = 'entity' and f.entity_id = ${entities.id} and f.archived_at is null)`,
-    taxIds: sql<number>`(select count(*)::int from entity_tax_ids t where t.entity_id = ${entities.id} and t.archived_at is null)`,
+    members: sql<number>`(select count(*)::int from entity_members m where m.entity_id = ${ref(entities.id)} and m.removed_at is null)`,
+    docs: sql<number>`(select count(*)::int from files f where f.entity = 'entity' and f.entity_id = ${ref(entities.id)} and f.archived_at is null)`,
+    taxIds: sql<number>`(select count(*)::int from entity_tax_ids t where t.entity_id = ${ref(entities.id)} and t.archived_at is null)`,
     projects: sql<number>`(select count(*)::int from projects p where p.archived_at is null and p.owned_by ilike '%' || ${entities.name} || '%')`,
   }).from(entities).where(isNull(entities.archived)).orderBy(asc(entities.name));
   return rows;
