@@ -94,3 +94,13 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
 - **Page layout settings and folding sections** (planned for both, owner Oct 3,
   2026): sections fold; an admin screen sets each page's section order and
   which are shown, without code changes; with who can see what.
+- **Snap a Receipt** (built Oct 3, 2026; `SnapReceipt.tsx`,
+  `receipt-actions.ts`): a phone camera button (`capture="environment"`). A
+  big photo is shrunk to 2,000 px in the browser first, so it stays under the
+  4.5 MB request limit. It's read as long work through /api/work, so the page
+  never freezes. The file waits in the inbox while the user checks what was
+  read, then moves onto the record it's saved on. The page it was opened from
+  is chosen already. TS Workspace can use the same flow for expense receipts
+  (E1), a business card snapped into a contact, or a signed timesheet photo.
+  Lesson: money shown in a message needs `formatMoney(x, { cents: true })`,
+  or $84.17 reads "$84".

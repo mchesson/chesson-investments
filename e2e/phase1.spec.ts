@@ -1776,3 +1776,59 @@ test('timelines: everything that happened at a property and who did it; what a v
   await expect(tiles.locator('.tile', { hasText: 'Open Issues' })).toContainText('1');
   await expect(page.locator('.tl', { hasText: 'Committed: Framing' }).getByRole('link', { name: `${s} Timeline Two St` })).toBeVisible();
 });
+
+test('snap a receipt: the photo becomes a paid receipt on the property, or business overhead, with the photo kept', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into projects (name, address, purchased_on, lot_cost) values ($1, $1, '2026-01-15', 300000) returning id`, [`${s} Receipt Ln`]);
+  const pid = p.rows[0].id;
+  const code = (await db.query(`select code, name from cost_codes where archived_at is null order by sort limit 1`)).rows[0];
+  // A tiny PNG (1x1): Claude is off in tests, so nothing is read and the form starts empty.
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${pid}`);
+  await page.locator('main').getByRole('link', { name: 'Snap a Receipt' }).click();
+  await page.waitForURL(/\/receipts\/snap\?project=/);
+  await page.waitForLoadState('networkidle');
+  await page.locator('input[type=file]').last().setInputFiles({ name: 'lowes.png', mimeType: 'image/png', buffer: png });
+  const form = page.locator('.snap-confirm');
+  await expect(form).toContainText('couldn’t be read here', { timeout: 30_000 });
+  // The property it was snapped from is already chosen.
+  await expect(form.getByRole('combobox', { name: /What It Was For/ })).toHaveValue(`${s} Receipt Ln`);
+  await form.locator('input[name=vendor]').fill(`Lowes ${s}`);
+  await form.locator('input[name=amount]').fill('84.17');
+  await form.locator('input[name=spentOn]').fill('2026-02-03');
+  await form.locator('select[name=costCodeId]').selectOption({ label: `${code.code} ${code.name}` });
+  await form.getByRole('button', { name: 'Save the Receipt' }).click();
+  await expect(page.locator('.toast', { hasText: `Saved on ${s} Receipt Ln: Lowes ${s}, $84.17` })).toBeVisible();
+
+  await page.goto(`/projects/${pid}?tab=bills`);
+  await expect(page.locator('tr', { hasText: `Lowes ${s}` })).toContainText('$84');
+  await page.goto(`/projects/${pid}?tab=history`);
+  await expect(page.locator('main')).toContainText(`added a receipt from Lowes ${s} for $84.17`);
+  await expect(page.locator('main')).toContainText('Snap a Receipt');
+  const bill = (await db.query(`select b.status, b.kind, f.entity from bills b join files f on f.id = b.file_id where b.project_id = $1`, [pid])).rows[0];
+  expect(bill).toEqual({ status: 'paid', kind: 'receipt', entity: 'bill' });
+
+  // The next one, for the business itself, from the menu.
+  await page.goto('/receipts/snap');
+  await page.waitForLoadState('networkidle');
+  await page.locator('input[type=file]').last().setInputFiles({ name: 'staples.png', mimeType: 'image/png', buffer: png });
+  const f2 = page.locator('.snap-confirm');
+  await expect(f2).toBeVisible({ timeout: 30_000 });
+  await pick(f2, 'where', 'Overhead: Chesson');
+  await f2.locator('input[name=vendor]').fill(`Staples Snap ${s}`);
+  await f2.locator('input[name=amount]').fill('12.50');
+  await f2.locator('input[name=spentOn]').fill(`${new Date().getFullYear()}-01-20`);
+  await f2.locator('select[name=category]').selectOption('office');
+  await f2.getByRole('button', { name: 'Save the Receipt' }).click();
+  await expect(page.locator('.toast', { hasText: `overhead: Staples Snap ${s}, $12.50` })).toBeVisible();
+  await page.goto('/overhead');
+  await expect(page.locator('tr', { hasText: `Staples Snap ${s}` })).toContainText('$12.50');
+  const o = (await db.query(`select f.entity from overhead_expenses o join files f on f.id = o.file_id where o.vendor = $1`, [`Staples Snap ${s}`])).rows[0];
+  expect(o).toEqual({ entity: 'overhead' });
+  await db.end();
+});

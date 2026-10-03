@@ -13,7 +13,8 @@ import { requireAction } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { detectDropFile } from '@/lib/file-rules';
 import { getObject, putObject, removeObject, signedUpload, storageOn } from '@/lib/storage';
-import { decide, propertyKey, type Target } from '@/lib/doc-filing';
+import { decide, propertyKey } from '@/lib/doc-filing';
+import { targetsFor } from '@/lib/doc-targets';
 import { placeAndZoneQuickly } from '@/lib/locate';
 import { redirect } from 'next/navigation';
 import { projectStages } from '@/lib/project-stages';
@@ -60,15 +61,6 @@ export async function dropSmall(d: FormData): Promise<DropResult> {
   return processDrop(Buffer.from(await f.arrayBuffer()), f.name, null, user);
 }
 
-async function targetsFor(user: Awaited<ReturnType<typeof requireAction>>): Promise<Target[]> {
-  const ps = await db.select({ id: projects.id, name: projects.name, address: projects.address, city: projects.city, state: projects.state }).from(projects).where(isNull(projects.archived));
-  // Entity names are listed for overhead too; filing business records on them still needs the owner (decide()).
-  const es = can(user, 'sensitive.view') || can(user, 'money.view') ? await db.select({ id: entities.id, name: entities.name }).from(entities).where(isNull(entities.archived)) : [];
-  return [
-    ...ps.map((p) => ({ kind: 'project' as const, id: p.id, name: p.name, detail: [p.address, p.city, p.state].filter(Boolean).join(', ') })),
-    ...es.map((e) => ({ kind: 'entity' as const, id: e.id, name: e.name })),
-  ];
-}
 
 async function processDrop(bytes: Buffer, rawName: string, path: string | null, user: Awaited<ReturnType<typeof requireAction>>): Promise<DropResult> {
   const name = rawName.slice(0, 200) || 'document';

@@ -9,7 +9,7 @@
 export const LONG_JOBS = [
   'startDrop', 'finishDrop', 'dropSmall', 'readAgain',
   'startMarketSync', 'stepMarketSync', 'updateFeed', 'updateEverything', 'placeOurPlaces',
-  'findLocationsAndZoning', 'readCompsFromDocument',
+  'findLocationsAndZoning', 'readCompsFromDocument', 'readReceipt',
 ] as const;
 export type LongJob = (typeof LONG_JOBS)[number];
 export const isLongJob = (v: unknown): v is LongJob => LONG_JOBS.includes(v as LongJob);
