@@ -23,3 +23,16 @@ export function addressKey(address: string | null | undefined): AddressKey | nul
 
 /** SQL-safe text for an ArcGIS where clause (quotes doubled, nothing else odd). */
 export const arcText = (s: string) => s.replace(/[^A-Z0-9 '-]/gi, '').replace(/'/g, "''");
+
+/**
+ * A name that only says the address again ("420 Peyton Street" for "420 Peyton
+ * St"): shown once, not twice (Oct 3, 2026, Peyton listed twice on Projects).
+ * Every screen that shows a name with its address uses this.
+ */
+export function sameAsAddress(name: string | null | undefined, address: string | null | undefined): boolean {
+  const flat = (s: string | null | undefined) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!name || !address) return !name === !address ? flat(name) === flat(address) : false;
+  if (flat(name) === flat(address)) return true;
+  const a = addressKey(name), b = addressKey(address);
+  return !!a && !!b && a.number === b.number && a.street === b.street && (a.unit ?? '') === (b.unit ?? '');
+}

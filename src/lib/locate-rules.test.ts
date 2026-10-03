@@ -15,3 +15,14 @@ test('house number and street name, as the county address points have them', () 
 test('text for a county query keeps only safe characters', () => {
   assert.equal(arcText("O'NEAL; DROP"), "O''NEAL DROP");
 });
+
+import { sameAsAddress } from './locate-rules';
+
+test('a name that only repeats the address is the same address', () => {
+  assert.ok(sameAsAddress('420 Peyton Street', '420 Peyton St'));
+  assert.ok(sameAsAddress('109 Plainview Ave', '109 Plainview Avenue'));
+  assert.ok(sameAsAddress('613 S Ocean Blvd Unit N3', '613 South Ocean Boulevard Unit N3'));
+  assert.ok(!sameAsAddress('613 S Ocean Blvd Unit N3', '613 S Ocean Blvd Unit N4'));
+  assert.ok(!sameAsAddress('The Grey', '1211 Shaw View Alley Unit 101'));
+  assert.ok(!sameAsAddress('422 Peyton St', '420 Peyton St'));
+});

@@ -218,6 +218,27 @@
       "when": 1791037706485,
       "tag": "0030_file_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791039849336,
+      "tag": "0031_comps",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791040399782,
+      "tag": "0032_comp_watch",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791040520824,
+      "tag": "0033_plainview_appraisal_comps",
+      "breakpoints": true
     }
   ]
 }

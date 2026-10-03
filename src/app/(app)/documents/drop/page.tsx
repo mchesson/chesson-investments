@@ -17,6 +17,7 @@ import { DropDocuments } from '@/components/DropDocuments';
 import { createProjectFromDocs, discardDropped, fileFromInbox, readAgain } from '../../doc-drop-actions';
 import { mergeProposals, propertyKey, type NewProperty } from '@/lib/doc-filing';
 import { projectStages } from '@/lib/project-stages';
+import { sameAsAddress } from '@/lib/locate-rules';
 
 export const metadata = { title: 'Drop Documents' };
 export const maxDuration = 300; // each file is read by Claude (a few seconds each)
@@ -34,7 +35,7 @@ export default async function DropPage() {
   const groups = new Map<string, { files: typeof inbox; props: NewProperty[] }>();
   for (const f of inbox) if (f.proposed) { const k = propertyKey(f.proposed); const g = groups.get(k) ?? { files: [], props: [] }; g.files.push(f); g.props.push(f.proposed); groups.set(k, g); }
   const rest = inbox.filter((f) => !f.proposed);
-  const targets = [...ps.map((p) => ({ id: `p:${p.id}`, label: p.name, sub: [p.address !== p.name ? p.address : null, p.city, 'Property'].filter(Boolean).join(' · ') })), ...(seeEntities ? es.map((e) => ({ id: `e:${e.id}`, label: e.name, sub: 'Business records (owner only)' })) : []), ...(seeMoney ? es.map((e) => ({ id: `o:${e.id}`, label: `Overhead: ${e.name}`, sub: 'A business expense, not one property' })) : [])];
+  const targets = [...ps.map((p) => ({ id: `p:${p.id}`, label: p.name, sub: [!sameAsAddress(p.name, p.address) ? p.address : null, p.city, 'Property'].filter(Boolean).join(' · ') })), ...(seeEntities ? es.map((e) => ({ id: `e:${e.id}`, label: e.name, sub: 'Business records (owner only)' })) : []), ...(seeMoney ? es.map((e) => ({ id: `o:${e.id}`, label: `Overhead: ${e.name}`, sub: 'A business expense, not one property' })) : [])];
   const types = [...docGroups.flatMap((g) => g.types), ...(seeEntities ? entityDocKinds.filter((k) => k !== 'Other' && k !== 'Insurance') : [])];
   return (
     <>

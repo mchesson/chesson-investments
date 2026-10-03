@@ -5,6 +5,22 @@ built. What follows is the order from the owner's spec (Oct 2, 2026), with what
 his past deal documents showed we need (read Oct 2, 2026; no account numbers,
 tax IDs or ID documents are copied anywhere).
 
+## Queue (owner, Oct 3, 2026), in order
+1. **Comps tab** (built): sources (public record, appraisal, presale / new build, broker, listing, private), finish level, adjustments, value at our size; county sales offered; Claude reads appraisals; presales and appraised houses watched until the county records the close; who gave each comp and whether their numbers held up; builder and custom builds kept apart.
+2. **Project page fixes**: Plainview lot cost $310,000 per the purchase agreement, with closing, tear-down and holding as their own lines; the list shows lot cost only; the Projected tag; the address as one field, address and neighborhood link to the map.
+3. **Upload documents in every section** (Add Project and each record), not only Drop Documents.
+2a. **Short-term rentals named as such** (owner: "rentals that are short term should be listed as such and not rental on the market as those all have different meanings"): each rental has a type (long-term, mid-term, short-term) shown in the stage everywhere, with its own statuses (short-term: getting ready, live on booking sites, booked / operating, off season / paused); the beach condo is short-term.
+3a. **Delete what's missing it** (owner: "i should be able to delete list or other items in the app"): a list, someone on a list, an event, a task, a touch, a document; money and track-record rows (bills, commitments, grades) are archived, never deleted.
+4. **Run the numbers before the offer**: maximum offer from comps, budget, holding, selling and profit target; sell / rent / short-term rent side by side; saved with the offer for the review.
+5. **Contract dates and stage checklists** with reminders.
+6. **Who uses the app**: a page of every sign-in and page visit (who, when, from where), and cutting someone off at once (owner: "a way or page to see who accesses this site and when and cut off access").
+7. **Grade everyone at every important step, over time** (like GCs and subs today): lenders (what they approve and decline by deal type: land, construction to perm, retrofit, multifamily; the trend in declines), attorneys (closed on time, fees, issues), wholesalers, property managers, designers, appraisers, agents (who sells the most in an area), and identify investors.
+8. **Builders tracked throughout**: one builder record across permits, county sales, comps and our own projects; spec builders apart from custom builders for owners.
+9. **Multifamily and small condo / townhome sites for sale** on the map (6 condos or townhomes on one piece of land): Zillow and Redfin miss most of them; find sources (county parcel and permit data for multi-unit land use, LoopNet / Crexi listings, broker lists).
+10. **Presales tracked publicly where we can**: new-home permits (builder, address) as "being built", the lot purchase, then the county-recorded close.
+11. Website rebuild with lead forms (in progress).
+12. **Marketing section** (owner: lists "may be best served as part of marketing"): lists become outreach lists built from a filter (absentee owners near the buy box, agents in an area, past sellers), each with a goal and a follow-up sequence, who answered, and which lists turned into deals; website leads feed it; My Tasks stays for one-off to-dos. Then the rest of the earlier list below.
+
 ## Next (owner, Oct 2, 2026): bids, our estimate, holding costs, schedules, documents
 In this order, before phase 2:
 1. **Project numbers.** Every project gets a short number (P-1001, from its
