@@ -52,5 +52,5 @@ test('type a ZIP code on the Market Map and see what’s happening there, in pla
   await page.getByRole('textbox', { name: 'ZIP code' }).fill('abc');
   await page.getByRole('textbox', { name: 'ZIP code' }).evaluate((el) => el.removeAttribute('pattern'));
   await page.getByRole('button', { name: 'Look Up' }).click();
-  await expect(page.getByRole('alert')).toContainText('Type a 5-digit ZIP code');
+  await expect(page.locator('.notice.error', { hasText: 'Type a 5-digit ZIP code' })).toBeVisible();
 });

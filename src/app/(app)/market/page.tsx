@@ -45,7 +45,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <PageHead title="Market Map" sub="What’s selling, where and for how much, from Wake and Durham County public records. Zoom in to street level; the buttons above the map add or take away what it shows."
-        actions={<><ZipLookup /><Link className="btn secondary" href="/market/builders">Builders</Link><Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link></>} />
+        actions={<><ZipLookup /><Link className="btn secondary" href="/market/buyers">Buyer Factors</Link><Link className="btn secondary" href="/market/builders">Builders</Link><Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link></>} />
       {sp.zipError ? <div className="notice error" role="alert">Type a 5-digit ZIP code, like 27608.</div> : null}
       <Section title="Filters" kind="grey"><Filters f={f} /></Section>
       <Section title="Map" kind="aqua" hint={totalSales ? `${totalSales.toLocaleString()} sales on file` : 'No sales loaded yet'}>
