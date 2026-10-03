@@ -447,3 +447,4 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .zoning-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; }
 .zoning-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.2); }
 .zoning-fact .chip { margin-left: 4px; }
+.auto-update { padding: 12px 14px; border: 1px solid var(--hair); border-radius: 10px; margin-bottom: 10px; background: #f6f9fc; }

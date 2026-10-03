@@ -8,6 +8,8 @@ import { landUses } from '@/lib/market-sources';
 import { MarketMap } from '@/components/MarketMap';
 import { AreaRows, Filters, query } from '@/components/MarketParts';
 import { MarketSync } from '@/components/MarketSync';
+import { lastAutoUpdates } from '@/lib/market-auto';
+import { formatDateTime } from '@/lib/format';
 import { Builders, CountyTiles, RatesAndBuyers, ZipTable } from '@/components/MarketFeeds';
 import { bandsAndRates, countyTrends, permitsByArea, rateSummary, topBuilders, zipTrends } from '@/lib/market-feeds-data';
 import { heatLabel, marketHeat, trendTypes } from '@/lib/market-feeds';
@@ -33,6 +35,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         z.inventory !== null ? `${z.inventory} for sale` : null, z.priceDrops !== null ? `${Math.round(z.priceDrops * 100)}% with a price cut` : null].filter(Boolean).join(' · ') };
   });
   const totalSales = counts.reduce((s, c) => s + c.sales, 0);
+  const autoLast = await lastAutoUpdates();
   const last = Object.fromEntries(syncs.map((s) => [s.county, { status: s.status, finished: s.finished ? new Date(s.finished).toISOString() : null, parcels: s.parcels, newSales: s.new_sales, error: s.error }]));
   return (
     <>
@@ -78,7 +81,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         <Section title="Streets" kind="aqua" hint="Three or more sales"><AreaRows rows={streets} kind="streets" /></Section>
       </div>
       <Section title="Towns" kind="energy"><AreaRows rows={towns} kind="towns" /></Section>
-      {can(user, 'properties.edit') ? <Section title="Update Market Data" kind="grey" hint="Read-only from the counties"><MarketSync last={last} /></Section> : null}
+      {can(user, 'properties.edit') ? <Section title="Update Market Data" kind="grey" hint="Read-only from the counties"><MarketSync last={last} auto={(['counties', 'feeds', 'places'] as const).map((part) => ({ part, label: { counties: 'County sales', feeds: 'Rates, permits and Redfin', places: 'Map places, zoning and bills' }[part], at: autoLast[part] ? formatDateTime(autoLast[part]!.at) : null, summary: autoLast[part]?.summary ?? null }))} /></Section> : null}
     </>
   );
 }

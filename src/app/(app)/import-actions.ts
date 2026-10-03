@@ -337,24 +337,9 @@ export async function applyImport(text: string): Promise<Summary> {
   return { ...sum, problems: [...(sum.problems ?? []), ...photoErrors], done: `Imported ${result.added.people} people, ${result.added.companies} companies, ${result.added.projects} projects, ${result.added.bills} bills and ${result.photosAdded} photos${result.bidsAdded ? `, ${result.bidsAdded} ${result.bidsAdded === 1 ? 'bid' : 'bids'}` : ''}${result.utilitiesAdded ? `, ${result.utilitiesAdded} ${result.utilitiesAdded === 1 ? 'utility' : 'utilities'}` : ''}.` };
 }
 
-export type BillMatch = { vendor: string; to: string | null; kind: 'company' | 'person' | null; how: string | null; count: number; total: string };
+import { billMatches, linkBills } from '@/lib/bill-linking';
 
-/** Bills with a vendor name but no company or person linked, and what each name would link to. */
-async function billMatches(x: Tx | typeof db) {
-  const open = await x.select({ id: bills.id, projectId: bills.projectId, vendor: bills.vendorName, amount: bills.amount }).from(bills)
-    .where(and(isNull(bills.archived), isNull(bills.vendorCompanyId), isNull(bills.vendorPersonId), sql`${bills.vendorName} is not null`));
-  const cos = await x.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived));
-  const ps = await x.select({ id: people.id, firstName: people.firstName, lastName: people.lastName }).from(people).where(isNull(people.archived));
-  const byName = new Map<string, { ids: { id: string; projectId: string }[]; total: number; company: ReturnType<typeof matchCompany>; person: ReturnType<typeof matchPerson> }>();
-  for (const b of open) {
-    const v = b.vendor!;
-    const e = byName.get(v) ?? { ids: [], total: 0, company: matchCompany(v, cos), person: null as ReturnType<typeof matchPerson> };
-    if (!e.company && !e.person && !e.ids.length) e.person = matchPerson(v, ps);
-    e.ids.push({ id: b.id, projectId: b.projectId }); e.total += Math.round(Number(b.amount) * 100);
-    byName.set(v, e);
-  }
-  return byName;
-}
+export type BillMatch = { vendor: string; to: string | null; kind: 'company' | 'person' | null; how: string | null; count: number; total: string };
 
 const toRows = (m: Awaited<ReturnType<typeof billMatches>>): BillMatch[] => [...m.entries()].map(([vendor, e]) => ({
   vendor, to: e.company?.name ?? e.person?.name ?? null, kind: e.company ? 'company' as const : e.person ? 'person' as const : null,
@@ -369,20 +354,7 @@ export async function previewBillMatches(): Promise<{ rows: BillMatch[] }> {
 /** Links every bill whose vendor name matches a company or person (one step, in History). */
 export async function applyBillMatches(): Promise<{ rows: BillMatch[]; done: string }> {
   const user = await requireAction('import.run');
-  const r = await db.transaction(async (tx) => {
-    const m = await billMatches(tx);
-    let linked = 0;
-    for (const [vendor, e] of m) {
-      const target = e.company ? { vendorCompanyId: e.company.id } : e.person ? { vendorPersonId: e.person.id } : null;
-      if (!target) continue;
-      for (const b of e.ids) await tx.update(bills).set(target).where(eq(bills.id, b.id));
-      linked += e.ids.length;
-      const who = e.company ?? e.person!;
-      await audit({ userId: user.id, entity: e.company ? 'company' : 'person', entityId: who.id, action: 'bills-linked', summary: `linked ${e.ids.length} ${e.ids.length === 1 ? 'bill' : 'bills'} named “${vendor}” ($${(e.total / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })})`, via: 'Match Bills to Companies' }, tx);
-      for (const pid of new Set(e.ids.map((b) => b.projectId))) await audit({ userId: user.id, entity: 'project', entityId: pid, action: 'bills-linked', summary: `linked the bills from “${vendor}” to ${who.name}`, via: 'Match Bills to Companies' }, tx);
-    }
-    return { linked };
-  });
+  const r = await linkBills(user.id, 'Match Bills to Companies');
   revalidatePath('/', 'layout');
   return { rows: toRows(await billMatches(db)), done: `Linked ${r.linked} bills.` };
 }

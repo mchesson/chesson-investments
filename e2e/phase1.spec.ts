@@ -1070,6 +1070,7 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
     await expect(b).toHaveAttribute('aria-pressed', 'true', { timeout: 2000 });
   }).toPass({ timeout: 20000 });
   // The update buttons are there for each free source.
+  await page.locator('summary', { hasText: 'Update One at a Time' }).click();
   for (const b of ['Update Rates', 'Update Redfin Data', 'Update Permits']) await expect(page.getByRole('button', { name: b })).toBeVisible();
 });
 
@@ -1329,4 +1330,20 @@ test('the watchlist filtered by what the zoning allows; Find Locations and Zonin
     await page.getByRole('button', { name: 'Find Locations and Zoning' }).click({ timeout: 2000 });
     await expect(page.locator('.toast', { hasText: /Done: placed \d+ on the map/ })).toBeVisible({ timeout: 15000 });
   }).toPass({ timeout: 60000 });
+});
+
+test('market data updates itself: the scheduled route needs its secret, and Update Everything Now runs every part', async ({ page }) => {
+  // Without Vercel's secret the scheduled route refuses.
+  const r = await page.request.get('/api/cron/market?part=places');
+  expect(r.status()).toBe(401);
+  await signIn(page, 'Sample Owner');
+  await page.goto('/market');
+  await expect(page.locator('.auto-update')).toContainText('Updates itself twice a day');
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Update Everything Now' }).click({ timeout: 2000 });
+    await expect(page.locator('.toast', { hasText: 'Everything is updated.' })).toBeVisible({ timeout: 60000 });
+  }).toPass({ timeout: 120000 });
+  await page.reload();
+  await expect(page.locator('.auto-update')).toContainText(/Map places, zoning and bills: \d/);
+  await expect(page.locator('.auto-update')).toContainText(/linked \d+ bills/);
 });
