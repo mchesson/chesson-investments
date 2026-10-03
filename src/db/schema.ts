@@ -560,6 +560,9 @@ export const files = pgTable('files', {
   onSite: boolean('on_site').notNull().default(false),
   sort: integer('sort').notNull().default(0),
   sourceUrl: text('source_url'),
+  // A dropped document about a property we don't have yet: the address and
+  // facts read from it, so the drop page can offer to create the project.
+  proposedProperty: jsonb('proposed_property').$type<import('@/lib/doc-filing').NewProperty>(),
   uploadedBy: uuid('uploaded_by').references(() => users.id),
   created: created(),
   archived: archived(),
@@ -998,3 +1001,20 @@ export const entityTaxIds = pgTable('entity_tax_ids', {
   updated: updated(),
   archived: archived(),
 }, (t) => [index('entity_tax_ids_entity').on(t.entityId)]).enableRLS();
+
+// Business overhead (owner, Oct 3, 2026: "a general overhead receipt and where it
+// might go"): spending for the business itself, not one property, under the
+// business entity it's for. Read from the receipt by the document drop, or typed.
+export const overheadExpenses = pgTable('overhead_expenses', {
+  id: id(),
+  entityId: uuid('entity_id').notNull().references(() => entities.id),
+  fileId: uuid('file_id').references(() => files.id),
+  vendor: text('vendor'),
+  amount: money('amount'),
+  spentOn: date('spent_on'),
+  category: text('category').notNull().default('other'),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('overhead_entity_on').on(t.entityId, t.spentOn)]).enableRLS();

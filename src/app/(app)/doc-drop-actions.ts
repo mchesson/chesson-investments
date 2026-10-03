@@ -4,14 +4,20 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { entities, entityTaxIds, files, projects } from '@/db/schema';
+import { entities, entityTaxIds, files, overheadExpenses, projects } from '@/db/schema';
+import { isOverheadCategory, overheadLabel } from '@/lib/overhead';
+import { parseMoney, isDay } from '@/lib/format';
 import type { FormResult } from '@/components/ActionForm';
 import { audit } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { detectDropFile } from '@/lib/file-rules';
 import { getObject, putObject, removeObject, signedUpload, storageOn } from '@/lib/storage';
-import { decide, type Target } from '@/lib/doc-filing';
+import { decide, propertyKey, type Target } from '@/lib/doc-filing';
+import { placeAndZoneQuickly } from '@/lib/locate';
+import { redirect } from 'next/navigation';
+import { projectStages } from '@/lib/project-stages';
+import { formatState } from '@/lib/format';
 import { classify } from '@/lib/doc-filing-ai';
 import { docCaption, isProjectDocType } from '@/lib/doc-types';
 import { last4Of, masked, seal } from '@/lib/secret-box';
@@ -56,7 +62,8 @@ export async function dropSmall(d: FormData): Promise<DropResult> {
 
 async function targetsFor(user: Awaited<ReturnType<typeof requireAction>>): Promise<Target[]> {
   const ps = await db.select({ id: projects.id, name: projects.name, address: projects.address, city: projects.city, state: projects.state }).from(projects).where(isNull(projects.archived));
-  const es = can(user, 'sensitive.view') ? await db.select({ id: entities.id, name: entities.name }).from(entities).where(isNull(entities.archived)) : [];
+  // Entity names are listed for overhead too; filing business records on them still needs the owner (decide()).
+  const es = can(user, 'sensitive.view') || can(user, 'money.view') ? await db.select({ id: entities.id, name: entities.name }).from(entities).where(isNull(entities.archived)) : [];
   return [
     ...ps.map((p) => ({ kind: 'project' as const, id: p.id, name: p.name, detail: [p.address, p.city, p.state].filter(Boolean).join(', ') })),
     ...es.map((e) => ({ kind: 'entity' as const, id: e.id, name: e.name })),
@@ -73,20 +80,25 @@ async function processDrop(bytes: Buffer, rawName: string, path: string | null, 
   if (dup) { await drop(); return { name, status: 'duplicate', message: 'Already in the app (the same file).', href: `/documents/${dup.id}` }; }
   const targets = await targetsFor(user);
   const { filing } = await classify({ name, type: kind.type, bytes }, targets);
-  const d = decide(filing, targets, can(user, 'sensitive.view'));
+  const d = decide(filing, targets, can(user, 'sensitive.view'), can(user, 'money.view'));
   if (d.action === 'refuse') { await drop(); return { name, status: 'refused', message: d.why }; }
   const owner = d.action === 'file' ? { entity: d.kind, entityId: d.id } : { entity: 'inbox', entityId: user.id };
   const caption = docCaption(d.type, d.title || null);
   const id = await db.transaction(async (tx) => {
     const [row] = await tx.insert(files).values({
       ...owner, name, contentType: kind.type, size: bytes.length, sha256, data: path ? null : bytes, storagePath: path, caption, uploadedBy: user.id,
+      proposedProperty: d.action === 'inbox' ? d.proposal ?? null : null,
     }).returning({ id: files.id });
     if (!path && storageOn()) { // a small file sent through the app: into storage like the rest
       const p = `${owner.entity}/${row.id}.${kind.ext}`;
       await putObject(p, bytes, kind.type);
       await tx.update(files).set({ storagePath: p, data: null }).where(eq(files.id, row.id));
     }
-    if (d.action === 'file') {
+    if (d.action === 'file' && d.kind === 'overhead') {
+      const e = d.expense;
+      await tx.insert(overheadExpenses).values({ entityId: d.id, fileId: row.id, vendor: e.vendor, amount: e.amount === null ? null : String(e.amount), spentOn: e.spentOn, category: e.category, createdBy: user.id });
+      await audit({ userId: user.id, entity: 'entity', entityId: d.id, action: 'overhead-add', summary: `added overhead: ${e.vendor ?? caption}${e.amount !== null ? ` $${e.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''} (${overheadLabel(e.category)})`, after: { fileId: row.id, ...e }, via: VIA }, tx);
+    } else if (d.action === 'file') {
       await audit({ userId: user.id, entity: d.kind, entityId: d.id, action: 'doc-add', summary: `added a document: ${caption}`, after: { fileId: row.id }, via: VIA }, tx);
       // An EIN letter: its number goes into the entity's Tax IDs, sealed (History shows the last 4 only).
       if (d.ein && d.kind === 'entity') {
@@ -109,6 +121,7 @@ async function processDrop(bytes: Buffer, rawName: string, path: string | null, 
   revalidatePath('/documents/drop');
   if (d.action === 'inbox') return { name, status: 'inbox', message: `${d.type}: ${d.why}`, href: `/documents/${id}` };
   const t = targets.find((x) => x.id === d.id)!;
+  if (d.kind === 'overhead') return { name, status: 'filed', message: `${caption} → Overhead, ${t.name} (${overheadLabel(d.expense.category)}${d.expense.amount !== null ? `, $${d.expense.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''})`, href: '/overhead' };
   return { name, status: 'filed', message: `${caption} → ${t.name}${d.ein ? ' (EIN saved, encrypted)' : ''}`, href: `/${d.kind === 'project' ? 'projects' : 'entities'}/${d.id}?tab=documents` };
 }
 
@@ -118,8 +131,9 @@ export async function fileFromInbox(_: FormResult, d: FormData): Promise<FormRes
   const id = str(d, 'id');
   const [f] = id ? await db.select().from(files).where(and(eq(files.id, id), eq(files.entity, 'inbox'), isNull(files.archived))) : [];
   if (!f) return { error: 'Not found.' };
-  const t = str(d, 'target')?.match(/^([pe]):([0-9a-f-]{36})$/i);
-  if (!t) return { error: 'Pick where it goes: type the property or entity and choose it.' };
+  const t = str(d, 'target')?.match(/^([peo]):([0-9a-f-]{36})$/i);
+  if (!t) return { error: 'Pick where it goes: type the property, entity or overhead and choose it.' };
+  if (t[1] === 'o') return fileAsOverhead(f, t[2], d, user);
   const kind = t[1] === 'p' ? 'project' : 'entity';
   if (kind === 'entity' && !can(user, 'sensitive.view')) return { error: 'Business documents are filed by the owner.' };
   const type = str(d, 'type') ?? 'Other';
@@ -145,4 +159,102 @@ export async function discardDropped(id: string): Promise<FormResult> {
   });
   revalidatePath('/documents/drop');
   return { ok: 'Removed from the inbox.' };
+}
+
+async function fileAsOverhead(f: typeof files.$inferSelect, entityId: string, d: FormData, user: Awaited<ReturnType<typeof requireAction>>): Promise<FormResult> {
+  if (!can(user, 'money.view')) return { error: 'Overhead is filed by someone who sees the money.' };
+  const [e] = await db.select({ name: entities.name }).from(entities).where(eq(entities.id, entityId));
+  if (!e) return { error: 'Not found.' };
+  const amount = parseMoney(d.get('amount'));
+  if (amount === undefined) return { error: 'Amount: a dollar amount.' };
+  const spentOn = str(d, 'spentOn');
+  if (spentOn && !isDay(spentOn)) return { error: 'Date: a real date.' };
+  const category = str(d, 'category');
+  const cat = isOverheadCategory(category) ? category : 'other';
+  const type = str(d, 'type') ?? 'Receipt';
+  const caption = docCaption(isProjectDocType(type) ? type : 'Receipt', str(d, 'title'));
+  await db.transaction(async (tx) => {
+    await tx.update(files).set({ entity: 'overhead', entityId, caption }).where(eq(files.id, f.id));
+    await tx.insert(overheadExpenses).values({ entityId, fileId: f.id, vendor: str(d, 'vendor'), amount, spentOn: spentOn ?? null, category: cat, createdBy: user.id });
+    await audit({ userId: user.id, entity: 'entity', entityId, action: 'overhead-add', summary: `added overhead: ${str(d, 'vendor') ?? caption}${amount ? ` $${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''} (${overheadLabel(cat)})`, after: { fileId: f.id }, via: VIA }, tx);
+  });
+  revalidatePath('/documents/drop');
+  revalidatePath('/overhead');
+  return { ok: `Filed as overhead for ${e.name}.` };
+}
+
+/** Creates the project the dropped documents are about, filled in from them, and files them all on it. */
+export async function createProjectFromDocs(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('projects.edit');
+  const key = str(d, 'key');
+  const address = str(d, 'address');
+  if (!key || !address) return { error: 'An address is needed.' };
+  const waiting = (await db.select().from(files).where(and(eq(files.entity, 'inbox'), isNull(files.archived))))
+    .filter((f) => f.proposedProperty && propertyKey(f.proposedProperty) === key);
+  if (!waiting.length) return { error: 'Those documents were already filed.' };
+  const lotCost = parseMoney(d.get('lotCost'));
+  if (lotCost === undefined) return { error: 'Purchase price: a dollar amount.' };
+  const heated = str(d, 'heatedSf')?.replace(/[,\s]/g, '') ?? null;
+  if (heated && !/^\d+$/.test(heated)) return { error: 'Heated SF: a whole number.' };
+  const purchasedOn = str(d, 'purchasedOn');
+  if (purchasedOn && !isDay(purchasedOn)) return { error: 'Bought On: a real date.' };
+  const stageKey = str(d, 'stage') ?? 'under_contract';
+  const stage = projectStages.some((s) => s.key === stageKey) ? stageKey : 'under_contract';
+  const f = {
+    name: str(d, 'name') ?? address, address, city: str(d, 'city'), state: formatState(str(d, 'state')) ?? 'NC', zip: str(d, 'zip'), neighborhood: str(d, 'neighborhood'),
+    lotCost, heatedSf: heated ? Number(heated) : null, purchasedOn: purchasedOn ?? null,
+  };
+  const projectId = await db.transaction(async (tx) => {
+    const [p] = await tx.insert(projects).values({ ...f, stage: stage as never, sellingCostPct: '5', createdBy: user.id }).returning({ id: projects.id });
+    await audit({ userId: user.id, entity: 'project', entityId: p.id, action: 'create', summary: `added ${f.name} from ${waiting.length} dropped ${waiting.length === 1 ? 'document' : 'documents'}`, after: f, via: VIA }, tx);
+    for (const w of waiting) {
+      await tx.update(files).set({ entity: 'project', entityId: p.id, proposedProperty: null }).where(eq(files.id, w.id));
+      await audit({ userId: user.id, entity: 'project', entityId: p.id, action: 'doc-add', summary: `added a document: ${w.caption ?? w.name}`, after: { fileId: w.id }, via: VIA }, tx);
+    }
+    return p.id;
+  });
+  await placeAndZoneQuickly('project', projectId, user.id);
+  revalidatePath('/projects');
+  redirect(`/projects/${projectId}?tab=documents`);
+}
+
+/** Reads waiting files again (after a new project or entity exists, or for files dropped before this step). */
+export async function readAgain(): Promise<FormResult> {
+  const user = await requireAction('projects.edit');
+  const waiting = await db.select().from(files).where(and(eq(files.entity, 'inbox'), isNull(files.archived))).limit(200);
+  const targets = await targetsFor(user);
+  const deadline = Date.now() + 240_000;
+  let filed = 0, proposed = 0, read = 0;
+  for (const w of waiting) {
+    if (Date.now() > deadline) break;
+    let bytes: Buffer | null = null;
+    try { bytes = w.storagePath ? await getObject(w.storagePath) : w.data ? Buffer.from(w.data) : null; } catch { bytes = null; }
+    if (!bytes) continue;
+    read++;
+    const { filing } = await classify({ name: w.name, type: w.contentType, bytes }, targets);
+    if (!filing) continue;
+    const dd = decide(filing, targets, can(user, 'sensitive.view'), can(user, 'money.view'));
+    if (dd.action === 'refuse') continue; // left for a person to remove
+    const caption = docCaption(dd.type, dd.title || null);
+    await db.transaction(async (tx) => {
+      if (dd.action === 'inbox') {
+        await tx.update(files).set({ caption, proposedProperty: dd.proposal ?? null }).where(eq(files.id, w.id));
+        if (dd.proposal) proposed++;
+        return;
+      }
+      if (dd.kind === 'overhead') {
+        await tx.update(files).set({ entity: 'overhead', entityId: dd.id, caption, proposedProperty: null }).where(eq(files.id, w.id));
+        const e = dd.expense;
+        await tx.insert(overheadExpenses).values({ entityId: dd.id, fileId: w.id, vendor: e.vendor, amount: e.amount === null ? null : String(e.amount), spentOn: e.spentOn, category: e.category, createdBy: user.id });
+        await audit({ userId: user.id, entity: 'entity', entityId: dd.id, action: 'overhead-add', summary: `added overhead: ${e.vendor ?? caption} (${overheadLabel(e.category)})`, after: { fileId: w.id }, via: VIA }, tx);
+      } else {
+        await tx.update(files).set({ entity: dd.kind, entityId: dd.id, caption, proposedProperty: null }).where(eq(files.id, w.id));
+        await audit({ userId: user.id, entity: dd.kind, entityId: dd.id, action: 'doc-add', summary: `added a document: ${caption}`, after: { fileId: w.id }, via: VIA }, tx);
+      }
+      filed++;
+    });
+  }
+  revalidatePath('/documents/drop');
+  const left = waiting.length - read;
+  return { ok: `Read ${read}: filed ${filed}${proposed ? `, ${proposed} about new properties (see New Properties Found)` : ''}.${left > 0 ? ` ${left} more: press Read Again to carry on.` : ''}` };
 }

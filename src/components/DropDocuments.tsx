@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { unzipSync } from 'fflate';
 import { useRouter } from 'next/navigation';
 import { dropSmall, finishDrop, startDrop, type DropResult } from '@/app/(app)/doc-drop-actions';
 import { toast } from './Toast';
@@ -8,7 +9,29 @@ import { toast } from './Toast';
 type Row = DropResult | { name: string; status: 'waiting' | 'sending' | 'reading'; message: string; href?: string };
 const label: Record<Row['status'], string> = { waiting: 'Waiting', sending: 'Sending', reading: 'Reading', filed: 'Filed', inbox: 'Needs You', refused: 'Not Kept', duplicate: 'Already Here', error: 'Problem' };
 
-/** Drag in any number of files; each is sent, read and filed, two at a time. */
+const mimeOf = (name: string) => {
+  const e = name.toLowerCase().split('.').pop() ?? '';
+  return ({ pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic' } as Record<string, string>)[e] ?? 'application/octet-stream';
+};
+
+/** Zips are opened here, in the browser: each file inside goes in as if dropped on its own (owner: "I don't know how to unzip"). */
+export async function openZips(list: File[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const f of list) {
+    if (!/\.zip$/i.test(f.name)) { out.push(f); continue; }
+    try {
+      const entries = unzipSync(new Uint8Array(await f.arrayBuffer()));
+      for (const [path, bytes] of Object.entries(entries)) {
+        const name = path.split('/').pop() ?? '';
+        if (!name || path.endsWith('/') || path.startsWith('__MACOSX/') || name.startsWith('._') || name === '.DS_Store' || !bytes.length) continue;
+        out.push(new File([bytes as BlobPart], name, { type: mimeOf(name) }));
+      }
+    } catch { out.push(f); } // not a readable zip: it'll be refused with the reason
+  }
+  return out;
+}
+
+/** Drag in any number of files (or zips of them); each is sent, read and filed, two at a time. */
 export function DropDocuments() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
@@ -42,7 +65,7 @@ export function DropDocuments() {
   async function add(list: FileList | null) {
     if (!list?.length || busy.current) return;
     busy.current = true;
-    const fs = [...list];
+    const fs = await openZips([...list]);
     const start = rows.length;
     setRows((rs) => [...rs, ...fs.map((f) => ({ name: f.name, status: 'waiting' as const, message: '' }))]);
     let next = 0;
@@ -58,9 +81,9 @@ export function DropDocuments() {
     <div className="drop-docs">
       <div className={`drop-zone${over ? ' over' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}>
-        <p style={{ margin: 0 }}><strong>Drag your documents here</strong>, as many as you like: PDFs, photos of receipts, Word and Excel files, up to 50 MB each.</p>
+        <p style={{ margin: 0 }}><strong>Drag your documents here</strong>, as many as you like: PDFs, photos of receipts, Word and Excel files (up to 50 MB each), or <strong>zip files</strong> of them: no need to unzip.</p>
         <button type="button" className="btn" onClick={() => input.current?.click()}>Choose Files</button>
-        <input ref={input} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.docx,.xlsx,.doc,.xls" onChange={(e) => { add(e.target.files); e.target.value = ''; }} aria-label="Choose documents" />
+        <input ref={input} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.docx,.xlsx,.doc,.xls,.zip" onChange={(e) => { add(e.target.files); e.target.value = ''; }} aria-label="Choose documents" />
       </div>
       {rows.length ? (
         <>

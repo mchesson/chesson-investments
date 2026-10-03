@@ -1416,3 +1416,67 @@ test('drop documents: many at once, the same file skipped, filed from the inbox 
   const deeds = page.locator('section', { hasText: 'Deed, Title and Survey' });
   await expect(deeds).toContainText(`Recorded deed ${s}`);
 });
+
+test('drop documents: a zip is opened in the browser and each file inside is filed', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const { zipSync, strToU8 } = await import('fflate');
+  const pdf = (n: string) => strToU8(`%PDF-1.4\n% ${n} ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`);
+  const zip = zipSync({ [`folder/lease-${s}.pdf`]: pdf('lease'), [`folder/survey-${s}.pdf`]: pdf('survey'), '__MACOSX/folder/._x.pdf': strToU8('junk') });
+  await page.goto('/documents/drop');
+  await page.locator('input[type=file]').setInputFiles([{ name: `docs-${s}.zip`, mimeType: 'application/zip', buffer: Buffer.from(zip) }]);
+  await expect(page.locator('.toast', { hasText: /Done: 2 files sent/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('tr', { hasText: `lease-${s}.pdf` })).toContainText('Needs You');
+  await expect(page.locator('tr', { hasText: `survey-${s}.pdf` })).toContainText('Needs You');
+});
+
+test('a project made from dropped documents, and a receipt filed as overhead', async ({ page }) => {
+  await signIn(page, 'Sample Owner');
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const [{ id: owner }] = (await db.query(`select id from users where role = 'owner' limit 1`)).rows;
+  // Two documents Claude read as being about a property we don't have yet (Claude is off in tests).
+  const np = { address: `${s} Shaw View Alley`, unit: '101', city: 'Raleigh', state: 'NC', zip: '27601', purchasePrice: null, purchasedOn: '2024-11-22', heatedSf: 1180, community: 'The Grey' };
+  for (const [n, extra] of [['settlement', { purchasePrice: 389900 }], ['deed', {}]] as const) {
+    await db.query(`insert into files (entity, entity_id, name, content_type, size, sha256, data, caption, uploaded_by, proposed_property)
+      values ('inbox', $1, $2, 'application/pdf', 10, md5($2), '\\x255044462d'::bytea, $3, $1, $4)`, [owner, `${n}-${s}.pdf`, n === 'deed' ? 'Deed · Recorded deed' : 'Settlement Statement · Purchase', JSON.stringify({ ...np, ...extra })]);
+  }
+  // A receipt for the business itself, waiting.
+  await db.query(`insert into files (entity, entity_id, name, content_type, size, sha256, data, caption, uploaded_by)
+    values ('inbox', $1, $2, 'application/pdf', 10, md5($2), '\\x255044462d'::bytea, 'Receipt', $1)`, [owner, `staples-${s}.pdf`]);
+  await db.end();
+
+  await page.goto('/documents/drop');
+  const card = page.locator('.new-property', { hasText: `${s} Shaw View Alley Unit 101` });
+  await expect(card).toContainText('2 documents');
+  await expect(card.locator('input[name=lotCost]')).toHaveValue('389900');
+  await expect(card.locator('input[name=heatedSf]')).toHaveValue('1180');
+  await expect(card.locator('input[name=neighborhood]')).toHaveValue('The Grey');
+  await expect(async () => {
+    await card.getByRole('button', { name: 'Create This Project' }).click({ timeout: 2000 });
+    await page.waitForURL(/\/projects\/[0-9a-f-]{36}\?tab=documents/, { timeout: 15000 });
+  }).toPass({ timeout: 40_000 });
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('The Grey #101');
+  await expect(page.locator('main')).toContainText('Settlement Statement');
+  await expect(page.locator('main')).toContainText('Deed');
+
+  // The receipt, filed as overhead for Chesson Investments, with its amount and category.
+  await page.goto('/documents/drop');
+  const item = page.locator('li', { hasText: `staples-${s}.pdf` });
+  await item.locator('summary', { hasText: 'File It' }).click();
+  await expect(async () => {
+    await item.getByRole('combobox', { name: /Where It Goes/ }).fill('Overhead: Chesson');
+    await page.getByRole('option', { name: /Overhead: Chesson Investments/ }).click({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await item.locator('input[name=vendor]').fill(`Staples ${s}`);
+  await item.locator('input[name=amount]').fill('44.59');
+  await item.locator('input[name=spentOn]').fill(`${new Date().getFullYear()}-01-15`);
+  await item.locator('select[name=category]').selectOption('office');
+  await item.getByRole('button', { name: 'File It' }).click();
+  await expect(page.locator('.toast', { hasText: 'Filed as overhead for Chesson Investments LLC' })).toBeVisible();
+  await page.goto('/overhead');
+  await expect(page.locator('tr', { hasText: `Staples ${s}` })).toContainText('Office and Supplies');
+  await expect(page.locator('tr', { hasText: `Staples ${s}` })).toContainText('$44.59');
+});
