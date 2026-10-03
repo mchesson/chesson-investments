@@ -104,7 +104,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function saveStates(tx: Tx, userId: string, old: typeof projects.$inferSelect, states: Record<ProjectStage, StageState>, summary: string, extra: Partial<typeof projects.$inferInsert> = {}, rentalStatus?: string) {
   const stage = mainStage(states);
   // A rental's sub-stage is the rental's own status (the Rental tab shows it too).
-  if (rentalStatus) await tx.insert(rentals).values({ projectId: old.id, status: rentalStatus }).onConflictDoUpdate({ target: rentals.projectId, set: { status: rentalStatus, updated: new Date() } });
+  // A short-term status on a project with no rental yet sets it up as short-term.
+  if (rentalStatus) await tx.insert(rentals).values({ projectId: old.id, status: rentalStatus, kind: ['listed', 'operating', 'paused'].includes(rentalStatus) ? 'short_term' : 'long_term' }).onConflictDoUpdate({ target: rentals.projectId, set: { status: rentalStatus, updated: new Date() } });
   await tx.update(projects).set({ stageStates: states, stage, updated: new Date(), ...extra }).where(eq(projects.id, old.id));
   await audit({ userId, entity: 'project', entityId: old.id, action: 'stage', summary: stage !== old.stage ? `${summary} (main stage now ${projectStageLabel(stage)})` : summary, before: { stageStates: stageStates(old.stage, old.stageStates), stage: old.stage }, after: { stageStates: states, stage, ...extra }, via: 'stage bar' }, tx);
 }

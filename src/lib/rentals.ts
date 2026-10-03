@@ -2,6 +2,19 @@
 // good deal or we lose money, and the bank loan against the property"). Cents
 // throughout. Pure, tested in rentals.test.ts.
 
+// Long-term, mid-term and short-term rentals mean different things (owner, Oct 3,
+// 2026: "rentals that are short term should be listed as such and not rental on
+// the market"): each has its own name and its own statuses.
+export const rentalKinds = [
+  { key: 'long_term', label: 'Long-Term Rental', short: 'Long-Term', hint: 'A lease, usually a year' },
+  { key: 'mid_term', label: 'Mid-Term Rental', short: 'Mid-Term', hint: 'Furnished, a month or more' },
+  { key: 'short_term', label: 'Short-Term Rental', short: 'Short-Term', hint: 'Nightly or weekly guests (Airbnb, VRBO)' },
+] as const;
+export type RentalKind = (typeof rentalKinds)[number]['key'];
+export const isRentalKind = (v: unknown): v is RentalKind => rentalKinds.some((k) => k.key === v);
+export const rentalKindLabel = (v: string | null | undefined) => rentalKinds.find((k) => k.key === v)?.label ?? 'Rental';
+
+/** Leases (long- and mid-term). */
 export const rentalStatuses = [
   { key: 'getting_ready', label: 'Getting Ready' },
   { key: 'on_market', label: 'On the Market' },
@@ -10,8 +23,17 @@ export const rentalStatuses = [
   { key: 'notice', label: 'Notice Given' },
   { key: 'vacant', label: 'Vacant' },
 ] as const;
-export const isRentalStatus = (v: string | null | undefined) => rentalStatuses.some((s) => s.key === v);
-export const rentalStatusLabel = (v: string) => rentalStatuses.find((s) => s.key === v)?.label ?? v;
+/** Guests by the night or week. */
+export const shortTermStatuses = [
+  { key: 'getting_ready', label: 'Getting Ready' },
+  { key: 'listed', label: 'Listed on Booking Sites' },
+  { key: 'operating', label: 'Operating (Booking Guests)' },
+  { key: 'paused', label: 'Off Season / Paused' },
+] as const;
+export const statusesFor = (kind: string | null | undefined) => (kind === 'short_term' ? shortTermStatuses : rentalStatuses);
+export const isRentalStatus = (v: string | null | undefined, kind?: string | null) =>
+  (kind ? statusesFor(kind) : [...rentalStatuses, ...shortTermStatuses]).some((s) => s.key === v);
+export const rentalStatusLabel = (v: string) => [...rentalStatuses, ...shortTermStatuses].find((s) => s.key === v)?.label ?? v;
 
 export type RentInputs = {
   rent: number; // monthly: the lease's, else the asking rent

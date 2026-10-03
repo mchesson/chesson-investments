@@ -16,7 +16,7 @@ import { filesFor } from '@/lib/files';
 import { isUuid } from '@/lib/forms';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
 import { cents, payBlocker, type CodeMoney } from '@/lib/budget';
-import { activeStages, openStage, projectStageLabel, stageStates } from '@/lib/project-stages';
+import { activeStages, openStage, projectStageLabel, stageLabelFor, stageStates } from '@/lib/project-stages';
 import { HOLDING_KINDS } from '@/lib/cost-codes';
 import { lineKinds } from '@/lib/bill-lines';
 import { scheduleFor } from '@/lib/schedule-data';
@@ -58,6 +58,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const base = `/projects/${id}`;
   const openItems = data.items.filter((i) => i.status === 'unpriced');
   const sched = await scheduleFor(id);
+  const rentalKind = (await rentalFor(id)).rental?.r.kind ?? null;
   const missed = sched.assignments.filter((a) => a.state === 'missed');
   const tabs = [
     { key: 'overview', label: 'Overview' },
@@ -68,13 +69,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   ];
   return (
     <>
-      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{stageLabelFor(k, rentalKind)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       {await (async () => {
         const states = stageStates(p.stage, p.stageStates);
-        const rentalStatus = (await rentalFor(id)).rental?.r.status ?? null;
+        const rentalRow = (await rentalFor(id)).rental?.r;
+        const rentalStatus = rentalRow?.status ?? null;
         return <StageBar projectId={id} states={states} subs={{ ...p.subStages, rental: rentalStatus }} open={openStage(askedStage, states)}
-          href={(k) => `${base}?${new URLSearchParams({ ...(tab !== 'overview' ? { tab } : {}), stage: k })}`} canEdit={editProject} />;
+          href={(k) => `${base}?${new URLSearchParams({ ...(tab !== 'overview' ? { tab } : {}), stage: k })}`} canEdit={editProject} rentalKind={rentalRow?.kind ?? null} />;
       })()}
       <div className="record">
         <div className="card-side">

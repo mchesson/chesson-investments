@@ -1661,3 +1661,27 @@ test('one address field, split for the lookups; the address and neighborhood ope
   await page.goto('/projects');
   await expect(page.locator('td .sale-tag', { hasText: 'Projected' }).first()).toHaveCSS('display', 'block');
 });
+
+test('a short-term rental is called that, with its own statuses, on the project and the list', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const p = await db.query(`insert into projects (name, address, city, stage) values ($1, $2, 'North Myrtle Beach', 'rental') returning id`, [`Beach ${s}`, `${s} Ocean Blvd Unit 1`]);
+  await db.end();
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${p.rows[0].id}?tab=rental`);
+  const setup = page.locator('form:has(input[name=askingRent])');
+  await choose(setup, 'kind', 'short_term');
+  // Lease statuses give way to a short-term rental's own.
+  await expect(setup.getByText('Application Pending')).toBeHidden();
+  await choose(setup, 'status', 'operating');
+  await setup.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('main').getByText('Operating (Booking Guests)').first()).toBeVisible();
+  await expect(page.locator('.page-head')).toContainText('Short-Term Rental');
+  await expect(page.getByRole('navigation', { name: 'Stages' })).toContainText('Short-Term Rental');
+  await page.goto('/projects');
+  await expect(page.locator('tr', { hasText: `${s} Ocean Blvd Unit 1` }).locator('.stage-chips')).toContainText('Short-Term Rental · Operating (Booking Guests)');
+  await page.goto(`/projects/${p.rows[0].id}?tab=history`);
+  await expect(page.locator('main')).toContainText('set it up as a short-term rental (Operating (Booking Guests))');
+});

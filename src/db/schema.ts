@@ -671,7 +671,9 @@ export const projectUtilities = pgTable('project_utilities', {
 export const rentals = pgTable('rentals', {
   id: id(),
   projectId: uuid('project_id').notNull().references(() => projects.id),
-  status: text('status').notNull().default('getting_ready'), // getting_ready | on_market | application | leased | notice | vacant
+  // long_term / mid_term / short_term (src/lib/rentals.ts): each has its own statuses.
+  kind: text('kind').notNull().default('long_term'),
+  status: text('status').notNull().default('getting_ready'), // leases: getting_ready | on_market | application | leased | notice | vacant; short-term: getting_ready | listed | operating | paused
   askingRent: money('asking_rent'),
   listedOn: date('listed_on'),
   listedWhere: text('listed_where'),
