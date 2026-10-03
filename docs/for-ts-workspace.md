@@ -120,3 +120,10 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   Any one answering is enough, and what failed is logged. The lesson for TS
   Workspace's feeds (Crelate, Redfin-style public data): use fallbacks, and
   show a stale-data warning on the page, not just a failed row in a log table.
+- **Weights measured, not guessed** (Buyer Factors, Oct 3, 2026;
+  `price-drivers.ts`): one least-squares fit over about 43,000 local sales,
+  with each factor's share of the spread in prices. It runs in about 0.4
+  seconds in the browser-free server code, with no paid tools, and missing
+  inputs (Durham's year built) get an "unknown" marker instead of dropping
+  the row. TS Workspace can use the same method for "what drives bill rates"
+  (skill, tier, location, client, contract type) from its own placements.

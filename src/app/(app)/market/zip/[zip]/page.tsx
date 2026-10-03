@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/session';
 import { cleanZipInput, zipHeadline, zipStory } from '@/lib/zip-report-rules';
 import { zipReport } from '@/lib/zip-report';
+import { zipDrivers } from '@/lib/price-drivers-data';
+import { driverSentences } from '@/lib/price-drivers';
 import { ourPlaces, readFilters } from '@/lib/market-data';
 import { landUses } from '@/lib/market-sources';
 import { permitKinds } from '@/lib/market-feeds';
@@ -25,7 +27,7 @@ export default async function ZipPage({ params }: { params: Promise<{ zip: strin
   await requirePage('properties.view');
   const zip = cleanZipInput((await params).zip);
   if (!zip) notFound();
-  const [rep, places] = await Promise.all([zipReport(zip), ourPlaces()]);
+  const [rep, places, drivers] = await Promise.all([zipReport(zip), ourPlaces(), zipDrivers(zip)]);
   const { facts: f, place } = rep;
   const story = zipStory(f);
   const r = f.redfin;
@@ -55,6 +57,12 @@ export default async function ZipPage({ params }: { params: Promise<{ zip: strin
       <Section title="Map" kind="aqua">
         {place.lat && place.lng ? <MarketMap focus={{ lat: place.lat, lng: place.lng, zoom: 14, label: zip }} query={query(readFilters({ months: '12' }))} projects={places.projects} watch={places.watch} areas={[]} parcelInfo />
           : <Empty>No county parcels with a place on the map in {zip} yet.</Empty>}
+      </Section>
+      <Section title="What Buyers Pay For Here" kind="energy" hint={drivers ? `Measured from ${drivers.n.toLocaleString()} sales in ${zip}, the last 2 years` : 'Measured from county sales'}>
+        {drivers ? <>
+          <ul className="zip-story">{driverSentences(drivers).slice(1).map((x) => <li key={x}>{x}</li>)}</ul>
+          <p className="small muted">Size, age, lot and kind of home explain {drivers.r2}% of why prices differ inside {zip}. <Link href="/market/buyers">Buyer Factors for the whole area</Link></p>
+        </> : <Empty>Too few ordinary home sales in {zip} to measure (it needs about 60). <Link href="/market/buyers">Buyer Factors for the whole area</Link></Empty>}
       </Section>
       <div className="grid-2">
         <Section title="Sales by Kind of Home" kind="blue" hint="County records, the last 12 months against the 12 before">

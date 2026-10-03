@@ -510,3 +510,12 @@ form:has(input[name=kind][value=short_term]:checked) .rental-status-lease { disp
 .zip-lookup input { width: 8.5em; }
 .zip-story { margin: 8px 0 0; padding-left: 1.2em; }
 .zip-story li { margin: 4px 0; }
+
+/* Buyer Factors: each factor's share of why prices differ */
+.factor-bars { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; }
+.factor-bars li { display: grid; grid-template-columns: minmax(8em, 14em) 1fr 3.5em; gap: 10px; align-items: center; }
+.fb-label { font-size: 0.95rem; }
+.fb-track { height: 14px; background: var(--mist, #f3f5f7); border-radius: 4px; overflow: hidden; }
+.fb-bar { display: block; height: 100%; background: var(--true-blue); border-radius: 0 4px 4px 0; min-width: 2px; }
+.fb-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+@media (max-width: 560px) { .factor-bars li { grid-template-columns: 1fr 3.5em; } .fb-track { grid-column: 1 / -1; grid-row: 2; } }
