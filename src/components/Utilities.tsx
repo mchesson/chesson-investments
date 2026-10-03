@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Empty, Section } from './ui';
@@ -24,7 +25,7 @@ export function Utilities({ projectId, rows, companies, people, canEdit }: {
               <div><strong>{utilityServiceLabel(u.service)}</strong>{u.companyId ? <> · <Link href={`/companies/${u.companyId}`}>{u.companyName}</Link></> : null}</div>
               {u.personId ? <div className="small">Contact: <Link href={`/people/${u.personId}`}>{u.personName}</Link>{u.personPhone ? <> · <Phone value={u.personPhone} /></> : null}{u.personEmail ? <> · <a href={`mailto:${u.personEmail}`}>{u.personEmail}</a></> : null}</div> : null}
               {u.startedOn || u.notes ? <div className="small muted">{[u.startedOn ? `Since ${formatDate(u.startedOn)}` : null, u.notes].filter(Boolean).join(' · ')}</div> : null}
-              {canEdit ? <form action={removeUtility.bind(null, u.id)}><button className="link-btn small" type="submit">Take off</button></form> : null}
+              {canEdit ? <ActionButton action={removeUtility.bind(null, u.id)} className="link-btn small" label="Take off" done="Utility taken off." /> : null}
             </li>
           ))}</ul>
         ) : <Empty>No utilities recorded yet.</Empty>}

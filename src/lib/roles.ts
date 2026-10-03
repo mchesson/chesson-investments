@@ -3,7 +3,7 @@
 
 export type RoleKey =
   | 'personal' | 'gc' | 'sub' | 'supplier' | 'agent' | 'wholesaler' | 'lender' | 'attorney'
-  | 'designer' | 'property_manager' | 'investor' | 'landowner' | 'networking';
+  | 'designer' | 'property_manager' | 'investor' | 'landowner' | 'networking' | 'association' | 'insurance';
 
 export type RoleDef = {
   key: RoleKey;
@@ -61,6 +61,20 @@ export const roles: readonly RoleDef[] = [
   { key: 'attorney', label: 'Attorney / Title', plural: 'Attorneys and Title', stages: relationshipStages, coldDays: 120, quietStages: ['avoid'] },
   { key: 'designer', label: 'Designer / Engineer / Surveyor', plural: 'Designers, Engineers and Surveyors', stages: relationshipStages, trade: true, coldDays: 90, quietStages: ['avoid'] },
   { key: 'property_manager', label: 'Property Manager', plural: 'Property Managers', stages: relationshipStages, coldDays: 90, quietStages: ['avoid'] },
+  { key: 'insurance', label: 'Insurance Agent / Carrier', plural: 'Insurance', stages: relationshipStages, coldDays: 180, quietStages: ['avoid'] },
+  {
+    // Trade groups and clubs whose events we go to (owner, Oct 3, 2026: "a type
+    // associations so when we go to events we can put down what assoc it was and
+    // who we met and how we met them"). Their events are on the company's page.
+    key: 'association', label: 'Association', plural: 'Associations', coldDays: 120,
+    stages: [
+      { key: 'attending', label: 'Going to Events' },
+      { key: 'member', label: 'Member' },
+      { key: 'leader', label: 'Board or Committee' },
+      { key: 'past', label: 'No Longer Going' },
+    ],
+    quietStages: ['past'],
+  },
   {
     key: 'investor', label: 'Investor', plural: 'Investors', coldDays: 45,
     stages: [

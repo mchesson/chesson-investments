@@ -6,6 +6,7 @@ import {
 } from '@/db/schema';
 import { cents, pnl, resolveBudget, rollup, scenarios, totals, type CodeMoney } from './budget';
 import { countsTowardBudget, countsTowardHolding } from './bill-lines';
+import { ref } from '@/lib/sql-ref';
 
 export function listProjects() {
   return db.select({
@@ -40,7 +41,7 @@ export async function projectMoney(projectId: string) {
       invoiceNumber: bills.invoiceNumber, invoiceOn: bills.invoiceOn, amount: bills.amount, retainage: bills.retainage, status: bills.status,
       lienWaiverReceived: bills.lienWaiverReceived, lienWaiverRequired: bills.lienWaiverRequired, kind: bills.kind, billedTo: bills.billedTo, dueOn: bills.dueOn,
       includedInBillId: bills.includedInBillId, paidOn: bills.paidOn, paidHow: bills.paidHow, fileId: bills.fileId, notes: bills.notes,
-      approvedByName: sql<string | null>`(select u.name from ${users} u where u.id = ${bills.approvedBy})`,
+      approvedByName: sql<string | null>`(select u.name from ${users} u where u.id = ${ref(bills.approvedBy)})`,
     }).from(bills).where(and(eq(bills.projectId, projectId), isNull(bills.archived))).orderBy(desc(bills.invoiceOn)),
     db.select().from(holdingCosts).where(and(eq(holdingCosts.projectId, projectId), isNull(holdingCosts.archived))).orderBy(desc(holdingCosts.incurredOn)),
     db.select().from(projectItems).where(and(eq(projectItems.projectId, projectId), isNull(projectItems.archived))).orderBy(asc(projectItems.created)),

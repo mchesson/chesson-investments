@@ -1,6 +1,7 @@
 // The stage bar at the top of a project (owner, Oct 2, 2026): every stage with
 // its state (several can be going at once), and the opened stage's own state
 // buttons and sub-stages beneath. Server component: buttons are forms.
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { activeStages, projectStages, stageStateKeys, stageStateLabel, subStageLabel, subStages, type ProjectStage, type StageState } from '@/lib/project-stages';
 import { setStageState, setSubStage } from '@/app/(app)/project-actions';
@@ -42,7 +43,7 @@ export function StageBar({ projectId, states, subs, open, href, canEdit }: {
           <span className="muted">{def.hint}</span>
           <div className="seg" role="group" aria-label={`${def.label} status`}>
             {stageStateKeys.map((k) => canEdit && states[open] !== k ? (
-              <form key={k} action={setStageState.bind(null, projectId, open, k)}><button type="submit" className="seg-btn" data-k={k}>{stageStateLabel[k]}</button></form>
+              <ActionButton key={k} action={setStageState.bind(null, projectId, open, k)} className="seg-btn" dataK={k} label={stageStateLabel[k]} done={`${def.label}: ${stageStateLabel[k]}.`} />
             ) : (
               <span key={k} className="seg-btn" data-k={k} aria-pressed={states[open] === k}>{stageStateLabel[k]}</span>
             ))}
@@ -54,7 +55,7 @@ export function StageBar({ projectId, states, subs, open, href, canEdit }: {
             {subStages[open].map((x) => (
               <li key={x.key}>
                 {canEdit && x.key !== sub
-                  ? <form action={setSubStage.bind(null, projectId, open, x.key)}><button type="submit" className="sub-step">{x.label}</button></form>
+                  ? <ActionButton action={setSubStage.bind(null, projectId, open, x.key)} className="sub-step" label={x.label} done={`${def.label}: ${x.label}.`} />
                   : <span className="sub-step" aria-current={x.key === sub ? 'true' : undefined}>{x.label}</span>}
               </li>
             ))}

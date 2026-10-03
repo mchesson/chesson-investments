@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Empty } from './ui';
@@ -9,12 +10,12 @@ import { Choice } from './Choice';
 
 type RoleRow = { id: string; role: string; stage: string; supplierTypes?: string[] | null; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
 
-export function RoleChips({ items }: { items: { role: string; stage: string; supplierTypes?: string[] | null }[] }) {
-  if (!items.length) return <span className="muted small">No role yet</span>;
+export function RoleChips({ items, empty = 'No role yet' }: { items: { role: string; stage: string; supplierTypes?: string[] | null; trade?: string | null }[]; empty?: string }) {
+  if (!items.length) return <span className="muted small">{empty}</span>;
   return (
     <span className="chips">
       {items.map((r, i) => (
-        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`} title={r.stage === 'avoid' ? 'Marked Avoid' : undefined}>{roleTag(r)}{r.stage === 'avoid' ? ' (Avoid)' : ''}</span>
+        <span key={i} className={`chip ${r.stage === 'avoid' ? 'red' : 'blue'}`} title={r.stage === 'avoid' ? 'Marked Avoid' : undefined}>{roleTag(r)}{r.trade && r.role !== 'supplier' ? `: ${r.trade}` : ''}{r.stage === 'avoid' ? ' (Avoid)' : ''}</span>
       ))}
     </span>
   );
@@ -88,9 +89,7 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
                       {r.role === 'supplier' ? <><input type="hidden" name="hasSupplierTypes" value="1" /><SupplierTypePicker selected={r.supplierTypes ?? []} hint={false} /></> : null}
                       <label className="f">Notes<input name="notes" defaultValue={r.notes ?? ''} /></label>
                     </ActionForm>
-                    <form action={removeRole.bind(null, r.id)} style={{ marginTop: 6 }}>
-                      <button className="link-btn small" type="submit">Take off this role</button>
-                    </form>
+                    <div style={{ marginTop: 6 }}><ActionButton action={removeRole.bind(null, r.id)} className="link-btn small" label="Take off this role" done="Role taken off." /></div>
                   </details>
                 ) : null}
               </li>
@@ -195,9 +194,7 @@ export function TaskRows({ items }: { items: { id: string; title: string; dueOn:
     <ul className="rows">
       {items.map((t) => (
         <li key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <form action={setTaskDone.bind(null, t.id, t.status !== 'done')}>
-            <button className="btn secondary small" type="submit">{t.status === 'done' ? 'Reopen' : 'Done'}</button>
-          </form>
+          <ActionButton action={setTaskDone.bind(null, t.id, t.status !== 'done')} className="btn secondary small" label={t.status === 'done' ? 'Reopen' : 'Done'} done={t.status === 'done' ? 'Task reopened.' : 'Task marked done.'} />
           <span style={{ flex: 1, textDecoration: t.status === 'done' ? 'line-through' : undefined }}>{t.title}</span>
           {t.assignee ? <span className="small muted">{t.assignee}</span> : null}
           {t.status === 'done' ? <span className="small muted">Done</span> : <DueLabel dueOn={t.dueOn} />}

@@ -9,6 +9,7 @@ import { isUuid } from '@/lib/forms';
 import { formatDateTime } from '@/lib/format';
 import { fileNeed, fileSize, previewKind } from '@/lib/file-view';
 import { PageHead, Section } from '@/components/ui';
+import { ref } from '@/lib/sql-ref';
 
 export const metadata = { title: 'Document' };
 
@@ -40,7 +41,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const [f] = await db.select({ id: files.id, entity: files.entity, entityId: files.entityId, name: files.name, contentType: files.contentType, size: files.size,
-    caption: files.caption, created: files.created, archived: files.archived, by: sql<string | null>`(select coalesce(u.name, u.email) from ${users} u where u.id = ${files.uploadedBy})` })
+    caption: files.caption, created: files.created, archived: files.archived, by: sql<string | null>`(select coalesce(u.name, u.email) from ${users} u where u.id = ${ref(files.uploadedBy)})` })
     .from(files).where(eq(files.id, id));
   if (!f || f.archived || !can(user, fileNeed(f.entity))) notFound();
   const kind = previewKind(f.contentType);

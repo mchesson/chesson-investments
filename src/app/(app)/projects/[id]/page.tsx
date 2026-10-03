@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import { Choice } from '@/components/Choice';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -362,8 +363,8 @@ async function Bills({ data, role }: { data: Money; role: Parameters<typeof can>
                 {b.notes ? <div className="small">{b.notes}</div> : null}
                 <div className="form-actions" style={{ marginTop: 6 }}>
                   {b.fileId ? <a className="btn small secondary" href={`/documents/${b.fileId}`}>Open the Bill</a> : null}
-                  {b.status === 'entered' && can(role, 'bills.approve') ? <form action={approveBill.bind(null, b.id)}><button className="btn small" type="submit">Approve</button></form> : null}
-                  {b.status !== 'paid' && b.lienWaiverRequired && canAdd ? <form action={setLienWaiver.bind(null, b.id, !b.lienWaiverReceived)}><button className="btn small secondary" type="submit">{b.lienWaiverReceived ? 'Lien Waiver Not In' : 'Lien Waiver Received'}</button></form> : null}
+                  {b.status === 'entered' && can(role, 'bills.approve') ? <ActionButton action={approveBill.bind(null, b.id)} className="btn small" label="Approve" done="Bill approved." /> : null}
+                  {b.status !== 'paid' && b.lienWaiverRequired && canAdd ? <ActionButton action={setLienWaiver.bind(null, b.id, !b.lienWaiverReceived)} className="btn small secondary" label={b.lienWaiverReceived ? 'Lien Waiver Not In' : 'Lien Waiver Received'} done={b.lienWaiverReceived ? 'Marked: lien waiver not in.' : 'Lien waiver marked received.'} /> : null}
                 </div>
                 {b.status !== 'paid' && can(role, 'bills.pay') ? (
                   blocker ? <p className="small amber" style={{ margin: '6px 0 0' }}>{blocker}</p> : (

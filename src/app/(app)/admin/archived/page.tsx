@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { desc, isNotNull } from 'drizzle-orm';
 import { db } from '@/db';
@@ -17,7 +18,7 @@ export default async function ArchivedPage({ searchParams }: { searchParams: Pro
   const row = (kind: 'person' | 'company', id: string, name: string, at: Date | null) => (
     <li key={id} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       <strong style={{ flex: 1 }}>{name}</strong><span className="small muted">archived {formatDate(at?.toISOString())}</span>
-      <form action={setArchived.bind(null, kind, id, false)}><button className="btn secondary small" type="submit">Restore</button></form>
+      <ActionButton action={setArchived.bind(null, kind, id, false)} className="btn secondary small" label="Restore" done="Restored." />
       <Link className="red small" href={`/admin/delete/${kind}/${id}`}>Delete Permanently…</Link>
     </li>
   );

@@ -299,8 +299,11 @@ export async function createEvent(_: FormResult, d: FormData): Promise<FormResul
   if (!name) return { error: 'Name the event.' };
   if (!isDay(on)) return { error: 'Pick the date.' };
   const id = await db.transaction(async (tx) => {
-    const [e] = await tx.insert(events).values({ name, happenedOn: on, location: str(d, 'location'), notes: str(d, 'notes'), createdBy: user.id }).returning();
-    await audit({ userId: user.id, entity: 'event', entityId: e.id, action: 'create', summary: `added the event ${name}` }, tx);
+    const associationId = uuidOrNull(d, 'associationId');
+    const [assoc] = associationId ? await tx.select({ name: companies.name }).from(companies).where(eq(companies.id, associationId)) : [];
+    const [e] = await tx.insert(events).values({ name, happenedOn: on, location: str(d, 'location'), notes: str(d, 'notes'), associationId: assoc ? associationId : null, createdBy: user.id }).returning();
+    await audit({ userId: user.id, entity: 'event', entityId: e.id, action: 'create', summary: `added the event ${name}${assoc ? ` (${assoc.name})` : ''}` }, tx);
+    if (assoc) await audit({ userId: user.id, entity: 'company', entityId: associationId, action: 'event-add', summary: `added their event ${name}` }, tx);
     return e.id;
   });
   redirect(`/events/${id}`);
@@ -323,7 +326,7 @@ export async function addPersonToEvent(_: FormResult, d: FormData): Promise<Form
     await audit({ userId: user.id, entity: 'event', entityId: eventId, action: 'person-add', summary: 'added someone met there', after: { personId } }, tx);
   });
   revalidatePath(`/events/${eventId}`);
-  return { ok: 'Added.' };
+  return { ok: 'Added. It’s on their record as a touch, too.' };
 }
 
 export async function createList(_: FormResult, d: FormData): Promise<FormResult> {
@@ -423,4 +426,22 @@ export async function setDoNotUse(_: FormResult, d: FormData): Promise<FormResul
   });
   revalidatePath('/', 'layout');
   return { ok: on ? 'Marked Do Not Use.' : 'Do Not Use taken off.' };
+}
+
+/** Which association held an event (or none). */
+export async function setEventAssociation(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('contacts.edit');
+  const eventId = uuidOrNull(d, 'eventId');
+  const associationId = uuidOrNull(d, 'associationId');
+  const [e] = eventId ? await db.select().from(events).where(eq(events.id, eventId)) : [];
+  if (!e) return { error: 'Not found.' };
+  const [assoc] = associationId ? await db.select({ name: companies.name }).from(companies).where(eq(companies.id, associationId)) : [];
+  if (associationId && !assoc) return { error: 'Pick an association from the list.' };
+  if ((e.associationId ?? null) === (associationId ?? null)) return { ok: 'No changes.' };
+  await db.transaction(async (tx) => {
+    await tx.update(events).set({ associationId: associationId ?? null }).where(eq(events.id, e.id));
+    await audit({ userId: user.id, entity: 'event', entityId: e.id, action: 'update', summary: assoc ? `set the association to ${assoc.name}` : 'took the association off', before: { associationId: e.associationId }, after: { associationId } }, tx);
+  });
+  revalidatePath(`/events/${e.id}`);
+  return { ok: assoc ? `Saved: held by ${assoc.name}.` : 'Saved: no association.' };
 }

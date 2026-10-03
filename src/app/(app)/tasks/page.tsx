@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { activeStaff, myOpenTasks } from '@/lib/contacts';
 import { requirePage } from '@/lib/session';
@@ -30,7 +31,7 @@ export default async function Tasks() {
             {g.items.length ? (
               <ul className="rows">{g.items.map((r) => (
                 <li key={r.id} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <form action={setTaskDone.bind(null, r.id, true)}><button className="btn secondary small" type="submit">Done</button></form>
+                  <ActionButton action={setTaskDone.bind(null, r.id, true)} className="btn secondary small" label="Done" done="Task marked done." />
                   <span style={{ flex: 1 }}>{r.title}{link(r) ? <> · <Link href={link(r)!}>{r.personName ?? r.recordName}</Link></> : null}</span>
                   <DueLabel dueOn={r.dueOn} />
                 </li>

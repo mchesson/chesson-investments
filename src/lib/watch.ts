@@ -3,6 +3,7 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzl
 import { db } from '@/db';
 import { people, projects, properties } from '@/db/schema';
 import { activeStages, type PropertyStage } from './properties';
+import { ref } from '@/lib/sql-ref';
 
 export type WatchView = 'active' | 'comps' | 'past' | 'all';
 
@@ -21,7 +22,7 @@ export async function listProperties(opts: { view: WatchView; q?: string; page?:
     id: properties.id, address: properties.address, city: properties.city, zip: properties.zip, neighborhood: properties.neighborhood,
     stage: properties.stage, dealType: properties.dealType, lotsPossible: properties.lotsPossible, askingPrice: properties.askingPrice, lotSf: properties.lotSf, zoning: properties.zoning,
     ourOffer: properties.ourOffer, soldPrice: properties.soldPrice, soldOn: properties.soldOn, winningPrice: properties.winningPrice,
-    sourceId: properties.sourcePersonId, sourceName: sql<string | null>`(select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${properties.sourcePersonId})`,
+    sourceId: properties.sourcePersonId, sourceName: sql<string | null>`(select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${ref(properties.sourcePersonId)})`,
     updated: properties.updated,
     total: sql<number>`count(*) over ()`.mapWith(Number),
   }).from(properties).where(and(...where)).orderBy(desc(properties.updated)).limit(50).offset((page - 1) * 50);

@@ -17,6 +17,7 @@ import { allowedPhotoUrl, isSiteStatus, photoKindLabel, slugify } from '@/lib/si
 import { saveFile } from '@/lib/files';
 import { detectFile, MAX_FILE } from '@/lib/file-rules';
 import { matchCompany, matchPerson } from '@/lib/vendor-match';
+import { ref } from '@/lib/sql-ref';
 
 const VIA = 'import from email and folders';
 
@@ -50,7 +51,7 @@ async function existing(x: Tx | typeof db): Promise<Existing> {
   const ps = await step('people', x.select({ id: people.id, firstName: people.firstName, lastName: people.lastName, email: people.email, phone: people.phone }).from(people).where(isNull(people.archived)));
   const cs = await step('companies', x.select({ id: companies.id, name: companies.name }).from(companies).where(isNull(companies.archived)));
   const pj = await step('projects', x.select({ id: projects.id, name: projects.name, address: projects.address }).from(projects).where(isNull(projects.archived)));
-  const bs = await step('bills', x.select({ projectId: bills.projectId, vendor: sql<string>`coalesce(${bills.vendorName}, (select c.name from companies c where c.id = ${bills.vendorCompanyId}), '')`, number: bills.invoiceNumber, date: bills.invoiceOn, amount: bills.amount }).from(bills).where(isNull(bills.archived)));
+  const bs = await step('bills', x.select({ projectId: bills.projectId, vendor: sql<string>`coalesce(${bills.vendorName}, (select c.name from companies c where c.id = ${ref(bills.vendorCompanyId)}), '')`, number: bills.invoiceNumber, date: bills.invoiceOn, amount: bills.amount }).from(bills).where(isNull(bills.archived)));
   const codes = await step('cost codes', x.select({ id: costCodes.id, code: costCodes.code }).from(costCodes));
   const ph = await step('photos', x.select({ projectId: files.entityId, sourceUrl: sql<string>`${files.sourceUrl}` }).from(files).where(and(eq(files.entity, 'project'), isNull(files.archived), sql`${files.sourceUrl} is not null`)));
   return { people: ps, companies: cs, projects: pj, bills: bs, costCodes: codes, photos: ph };

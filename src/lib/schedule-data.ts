@@ -3,13 +3,14 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { assignments, budgetVersions, companies, milestones, people, projects, users } from '@/db/schema';
 import { commitmentState, dueDate } from './schedule';
+import { ref } from '@/lib/sql-ref';
 
 export async function scheduleFor(projectId: string) {
   const [ms, as, versions] = await Promise.all([
     db.select().from(milestones).where(and(eq(milestones.projectId, projectId), isNull(milestones.archived))).orderBy(asc(milestones.sort), asc(milestones.plannedStart)),
     db.select({
       a: assignments,
-      who: sql<string | null>`coalesce((select c.name from ${companies} c where c.id = ${assignments.companyId}), (select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${assignments.personId}), (select u.name from ${users} u where u.id = ${assignments.userId}))`,
+      who: sql<string | null>`coalesce((select c.name from ${companies} c where c.id = ${ref(assignments.companyId)}), (select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${ref(assignments.personId)}), (select u.name from ${users} u where u.id = ${ref(assignments.userId)}))`,
     }).from(assignments).where(and(eq(assignments.projectId, projectId), isNull(assignments.archived))).orderBy(asc(assignments.created)),
     db.select().from(budgetVersions).where(eq(budgetVersions.projectId, projectId)).orderBy(desc(budgetVersions.created)),
   ]);

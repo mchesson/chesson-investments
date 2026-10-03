@@ -5,6 +5,7 @@ import { signOut } from '@/auth';
 import { requirePage } from '@/lib/session';
 import { can, roleNames } from '@/lib/permissions';
 import { MenuButton, SideNav } from '@/components/sidenav/SideNav';
+import { ToastHost } from '@/components/Toast';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requirePage();
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <SideNav items={items} />
       <div className="app-body"><main>{children}</main></div>
+      <ToastHost />
       <PlaceLists />
     </>
   );

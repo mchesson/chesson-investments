@@ -1,3 +1,4 @@
+import { ActionButton } from '@/components/ActionButton';
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Empty, Section } from './ui';
@@ -80,7 +81,7 @@ export function ScheduleTab({ projectId, sched, codes, companies, people, canEdi
                   <td>{a.due ? formatDate(a.due) : '—'}{a.milestoneName ? <div className="small muted">{a.offsetDays ? `${Math.abs(a.offsetDays)} days ${a.offsetDays < 0 ? 'before' : 'after'} ` : 'at '}{a.milestoneName}</div> : null}
                     <div><span className={`chip ${cls}`}>{label}</span>{doneLate(a, a.due) ? <span className="chip red">Late</span> : null}</div></td>
                   <td className="num">{formatMoney(a.gcAllowance)}</td><td className="num">{formatMoney(a.ourCost)}</td>
-                  <td>{canEdit ? <form action={setAssignmentDone.bind(null, a.id, a.status !== 'done')}><button className="btn small secondary" type="submit">{a.status === 'done' ? 'Reopen' : 'Done'}</button></form> : null}</td>
+                  <td>{canEdit ? <ActionButton action={setAssignmentDone.bind(null, a.id, a.status !== 'done')} className="btn small secondary" label={a.status === 'done' ? 'Reopen' : 'Done'} done={a.status === 'done' ? 'Reopened.' : 'Marked done.'} /> : null}</td>
                 </tr>
               );
             })}</tbody>

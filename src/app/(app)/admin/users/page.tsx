@@ -11,7 +11,7 @@ import { mailReady } from '@/lib/mail';
 import { formatDate, formatDateTime, today } from '@/lib/format';
 import { Empty, PageHead, Section } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
-import { addUser, inviteGuest, newGuestLink, savePartnerStandard, saveRoleStandard, setGuestAccess, setGuestType, setUserPermissions, setUserRole } from '../../admin-actions';
+import { addUser, inviteGuest, newGuestLink, savePartnerStandard, saveRoleStandard, setGuestAccess, setGuestType, setUserPermissions, setUserRole, removeUser } from '../../admin-actions';
 
 export const metadata = { title: 'Users and Access' };
 const assignable: Role[] = ['owner', 'admin', 'staff', 'accountant', 'pending'];
@@ -87,6 +87,11 @@ export default async function Users() {
                   <label className="check"><input type="checkbox" name="active" defaultChecked={u.active} /> Can sign in</label>
                 </ActionForm>
               </div>
+              {u.role !== 'owner' && u.id !== me.id ? (
+                <ActionForm action={removeUser} submit="Remove" submitClass="link-btn small" confirm={`Remove ${u.email}? ${u.lastSignIn ? 'They have signed in before, so their sign-in is turned off and they stay in History.' : 'They never signed in, so they come off the list.'}`}>
+                  <input type="hidden" name="id" value={u.id} />
+                </ActionForm>
+              ) : null}
               {(u.role === 'staff' || u.role === 'owner' || u.role === 'admin') && !u.email.endsWith('@technicalsource.com') && !u.email.endsWith('@example.com') ? (
                 <p className="notice warn" style={{ margin: 0 }}>This isn’t a Technical Source account, so they can’t sign in with Microsoft. If they’re a contractor or partner, invite them below under <strong>Invite an Outside Partner</strong> with this same email: they become an outside partner and get a sign-in link.</p>
               ) : null}
@@ -137,6 +142,9 @@ export default async function Users() {
                   </ActionForm>
                 </details>
                 <ActionForm action={newGuestLink} submit="Send a New Sign-In Link" submitClass="btn small secondary"><input type="hidden" name="id" value={g.id} /></ActionForm>
+                <ActionForm action={removeUser} submit="Remove" submitClass="link-btn small" confirm={`Remove ${g.email}? ${g.lastSignIn ? 'They have signed in before, so their sign-in is turned off and they stay in History.' : 'They never signed in, so they come off the list.'}`}>
+                  <input type="hidden" name="id" value={g.id} />
+                </ActionForm>
               </li>
             );
           })}</ul> : <Empty>No guests yet.</Empty>}
