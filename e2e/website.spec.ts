@@ -26,6 +26,15 @@ async function signIn(page: Page, who: string) {
   await page.waitForURL('/');
 }
 
+// No phone on the website unless one is entered (owner, Oct 3, 2026): earlier runs may have saved one.
+test.beforeAll(async () => {
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`update app_settings set value = value - 'phone' where key = 'website'`);
+  await db.end();
+});
+
 test('a project goes on the website with its photos, and comes off again', async ({ page, request }) => {
   await signIn(page, 'Sample Owner');
   await page.goto('/projects');
@@ -93,7 +102,8 @@ test('the website’s top bar, its pages and both forms reach Website Leads', as
   await visitor.goto('/site?utm_source=e2e-mailer&utm_medium=email');
   const bar = visitor.getByRole('navigation', { name: 'Main' });
   for (const name of ['Projects', 'What We Do', 'About', 'Contact', 'Sell Us Your Property']) await expect(bar.getByRole('link', { name, exact: true })).toBeVisible();
-  await expect(bar.getByRole('link', { name: '(919) 795-8948' })).toBeVisible();
+  // No phone number anywhere: visitors use the Contact Us form.
+  await expect(visitor.locator('a[href^="tel:"]')).toHaveCount(0);
   await expect(visitor.locator('footer')).toContainText('© ');
   for (const [link, heading] of [['What We Do', 'Three ways we build value'], ['About', 'About Chesson Investments'], ['Projects', 'Our work']] as const) {
     await bar.getByRole('link', { name: link, exact: true }).click();
