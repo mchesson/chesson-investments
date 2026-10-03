@@ -72,7 +72,9 @@ const money = (n: number) => (n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M`
 const esc = (s: string | null | undefined) => (s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const useLabel: Record<string, string> = { single_family: 'Single family', townhouse: 'Townhouse', condo: 'Condo', multi_family: '2–4 units', land: 'Land / lot', other: 'Other' };
 
-export function MarketMap({ query, projects, watch, areas, only, zones = [], zips = [], parcelInfo = false }: {
+export function MarketMap({ query, projects, watch, areas, only, zones = [], zips = [], parcelInfo = false, focus }: {
+  /** Open here (a project's address or a neighborhood, from a link): centered, zoomed in, marked. */
+  focus?: { lat: number; lng: number; zoom: number; label: string } | null;
   query: string; projects: Place[]; watch: Place[]; areas: Area[]; only?: LayerKey[]; zones?: Zone[]; zips?: ZipLabel[];
   /** Staff only: a click on a parcel up close shows its owner and last sale. */
   parcelInfo?: boolean;
@@ -128,6 +130,10 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
       base.current.aerial = esri.dynamicMapLayer({ url: WAKE_IMAGERY, format: 'jpg', attribution: 'Aerial photos: Wake County 2025' });
       lib.control.scale({ imperial: true, metric: false }).addTo(m);
       map.current = m;
+      if (focus) {
+        m.setView([focus.lat, focus.lng], focus.zoom);
+        lib.circleMarker([focus.lat, focus.lng], { radius: 10, color: '#0d71ba', weight: 3, fillOpacity: 0.15 }).addTo(m).bindPopup(esc(focus.label)).openPopup();
+      }
 
       // Parcel lines up close: Wake's drawn by the county, Durham's from its parcel outlines.
       groups.current.parcels = lib.layerGroup([

@@ -14,6 +14,8 @@ import { Builders, CountyTiles, RatesAndBuyers, ZipTable } from '@/components/Ma
 import { bandsAndRates, countyTrends, permitsByArea, rateSummary, topBuilders, zipTrends } from '@/lib/market-feeds-data';
 import { heatLabel, marketHeat, trendTypes } from '@/lib/market-feeds';
 import { Empty, PageHead, Section, Tile } from '@/components/ui';
+import { sql } from 'drizzle-orm';
+import { db } from '@/db';
 
 export const metadata = { title: 'Market Map' };
 export const maxDuration = 800; // Update Redfin Data reads a national file (a minute or two)
@@ -27,6 +29,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     bandTrends(f), areaTable('neighborhood', f), areaTable('street', f), areaTable('city', f, 25), ourPlaces(), marketCounts(), lastSyncs(),
     rateSummary(), zipTrends(zipType), countyTrends(), topBuilders(), permitsByArea(),
   ]);
+  // Opened from a link: a place (?lat=&lng=&label=) or a neighborhood (?hood=) to center on.
+  const focus = await focusFrom(sp);
   const rateBands = rates ? await bandsAndRates({ now: rates.now.rate, yearAgo: rates.yearAgo?.rate ?? null }) : null;
   const zipLabels = zips.filter((z) => z.lat && z.lng).map((z) => {
     const h = marketHeat(z);
@@ -43,7 +47,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         actions={<><Link className="btn secondary" href="/market/builders">Builders</Link><Link className="btn" href="/market/buy-box">Buy Box: Where to Buy</Link></>} />
       <Section title="Filters" kind="grey"><Filters f={f} /></Section>
       <Section title="Map" kind="aqua" hint={totalSales ? `${totalSales.toLocaleString()} sales on file` : 'No sales loaded yet'}>
-        <MarketMap query={query(f)} projects={places.projects} watch={places.watch} areas={hoods} zips={zipLabels} parcelInfo />
+        <MarketMap focus={focus} query={query(f)} projects={places.projects} watch={places.watch} areas={hoods} zips={zipLabels} parcelInfo />
         {places.notPlaced ? <p className="small muted" style={{ margin: '8px 0 0' }}>{places.notPlaced} of our projects and watched properties aren’t on the map yet (their address wasn’t found on the county parcels).</p> : null}
       </Section>
       <Section title="Where the Market Is Headed" kind="blue" hint="Sales per month: the latest 6 months (to 30 days ago) against the same months a year earlier">
@@ -84,4 +88,14 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
       {can(user, 'properties.edit') ? <Section title="Update Market Data" kind="grey" hint="Read-only from the counties"><MarketSync last={last} auto={(['counties', 'feeds', 'places'] as const).map((part) => ({ part, label: { counties: 'County sales', feeds: 'Rates, permits and Redfin', places: 'Map places, zoning and bills' }[part], at: autoLast[part] ? formatDateTime(autoLast[part]!.at) : null, summary: autoLast[part]?.summary ?? null }))} /></Section> : null}
     </>
   );
+}
+
+async function focusFrom(sp: Record<string, string | undefined>) {
+  const lat = Number(sp.lat), lng = Number(sp.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && lat > 30 && lat < 40 && lng > -85 && lng < -74) return { lat, lng, zoom: 17, label: (sp.label ?? 'Here').slice(0, 120) };
+  const hood = sp.hood?.trim().slice(0, 120);
+  if (!hood) return null;
+  const r = await db.execute<{ lat: string | null; lng: string | null }>(sql`select avg(lat) as lat, avg(lng) as lng from market_parcels where lower(neighborhood) = lower(${hood}) and lat is not null`);
+  const p = r.rows[0];
+  return p?.lat && p.lng ? { lat: Number(p.lat), lng: Number(p.lng), zoom: 15, label: hood } : null;
 }

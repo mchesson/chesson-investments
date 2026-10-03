@@ -119,10 +119,11 @@ test('the accountant sees projects and money, not contacts', async ({ page }) =>
   await expect(page.getByText('This page could not be found.')).toBeVisible();
   await page.goto('/projects');
   await expect(page.getByRole('link', { name: '109 Plainview Ave' }).first()).toBeVisible();
-  // Address, city, state, ZIP and neighborhood each in their own column; a sale price not yet real says Projected.
-  for (const h of ['Address', 'City', 'State', 'ZIP', 'Neighborhood', 'Sale Price']) await expect(page.getByRole('columnheader', { name: h, exact: true }).first()).toBeVisible();
+  // The address in one column (owner, Oct 3, 2026), the neighborhood its own; a sale price not yet real says Projected under it.
+  for (const h of ['Address', 'Neighborhood', 'Lot Cost', 'Sale Price']) await expect(page.getByRole('columnheader', { name: h, exact: true }).first()).toBeVisible();
   const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: '109 Plainview Ave' }) }).first();
-  await expect(row.getByRole('cell', { name: 'Raleigh', exact: true })).toBeVisible();
+  await expect(row.getByRole('link', { name: '109 Plainview Ave, Raleigh, NC 27604', exact: true })).toBeVisible();
+  await expect(row.getByRole('link', { name: /on the map$/ })).toHaveAttribute('href', /^\/market\?lat=/);
   await expect(row.getByText('Projected', { exact: true })).toBeVisible();
 });
 
@@ -1448,6 +1449,7 @@ test('drop documents: a zip is opened in the browser and each file inside is fil
   const pdf = (n: string) => strToU8(`%PDF-1.4\n% ${n} ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`);
   const zip = zipSync({ [`folder/lease-${s}.pdf`]: pdf('lease'), [`folder/survey-${s}.pdf`]: pdf('survey'), '__MACOSX/folder/._x.pdf': strToU8('junk') });
   await page.goto('/documents/drop');
+  await page.waitForLoadState('networkidle'); // the drop zone answers once the page is ready
   await page.locator('input[type=file]').setInputFiles([{ name: `docs-${s}.zip`, mimeType: 'application/zip', buffer: Buffer.from(zip) }]);
   await expect(page.locator('.toast', { hasText: /Done: 2 files sent/ })).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('tr', { hasText: `lease-${s}.pdf` })).toContainText('Needs You');
@@ -1633,4 +1635,29 @@ test('a presale someone told us about is watched until the county records it; wh
   await expect(held).toContainText('Held up');
   await page.goto(`/projects/${id}?tab=history`);
   await expect(page.locator('main')).toContainText(`found that the presale at 88 Watched Way ${s} closed: $1,020,000`);
+});
+
+test('one address field, split for the lookups; the address and neighborhood open the map; the sale basis sits under the price', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  await signIn(page, 'Sample Owner');
+  await page.goto('/projects/new');
+  await page.getByLabel(/^Address/).fill(`${s} Split St, Durham, NC 27701`);
+  await page.getByLabel('Neighborhood').fill(`Splitwood ${s}`);
+  await page.getByRole('button', { name: /Add Project|Create Project|Save/ }).last().click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${s} Split St`);
+  await expect(page.locator('.page-head')).toContainText(`${s} Split St, Durham, NC 27701`);
+  await expect(page.locator('.page-head .hood-link')).toHaveAttribute('href', `/market?hood=Splitwood+${s}`);
+  const url = page.url();
+  await page.goto(`${url}/edit`);
+  await expect(page.getByLabel(/^Address/)).toHaveValue(`${s} Split St, Durham, NC 27701`);
+  await page.goto('/projects');
+  const row = page.locator('tr', { hasText: `${s} Split St, Durham, NC 27701` });
+  await expect(row.locator('.hood-link')).toHaveText(`Splitwood ${s}`);
+  // The neighborhood opens the map (no parcels here locally, so it opens on the whole map).
+  await row.locator('.hood-link').click();
+  await expect(page).toHaveURL(new RegExp(`/market\\?hood=Splitwood`));
+  await expect(page.locator('.market-map')).toBeVisible();
+  // A projected sale price is labelled under the amount, not beside it.
+  await page.goto('/projects');
+  await expect(page.locator('td .sale-tag', { hasText: 'Projected' }).first()).toHaveCSS('display', 'block');
 });

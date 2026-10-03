@@ -1,6 +1,7 @@
 import { ActionForm } from './ActionForm';
 import { saveProject } from '@/app/(app)/project-actions';
 import { projectStages } from '@/lib/project-stages';
+import { joinAddress } from '@/lib/locate-rules';
 
 type P = { id: string; name: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; stage: string; lotSf: number | null; zoning: string | null; lotCost: string | null; lotValue: string | null; heatedSf: number | null; plan: string | null; ownedBy: string | null; saleLow: string | null; saleHigh: string | null; closingCostAtSale: string | null; keptAssetsValue: string | null; taxRatePct: string | null; marketValue: string | null; marketValueOn: string | null; marketValueSource: string | null; proformaSalePrice: string | null; sellingCostPct: string | null; actualSalePrice: string | null; actualSaleCosts?: string | null; notes: string | null };
 
@@ -11,10 +12,7 @@ export function ProjectForm({ project }: { project?: P }) {
       <div className="section" data-c="aqua"><header><h2>Where</h2></header>
         <div className="body fields">
           <label className="f">Project Name<span className="h">Usually the address</span><input name="name" defaultValue={project?.name ?? ''} /></label>
-          <label className="f">Address<input name="address" required defaultValue={project?.address} /></label>
-          <label className="f">City<input name="city" list="city-options" autoComplete="off" defaultValue={project?.city ?? 'Raleigh'} /></label>
-          <label className="f">State<input name="state" list="state-options" autoComplete="off" defaultValue={project?.state ?? 'NC'} /></label>
-          <label className="f">ZIP<input name="zip" defaultValue={project?.zip ?? ''} /></label>
+          <label className="f wide">Address<span className="h">Street, city, state and ZIP: “109 Plainview Ave, Raleigh, NC 27604”</span><input name="address" required defaultValue={project ? joinAddress(project) : ''} placeholder="109 Plainview Ave, Raleigh, NC 27604" /></label>
           <label className="f">Neighborhood<input name="neighborhood" list="neighborhood-options" defaultValue={project?.neighborhood ?? ''} /></label>
           <label className="f">Owned By<span className="h">The entity on the deed</span><input name="ownedBy" defaultValue={project?.ownedBy ?? 'Chesson Investments, LLC'} /></label>
           {project ? null : <label className="f">Starting Stage<span className="h">After this, change stages with the buttons at the top of the project</span><select name="stage" defaultValue="under_contract">{projectStages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>}

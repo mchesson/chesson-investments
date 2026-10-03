@@ -36,3 +36,25 @@ export function sameAsAddress(name: string | null | undefined, address: string |
   const a = addressKey(name), b = addressKey(address);
   return !!a && !!b && a.number === b.number && a.street === b.street && (a.unit ?? '') === (b.unit ?? '');
 }
+
+export type AddressParts = { street: string; city: string | null; state: string | null; zip: string | null };
+/**
+ * One address typed the way people write it ("109 Plainview Ave, Raleigh, NC
+ * 27604", "109 Plainview Ave Raleigh NC", "109 Plainview Ave") split into the
+ * parts the county lookups use (owner, Oct 3, 2026: "it should all be together
+ * as long as the system can look things up").
+ */
+export function splitAddress(text: string | null | undefined): AddressParts {
+  const s = (text ?? '').replace(/\s+/g, ' ').trim();
+  let rest = s, zip: string | null = null, state: string | null = null, city: string | null = null;
+  const z = rest.match(/[ ,]+(\d{5})(?:-\d{4})?$/);
+  if (z) { zip = z[1]; rest = rest.slice(0, z.index).trim(); }
+  const st = rest.match(/[ ,]+(NC|SC|VA|GA|TN|FL|North Carolina|South Carolina)$/i);
+  if (st) { state = st[1].length === 2 ? st[1].toUpperCase() : st[1].toLowerCase().startsWith('north') ? 'NC' : 'SC'; rest = rest.slice(0, st.index).trim(); }
+  const parts = rest.split(',').map((x) => x.trim()).filter(Boolean);
+  if (parts.length > 1) { city = parts.pop()!; rest = parts.join(', '); }
+  return { street: rest.replace(/,\s*$/, ''), city, state, zip };
+}
+/** The parts written as one line. */
+export const joinAddress = (p: { address: string | null; city?: string | null; state?: string | null; zip?: string | null }) =>
+  [p.address, p.city, [p.state, p.zip].filter(Boolean).join(' ')].filter((x) => x && String(x).trim()).join(', ');

@@ -34,7 +34,8 @@ import { ZoningFact } from '@/components/ZoningFact';
 import { ProjectDocuments } from '@/components/ProjectDocuments';
 import { CompsTab } from '@/components/CompsTab';
 import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/comp-data';
-import { sameAsAddress } from '@/lib/locate-rules';
+import { joinAddress } from '@/lib/locate-rules';
+import { hoodMapHref, placeMapHref } from '@/lib/map-links';
 import { SearchPicker } from '@/components/SearchPicker';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
@@ -67,7 +68,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   ];
   return (
     <>
-      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {[!sameAsAddress(p.name, p.address) ? p.address : null, p.neighborhood, p.city, p.state, p.zip].filter(Boolean).join(', ')}</>}
+      <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{projectStageLabel(k)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
         actions={editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null} />
       {await (async () => {
         const states = stageStates(p.stage, p.stageStates);

@@ -8,8 +8,9 @@ import { formatMoney } from '@/lib/format';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { SalePriceTag, saleBasis } from '@/components/SalePriceTag';
 import { saleCosts } from '@/lib/budget';
-import { sameAsAddress } from '@/lib/locate-rules';
+import { joinAddress, sameAsAddress } from '@/lib/locate-rules';
 import { WorkButton } from '@/components/WorkButton';
+import { hoodMapHref, placeMapHref } from '@/lib/map-links';
 
 export const metadata = { title: 'Projects' };
 
@@ -25,20 +26,24 @@ export default async function Projects() {
       <Section title="Projects" kind="aqua" hint={`${rows.length}`}>
         {rows.length ? (
           <div className="table-wrap"><table className="t">
-            <thead><tr><th>No.</th><th>Address</th><th>City</th><th>State</th><th>ZIP</th><th>Neighborhood</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale Price</th></> : null}</tr></thead>
-            <tbody>{rows.map((p) => (
+            <thead><tr><th>No.</th><th>Address</th><th>Neighborhood</th><th>Stage</th><th className="num">Heated SF</th>{seeMoney ? <><th className="num">Lot Cost</th><th className="num">Sale Price</th></> : null}</tr></thead>
+            <tbody>{rows.map((p) => {
+              const full = joinAddress(p) || p.name;
+              const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full });
+              const sale = saleBasis(p);
+              return (
               <tr key={p.id}>
                 <td className="small">{p.projectNumber ? `P-${p.projectNumber}` : ''}</td>
-                <td><Link href={`/projects/${p.id}`}>{p.address || p.name}</Link>{p.address && !sameAsAddress(p.name, p.address) ? <div className="small muted">{p.name}</div> : null}</td>
-                <td>{p.city ?? '—'}</td>
-                <td>{p.state ?? '—'}</td>
-                <td>{p.zip ?? '—'}</td>
-                <td>{p.neighborhood ?? '—'}</td>
+                <td>
+                  <Link href={`/projects/${p.id}`}>{full}</Link>{map ? <> <Link className="map-link" href={map} aria-label={`${full} on the map`} title="On the map">Map</Link></> : null}
+                  {p.address && !sameAsAddress(p.name, p.address) ? <div className="small muted">{p.name}</div> : null}
+                </td>
+                <td>{p.neighborhood ? <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link> : '—'}</td>
                 <td><StageChips p={p} /></td>
                 <td className="num">{p.heatedSf?.toLocaleString() ?? '—'}</td>
-                {seeMoney ? <><td className="num">{formatMoney(p.lotCost)}</td><td className="num">{saleBasis(p) ? <>{formatMoney(saleBasis(p)!.value)} <SalePriceTag p={p} /></> : '—'}</td></> : null}
+                {seeMoney ? <><td className="num">{formatMoney(p.lotCost)}</td><td className="num">{sale ? <>{formatMoney(sale.value)}<SalePriceTag p={p} /></> : '—'}</td></> : null}
               </tr>
-            ))}</tbody>
+            ); })}</tbody>
           </table></div>
         ) : <Empty>No projects yet.</Empty>}
       </Section>

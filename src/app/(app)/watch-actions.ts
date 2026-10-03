@@ -16,6 +16,7 @@ import { bigDealChecklist, commercialUses, entitlements, isDealType, isSourceKin
 import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
 import { and, isNull } from 'drizzle-orm';
+import { splitAddress } from '@/lib/locate-rules';
 
 function moneyField(d: FormData, k: string, label: string): string | null {
   const v = parseMoney(d.get(k));
@@ -29,9 +30,11 @@ function propertyFields(d: FormData) {
   if (lotSf === undefined) throw new FieldError('Lot size: type square feet as a number.');
   const acresTyped = str(d, 'lotAcres');
   if (acresTyped && !/^\d+(\.\d+)?$/.test(acresTyped)) throw new FieldError('Acres: type a number, like 0.21.');
+  // One address field (owner, Oct 3, 2026): split into the parts the county lookups use.
+  const where = splitAddress(str(d, 'address'));
   return {
-    address: str(d, 'address') ?? '',
-    city: str(d, 'city'), state: formatState(str(d, 'state')) ?? 'NC', zip: str(d, 'zip'), neighborhood: str(d, 'neighborhood'),
+    address: where.street,
+    city: where.city ?? str(d, 'city'), state: formatState(where.state ?? str(d, 'state')) ?? 'NC', zip: where.zip ?? str(d, 'zip'), neighborhood: str(d, 'neighborhood'),
     sourcePersonId: uuidOrNull(d, 'sourcePersonId'),
     askingPrice: moneyField(d, 'askingPrice', 'Asking price'),
     lotSf, lotAcres: acresTyped ?? acresFromSf(lotSf), zoning: str(d, 'zoning')?.toUpperCase() ?? null,

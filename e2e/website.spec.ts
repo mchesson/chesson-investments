@@ -163,7 +163,7 @@ test('the website’s top bar, its pages and both forms reach Website Leads', as
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('.page-head .chip', { hasText: 'Contacted' })).toBeVisible();
   await page.getByRole('link', { name: 'Add to Watchlist' }).click();
-  await expect(page.getByLabel('Address')).toHaveValue(`${stamp} Ridge Rd`);
+  await expect(page.getByLabel(/^Address/)).toHaveValue(new RegExp(`^${stamp} Ridge Rd`));
   await page.getByRole('button', { name: 'Add to Watchlist' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${stamp} Ridge Rd`);
   await expect(page.locator('main')).toContainText('Our Website');

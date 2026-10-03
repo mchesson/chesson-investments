@@ -9,5 +9,5 @@ export function saleBasis(p: { actualSalePrice: string | null; proformaSalePrice
 export function SalePriceTag({ p }: { p: { actualSalePrice: string | null; proformaSalePrice?: string | null } }) {
   const b = saleBasis(p);
   if (!b) return null;
-  return <span className={`chip ${b.key === 'actual' ? 'aqua' : 'energy'} sale-tag`} title={b.key === 'actual' ? 'What it sold for' : 'Our estimate: not sold yet'}>{b.label}</span>;
+  return <span className={`sale-tag sale-${b.key}`} title={b.key === 'actual' ? 'What it sold for' : 'Our estimate: not sold yet'}>{b.label}</span>;
 }

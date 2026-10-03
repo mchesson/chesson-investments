@@ -9,6 +9,8 @@ import { Pager } from '@/components/contacts';
 import { dealTypeLabel, dealTypes, isDealType } from '@/lib/deal-sources';
 import { isZoningFamily, zoningFamilies, zoningFamilyLabel } from '@/lib/zoning';
 import { WorkButton } from '@/components/WorkButton';
+import { hoodMapHref } from '@/lib/map-links';
+import { joinAddress } from '@/lib/locate-rules';
 
 export const metadata = { title: 'Watchlist' };
 
@@ -62,7 +64,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
               const ppsf = pricePerLotSf(price, r.lotSf);
               return (
                 <tr key={r.id}>
-                  <td><Link href={`/watchlist/${r.id}`}>{r.address}</Link><div className="small muted">{[r.dealType !== 'lot' ? dealTypeLabel(r.dealType) + (r.lotsPossible ? ` (${r.lotsPossible} lots)` : '') : null, r.neighborhood, r.city, r.zip].filter(Boolean).join(' · ')}</div></td>
+                  <td><Link href={`/watchlist/${r.id}`}>{joinAddress({ address: r.address, city: r.city, zip: r.zip })}</Link>{r.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(r.neighborhood)} title="On the map">{r.neighborhood}</Link></> : null}{r.dealType !== 'lot' ? <div className="small muted">{dealTypeLabel(r.dealType) + (r.lotsPossible ? ` (${r.lotsPossible} lots)` : '')}</div> : null}</td>
                   <td><span className="chip">{propertyStageLabel(r.stage)}</span>{r.stage === 'sold' && r.soldOn ? <div className="small muted">{formatDate(r.soldOn)}</div> : null}
                     {r.stage === 'lost' ? <div className="small muted">We offered {formatMoney(r.ourOffer)}{r.winningPrice ? `; won at ${formatMoney(r.winningPrice)}` : ''}</div> : null}</td>
                   <td className="num">{formatMoney(price)}</td>
