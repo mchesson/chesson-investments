@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import {
-  companies, eventPeople, events, partyRoles, people, personCompanies, savedListMembers, savedLists, tasks, touches,
+  companies, eventPeople, events, partyRoles, people, personCompanies, savedListMembers, savedLists, siteLeads, tasks, touches,
 } from '@/db/schema';
 import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
@@ -122,6 +122,15 @@ export async function savePerson(_: FormResult, d: FormData): Promise<FormResult
       await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'create', summary: `added ${p.firstName} ${p.lastName}${picked.length ? ` as ${picked.map((r) => roleTag({ role: r, supplierTypes: kinds })).join(', ')}` : ''}`, after: f }, tx);
       if (f.introducedById) await audit({ userId: user.id, entity: 'person', entityId: f.introducedById, action: 'introduced', summary: `introduced us to ${p.firstName} ${p.lastName}`, after: { personId: p.id, note: f.introNote } }, tx);
       if (bool(d, 'different')) await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'not-duplicate', summary: 'saved as a different person despite a matching or similar name, email or phone' }, tx);
+      // Made from a website lead (Leads → Create Person): the lead points at them now.
+      const leadId = uuidOrNull(d, 'siteLeadId');
+      if (leadId) {
+        const [lead] = await tx.update(siteLeads).set({ personId: p.id, updated: new Date() }).where(and(eq(siteLeads.id, leadId), isNull(siteLeads.personId))).returning({ id: siteLeads.id });
+        if (lead) {
+          await audit({ userId: user.id, entity: 'site_lead', entityId: lead.id, action: 'person', summary: `created ${p.firstName} ${p.lastName} from this lead`, via: 'Leads', after: { personId: p.id } }, tx);
+          await audit({ userId: user.id, entity: 'person', entityId: p.id, action: 'site-lead', summary: 'came in through a form on the website', via: 'Leads' }, tx);
+        }
+      }
       return p.id;
     }
     const [old] = await tx.select().from(people).where(eq(people.id, id));

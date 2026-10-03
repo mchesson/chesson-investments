@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(can(user, 'contacts.view') ? [
       { href: '/companies', label: 'Companies', icon: 'companies' },
       { href: '/people', label: 'People', icon: 'people' },
+      { href: '/leads', label: 'Leads', icon: 'leads' },
       { href: '/events', label: 'Events', icon: 'events' },
       { href: '/lists', label: 'Lists', icon: 'lists' },
       { href: '/tasks', label: 'My Tasks', icon: 'tasks' },

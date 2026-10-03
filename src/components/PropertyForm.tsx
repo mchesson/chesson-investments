@@ -7,10 +7,11 @@ type P = { id: string; address: string; city: string | null; state: string | nul
   dealType?: string; sourceCompanyId?: string | null; sourceKind?: string | null; sourceAccurate?: boolean | null; sourceNote?: string | null;
   lotsPossible?: number | null; utilities?: string | null; entitlement?: string | null; commercialUse?: string | null };
 
-export function PropertyForm({ property, people, companies = [], defaultSource, defaultAddress, defaultCity, defaultType }: { property?: P; people: { id: string; name: string; companyName: string | null }[]; companies?: { id: string; name: string }[]; defaultSource?: string; defaultAddress?: string; defaultCity?: string; defaultType?: string }) {
+export function PropertyForm({ property, people, companies = [], defaultSource, defaultAddress, defaultCity, defaultType, defaultSourceKind, defaultNotes, siteLeadId }: { property?: P; people: { id: string; name: string; companyName: string | null }[]; companies?: { id: string; name: string }[]; defaultSource?: string; defaultAddress?: string; defaultCity?: string; defaultType?: string; defaultSourceKind?: string; defaultNotes?: string; siteLeadId?: string }) {
   return (
     <ActionForm action={saveProperty} submit={property ? 'Save Changes' : 'Add to Watchlist'}>
       {property ? <input type="hidden" name="id" value={property.id} /> : null}
+      {!property && siteLeadId ? <input type="hidden" name="siteLeadId" value={siteLeadId} /> : null}
       <div className="section" data-c="blue"><header><h2>What Kind of Deal</h2></header>
         <div className="body">
           <Choice name="dealType" label="Kind" options={dealTypes.map((t) => ({ key: t.key, label: t.label }))} defaultValue={property?.dealType ?? defaultType ?? 'lot'} />
@@ -53,7 +54,7 @@ export function PropertyForm({ property, people, companies = [], defaultSource, 
         <div className="body">
           <div className="fields">
             <label className="f">How It Came to Us
-              <select name="sourceKind" defaultValue={property?.sourceKind ?? ''}><option value="">Not recorded</option>{sourceKinds.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
+              <select name="sourceKind" defaultValue={property?.sourceKind ?? defaultSourceKind ?? ''}><option value="">Not recorded</option>{sourceKinds.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
             </label>
             <label className="f">Their Company
               <select name="sourceCompanyId" defaultValue={property?.sourceCompanyId ?? ''}><option value="">None</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
@@ -71,7 +72,7 @@ export function PropertyForm({ property, people, companies = [], defaultSource, 
               defaultValue={property?.sourceAccurate === true ? 'yes' : property?.sourceAccurate === false ? 'no' : ''} />
             <label className="f grow">What Was Off<span className="h">e.g. “said 0.4 acres, it’s 0.3”, “their after-repair value was 10% high”</span><input name="sourceNote" defaultValue={property?.sourceNote ?? ''} /></label>
           </div>
-          <label className="f">Notes<textarea name="notes" defaultValue={property?.notes ?? ''} /></label>
+          <label className="f">Notes<textarea name="notes" defaultValue={property?.notes ?? defaultNotes ?? ''} /></label>
         </div>
       </div>
     </ActionForm>
