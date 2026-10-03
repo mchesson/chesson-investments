@@ -35,6 +35,7 @@ import { ProjectDocuments } from '@/components/ProjectDocuments';
 import { CompsTab } from '@/components/CompsTab';
 import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/comp-data';
 import { sameAsAddress } from '@/lib/locate-rules';
+import { SearchPicker } from '@/components/SearchPicker';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -312,8 +313,8 @@ async function Commitments({ data, edit }: { data: Money; edit: boolean }) {
             <input type="hidden" name="projectId" value={data.project.id} />
             <div className="fields">
               <label className="f">Cost Code<select name="costCodeId" required defaultValue=""><option value="" disabled>Pick one</option>{codes.map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</select></label>
-              <label className="f">Vendor (Company)<select name="vendorCompanyId" defaultValue=""><option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-              <label className="f">Or Vendor (Person)<select name="vendorPersonId" defaultValue=""><option value="">—</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+              <SearchPicker name="vendorCompanyId" label="Vendor (Company)" placeholder="Type the company" options={companies.map((c) => ({ id: c.id, label: c.name }))} add={{ kind: 'company' }} />
+              <SearchPicker name="vendorPersonId" label="Or Vendor (Person)" placeholder="Type a name" options={people.map((p) => ({ id: p.id, label: p.name }))} add={{ kind: 'person' }} />
               <label className="f">Amount<input name="amount" required inputMode="decimal" /></label>
               <label className="f">Retainage %<input name="retainagePct" inputMode="decimal" placeholder="10" /></label>
               <label className="f">Signed On<input type="date" name="signedOn" /></label>
@@ -394,7 +395,7 @@ async function Bills({ data, role }: { data: Money; role: Parameters<typeof can>
             <input type="hidden" name="projectId" value={data.project.id} />
             <div className="fields">
               <Choice name="kind" label="What It Is" options={[{ key: 'invoice', label: 'Invoice (to pay)' }, { key: 'receipt', label: 'Receipt (already paid)' }, { key: 'credit', label: 'Credit / Return' }]} defaultValue="invoice" />
-              <label className="f">Vendor (Company)<select name="vendorCompanyId" defaultValue=""><option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              <SearchPicker name="vendorCompanyId" label="Vendor (Company)" placeholder="Type the company" options={companies.map((c) => ({ id: c.id, label: c.name }))} add={{ kind: 'company' }} />
               <label className="f">Or Vendor Name<input name="vendorName" placeholder="Lowe's, Home Depot…" /></label>
               <label className="f">Invoice #<input name="invoiceNumber" /></label>
               <label className="f">Invoice Date<input type="date" name="invoiceOn" defaultValue={today()} required /></label>

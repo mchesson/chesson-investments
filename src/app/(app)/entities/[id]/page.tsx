@@ -13,6 +13,7 @@ import { HistoryList } from '@/components/contacts';
 import { TaxIdReveal } from '@/components/TaxIdReveal';
 import { Empty, Facts, PageHead, Section, Tabs } from '@/components/ui';
 import { addEntityDoc, addTaxId, removeMember, removeTaxId, saveMember } from '../../entity-actions';
+import { SearchPicker } from '@/components/SearchPicker';
 
 export const metadata = { title: 'Business Entity' };
 
@@ -66,7 +67,7 @@ export default async function EntityPage({ params, searchParams }: { params: Pro
                 <input type="hidden" name="entityId" value={id} />
                 <div className="fields">
                   <label className="f">One of Our Entities<select name="memberEntityId" defaultValue=""><option value="">No (a person or someone else)</option>{(await entityOptions()).filter((x) => x.id !== id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-                  <label className="f">Or a Person<select name="personId" defaultValue=""><option value="">None</option>{(await peopleOptions()).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+                  <SearchPicker name="personId" label="Or a Person" placeholder="Type a name" options={(await peopleOptions()).map((p) => ({ id: p.id, label: p.name, sub: p.companyName }))} add={{ kind: 'person' }} />
                   <label className="f">Name<span className="h">As on the operating agreement</span><input name="name" /></label>
                   <label className="f">Share (%)<input name="percent" inputMode="decimal" placeholder="65" /></label>
                   <label className="f">Capital Put In<input name="capital" inputMode="decimal" placeholder="146,250" /></label>

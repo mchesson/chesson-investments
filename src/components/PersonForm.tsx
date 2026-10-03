@@ -4,6 +4,7 @@ import { showPhone } from '@/lib/format';
 import { RoleFields, RolePicker, SupplierTypePicker } from './contacts';
 import { howMetOptions } from '@/lib/how-met';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type P = { id: string; firstName: string; lastName: string; email: string | null; phone: string | null; title: string | null; companyId: string | null; city: string | null; state: string | null; howMet: string | null; introducedById: string | null; introNote: string | null; metAtEventId: string | null; notes: string | null };
 
@@ -32,13 +33,8 @@ export function PersonForm({ person, companies, people, events, defaults }: {
         <legend className="sr-only">Company</legend>
         <header><h2>Company</h2><span className="hint">Changing it keeps the old one in their work history</span></header>
         <div className="body fields">
-          <label className="f">Company
-            <select name="companyId" defaultValue={person?.companyId ?? defaults?.companyId ?? ''}>
-              <option value="">None, or a new one →</option>
-              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </label>
-          <label className="f">Or New Company<input name="newCompany" placeholder="Adds the company too" /></label>
+          <SearchPicker name="companyId" label="Company" hint="Type to find; + Add if it’s new" placeholder="Type the company"
+            options={companies.map((c) => ({ id: c.id, label: c.name }))} defaultId={person?.companyId ?? defaults?.companyId ?? null} add={{ kind: 'company' }} />
           <label className="f">Title<input name="title" defaultValue={person?.title ?? ''} /></label>
         </div>
       </fieldset>
@@ -59,13 +55,8 @@ export function PersonForm({ person, companies, people, events, defaults }: {
         <div className="body">
           <div className="fields">
             <Choice name="howMet" label="How We Know Them" options={[{ key: '', label: 'Not Sure' }, ...howMetOptions]} defaultValue={person?.howMet ?? defaults?.howMet ?? (defaults?.introducedById ? 'introduction' : '')} color="energy" />
-            <label className="f">Introduced By<span className="h">Someone on file</span>
-              <select name="introducedById" defaultValue={person?.introducedById ?? defaults?.introducedById ?? ''}>
-                <option value="">No one / a new person →</option>
-                {people.filter((o) => o.id !== person?.id).map((o) => <option key={o.id} value={o.id}>{o.name}{o.companyName ? ` (${o.companyName})` : ''}</option>)}
-              </select>
-            </label>
-            <label className="f">Or Introducer Not on File Yet<span className="h">First and last name: adds them too</span><input name="newIntroducer" placeholder="Jane Smith" /></label>
+            <SearchPicker name="introducedById" label="Introduced By" hint="Type their name or company; + Add if they’re new" placeholder="Type a name or company"
+              options={people.filter((o) => o.id !== person?.id).map((o) => ({ id: o.id, label: o.name, sub: o.companyName }))} defaultId={person?.introducedById ?? defaults?.introducedById ?? null} add={{ kind: 'person' }} />
             <label className="f">Met At (Event)
               <select name="metAtEventId" defaultValue={person?.metAtEventId ?? ''}>
                 <option value="">—</option>

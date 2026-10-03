@@ -4,6 +4,7 @@ import { addBid, selectBid } from '@/app/(app)/bid-actions';
 import { compareBids, contractTypeLabel, contractTypes, withFee, type BidLine } from '@/lib/bids';
 import { formatCents, formatDate } from '@/lib/format';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type BidRow = {
   id: string; kind: string; who: string; label: string | null; lines: BidLine[]; totalCents: number; submittedOn: string | null; validUntil: string | null;
@@ -92,9 +93,8 @@ export function BudgetBids({ projectId, codes, bids, heatedSf, companies, canEdi
               <input type="hidden" name="projectId" value={projectId} />
               <div className="fields">
                 <Choice name="bidKind" label="What It Is" options={[{ key: 'bid', label: 'A GC’s Bid' }, { key: 'ours', label: 'Our Estimate' }]} defaultValue="bid" />
-                <label className="f">From (the GC)<select name="companyId" defaultValue=""><option value="">None (our estimate)</option>
-                  {companies.filter((c) => c.gc).length ? <optgroup label="General Contractors">{companies.filter((c) => c.gc).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup> : null}
-                  <optgroup label="Everyone else">{companies.filter((c) => !c.gc).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup></select></label>
+                <SearchPicker name="companyId" label="From (the GC)" hint="Empty for our own estimate" placeholder="Type the GC"
+                  options={[...companies.filter((c) => c.gc).map((c) => ({ id: c.id, label: c.name, sub: 'General Contractor' })), ...companies.filter((c) => !c.gc).map((c) => ({ id: c.id, label: c.name }))]} add={{ kind: 'company' }} />
                 <label className="f">Name<span className="h">e.g. “Preliminary” or “Our estimate from Peyton’s costs”</span><input name="label" /></label>
                 <label className="f">Dated<input type="date" name="submittedOn" /></label>
                 <Choice name="contractType" label="Contract" options={[{ key: '', label: 'Not Said' }, ...contractTypes]} defaultValue="" />

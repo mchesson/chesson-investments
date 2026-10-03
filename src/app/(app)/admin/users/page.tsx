@@ -12,6 +12,7 @@ import { formatDate, formatDateTime, today } from '@/lib/format';
 import { Empty, PageHead, Section } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { addUser, inviteGuest, newGuestLink, savePartnerStandard, saveRoleStandard, setGuestAccess, setGuestType, setUserPermissions, setUserRole, removeUser } from '../../admin-actions';
+import { SearchPicker } from '@/components/SearchPicker';
 
 export const metadata = { title: 'Users and Access' };
 const assignable: Role[] = ['owner', 'admin', 'staff', 'partner', 'accountant', 'pending'];
@@ -155,10 +156,10 @@ export default async function Users() {
             <div className="fields">
               <label className="f">Their Email<input name="email" type="email" required /></label>
               <label className="f">Name<input name="name" /></label>
-              <label className="f">Their Record<span className="h">Optional: the person on file</span>
-                <select name="personId" defaultValue=""><option value="">—</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.companyName ? ` (${p.companyName})` : ''}</option>)}</select></label>
-              <label className="f">Their Company<span className="h">They see the issues and commitments for it</span>
-                <select name="companyId" defaultValue=""><option value="">—</option>{cos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+              <SearchPicker name="personId" label="Their Record" hint="Optional: the person on file" placeholder="Type a name or company"
+                options={people.map((p) => ({ id: p.id, label: p.name, sub: p.companyName }))} add={{ kind: 'person' }} />
+              <SearchPicker name="companyId" label="Their Company" hint="They see the issues and commitments for it" placeholder="Type the company"
+                options={cos.map((c) => ({ id: c.id, label: c.name }))} add={{ kind: 'company' }} />
               <label className="f">Last Day<span className="h">Optional</span><input type="date" name="endsOn" /></label>
             </div>
             <fieldset className="f choice"><legend>Projects They Can See</legend>
