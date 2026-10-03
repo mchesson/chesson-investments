@@ -7,6 +7,7 @@ import { compareVersions, doneLate, latestByKind, ownerSavings, responsibleKinds
 import type { scheduleFor } from '@/lib/schedule-data';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type Sched = Awaited<ReturnType<typeof scheduleFor>>;
 const m = (c: number | null) => (c === null ? '—' : formatCents(c));
@@ -96,8 +97,8 @@ export function ScheduleTab({ projectId, sched, codes, companies, people, canEdi
             <div className="fields">
               <label className="f">What<input name="description" required placeholder="Kitchen appliance package" /></label>
               <Choice name="responsible" label="Who Is Responsible" options={responsibleKinds} defaultValue="gc" />
-              <label className="f">Vendor (Company)<select name="companyId" defaultValue=""><option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-              <label className="f">Or Person<select name="personId" defaultValue=""><option value="">—</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+              <SearchPicker name="companyId" label="Vendor (Company)" placeholder="Type the company" options={companies.map((c) => ({ id: c.id, label: c.name }))} add={{ kind: 'company' }} />
+              <SearchPicker name="personId" label="Or Person" placeholder="Type a name" options={people.map((p) => ({ id: p.id, label: p.name }))} add={{ kind: 'person' }} />
               <label className="f">Cost Code<select name="costCodeId" defaultValue=""><option value="">—</option>{codes.map((c) => <option key={c.id} value={c.id}>{c.code} {c.name}</option>)}</select></label>
               <label className="f">Milestone<select name="milestoneId" defaultValue=""><option value="">— (use a date)</option>{sched.milestones.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
               <label className="f">Days Before (−) or After<input name="offsetDays" inputMode="numeric" placeholder="-5" /></label>

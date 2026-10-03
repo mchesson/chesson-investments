@@ -10,6 +10,7 @@ import { Phone } from '@/components/Phone';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList } from '@/components/contacts';
 import { addRoleToList, addToList, removeMember, setMemberStatus } from '../../contacts-actions';
+import { SearchPicker } from '@/components/SearchPicker';
 
 const statuses = [['to_contact', 'To Contact'], ['contacted', 'Contacted'], ['interested', 'Interested'], ['not_interested', 'Not Interested']] as const;
 
@@ -52,12 +53,8 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
           <div className="grid-2">
             <ActionForm action={addToList} submit="Add" resetOnOk>
               <input type="hidden" name="listId" value={id} />
-              <label className="f">One Person
-                <select name="personId" required defaultValue="">
-                  <option value="" disabled>Pick a person</option>
-                  {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.companyName ? ` (${p.companyName})` : ''}</option>)}
-                </select>
-              </label>
+              <SearchPicker name="personId" label="One Person" required placeholder="Type a name or company"
+                options={people.map((p) => ({ id: p.id, label: p.name, sub: p.companyName }))} add={{ kind: 'person' }} />
             </ActionForm>
             <ActionForm action={addRoleToList} submit="Add Everyone With This Role">
               <input type="hidden" name="listId" value={id} />

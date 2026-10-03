@@ -1,6 +1,7 @@
 import { ActionForm } from './ActionForm';
 import { saveEntity } from '@/app/(app)/entity-actions';
 import { entityKinds } from '@/lib/entities';
+import { SearchPicker } from './SearchPicker';
 
 type E = { id: string; name: string; kind: string; state: string | null; formedOn: string | null; status: string; taxForm: string | null; fiscalYearEnd: string | null;
   address: string | null; registeredAgent: string | null; website: string | null; companyId: string | null; notes: string | null };
@@ -21,8 +22,8 @@ export function EntityForm({ entity, companies }: { entity?: E; companies: { id:
           <label className="f">Address<input name="address" defaultValue={entity?.address ?? ''} /></label>
           <label className="f">Registered Agent<input name="registeredAgent" defaultValue={entity?.registeredAgent ?? ''} /></label>
           <label className="f">Website<input name="website" defaultValue={entity?.website ?? ''} /></label>
-          <label className="f">Same as Company<span className="h">Its company in People and Companies, for bills and contacts</span>
-            <select name="companyId" defaultValue={entity?.companyId ?? ''}><option value="">None</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          <SearchPicker name="companyId" label="Same as Company" hint="Its company in People and Companies, for bills and contacts" placeholder="Type the company"
+            options={companies.map((c) => ({ id: c.id, label: c.name }))} defaultId={entity?.companyId ?? null} add={{ kind: 'company' }} />
         </div>
         <div className="body"><label className="f">Notes<textarea name="notes" defaultValue={entity?.notes ?? ''} /></label></div>
       </div>

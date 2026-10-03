@@ -4,6 +4,15 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 const choose = (scope: Page | Locator, name: string, value: string) => scope.locator(`label.choice-opt:has(input[name="${name}"][value="${value}"])`).click();
 
 
+/** Picks a record in a type-to-find box (SearchPicker) by its field name. */
+async function pick(scope: Page | Locator, name: string, text: string) {
+  const box = scope.locator(`.picker:has(input[type=hidden][name="${name}"])`);
+  await expect(async () => {
+    await box.getByRole('combobox').fill(text);
+    await box.getByRole('option', { name: new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).first().click({ timeout: 2000 });
+  }).toPass();
+}
+
 async function signIn(page: Page, who: string) {
   await page.goto('/signin');
   await page.getByRole('button', { name: new RegExp(who) }).click();
@@ -22,9 +31,18 @@ test('log a GC you met, with who introduced them', async ({ page }) => {
   await page.getByLabel('General Contractor', { exact: true }).check();
   await page.getByLabel('Networking Contact', { exact: true }).check();
   await choose(page, 'howMet', 'introduction');
-  await page.getByLabel(/Or Introducer Not on File/).fill(`Jordan Intro${stamp}`);
+  // Not on file yet: + Add opens a small form in place, saves them and picks them.
+  await expect(async () => {
+    await page.getByRole('combobox', { name: /Introduced By/ }).fill(`Jordan Intro${stamp}`);
+    await page.getByRole('option', { name: /\+ Add .* as a new person/ }).click({ timeout: 2000 });
+  }).toPass();
+  const add = page.getByRole('group', { name: 'Add a new person' });
+  await expect(add.getByLabel('Last Name')).toHaveValue(`Intro${stamp}`);
+  await add.getByLabel('Company (optional)').fill(`Intro${stamp} Realty`);
+  await add.getByRole('button', { name: 'Add Person' }).click();
+  await expect(page.getByText(`Picked: Jordan Intro${stamp} · Intro${stamp} Realty`)).toBeVisible();
   await page.getByLabel('About the Introduction').fill('Met through Jordan at the REIA meetup.');
-  await page.getByRole('button', { name: 'Add Person' }).click();
+  await page.getByRole('button', { name: 'Add Person', exact: true }).last().click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`Riley Builder${stamp}`);
   await expect(page.locator('main').getByText('Where we are with them: Met').first()).toBeVisible();
   await expect(page.locator('.page-head .chip', { hasText: 'General Contractor' })).toBeVisible();
@@ -240,7 +258,7 @@ test('a utility supplier with a kind, Do Not Use with a reason, and a property u
   await page.getByRole('link', { name: /109 Plainview/ }).first().click();
   await page.getByRole('link', { name: 'Utilities', exact: true }).click();
   await choose(page, 'service', 'electric');
-  await page.locator('select[name=personId]').selectOption({ label: `Lubna ${last}` });
+  await pick(page, 'personId', `Lubna ${last}`);
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.locator('.rows')).toContainText(`Lubna ${last}`);
   await expect(page.locator('.rows')).toContainText('Electric');
@@ -744,7 +762,7 @@ test('a contractor invited as a guest: a sign-in link, only their project, the d
   await expect(async () => { // filled again if the page wasn't ready yet after the reload
     await inv.locator('input[name=email]').fill(`jo${s}@contractor.example`);
     await inv.locator('input[name=name]').fill(`Jo Framer${s}`);
-    await inv.locator('select[name=companyId]').selectOption({ label: `Guest${s} Framing` });
+    await pick(inv, 'companyId', `Guest${s} Framing`);
     const plainview = inv.locator('label.role-btn', { hasText: '109 Plainview Ave' });
     if (!(await plainview.locator('input').isChecked())) await plainview.click();
     await inv.getByRole('button', { name: 'Invite Them' }).click();
@@ -885,7 +903,7 @@ test('outside partner types: a wholesaler sees only the deals they sent us', asy
   await page.goto('/admin/users');
   const inv = page.locator('form:has(button:text("Invite Them"))');
   await inv.locator('input[name=email]').fill(`wes${s}@deals.example`);
-  await inv.locator('select[name=personId]').selectOption({ label: `Wes Wholesale${s}` });
+  await pick(inv, 'personId', `Wes Wholesale${s}`);
   // Picking Wholesaler ticks "see the deals they sent" and only the project basics (tapped again if the page wasn't ready yet).
   await expect(async () => {
     await choose(inv, 'guestType', 'gc'); // another kind first: re-tapping a picked button changes nothing
@@ -1092,7 +1110,7 @@ test('a land deal from a wholesaler: its facts, the checklist, and the Deal Sour
   await page.locator('input[name=lotsPossible]').fill('24');
   await page.locator('select[name=utilities]').selectOption('nearby');
   await page.locator('select[name=entitlement]').selectOption('rezoning');
-  await page.locator('select[name=sourcePersonId]').selectOption({ label: `Lana Land${s}` });
+  await pick(page, 'sourcePersonId', `Lana Land${s}`);
   await page.locator('select[name=sourceKind]').selectOption('wholesaler');
   await choose(page, 'sourceAccurate', 'no');
   await page.locator('input[name=sourceNote]').fill('said 24 acres, it’s 20');
@@ -1133,6 +1151,11 @@ test('builders: a local quick seller, its track record, where it is moving in; n
   const { Client } = await import('pg');
   const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
   await db.connect();
+  // Earlier runs' made-up builders would crowd the list: clear them first.
+  await db.query(`delete from market_permits where builder like 'Quickbuild%'`);
+  await db.query(`delete from comps where market_sale_id in (select s.id from market_sales s join market_parcels pa on pa.id = s.parcel_id where pa.address like '%QUICKBUILD%')`);
+  await db.query(`delete from market_sales where parcel_id in (select id from market_parcels where address like '%QUICKBUILD%')`);
+  await db.query(`delete from market_parcels where address like '%QUICKBUILD%'`);
   // Three homes permitted a year ago and sold about 8 months later, and two new permits this month.
   for (let i = 0; i < 3; i++) {
     const addr = `${100 + i} QUICKBUILD${s} LN`;
@@ -1153,7 +1176,8 @@ test('builders: a local quick seller, its track record, where it is moving in; n
   await page.getByRole('link', { name: 'Builders', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Builders' })).toBeVisible();
   const row = page.locator('.builders-table tr', { hasText: `Quickbuild${s} Homes` });
-  await expect(row).toContainText('Local Builder');
+  // The list is cached: the first look after it expires may still be the old copy.
+  await expect(async () => { await page.reload(); await expect(row).toContainText('Local Builder', { timeout: 2000 }); }).toPass({ timeout: 30_000 });
   await expect(row).toContainText('Quick Seller');
   await expect(row).toContainText('3 of 5'); // sold
   await expect(row).toContainText('$400'); // $1M ÷ 2,500 sf

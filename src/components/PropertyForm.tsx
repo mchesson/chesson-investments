@@ -2,6 +2,7 @@ import { ActionForm } from './ActionForm';
 import { saveProperty } from '@/app/(app)/watch-actions';
 import { Choice } from './Choice';
 import { commercialUses, dealTypes, entitlements, sourceKinds, utilities } from '@/lib/deal-sources';
+import { SearchPicker } from './SearchPicker';
 
 type P = { id: string; address: string; city: string | null; state: string | null; zip: string | null; neighborhood: string | null; sourcePersonId: string | null; askingPrice: string | null; lotSf: number | null; lotAcres: string | null; zoning: string | null; metBuyBox: boolean | null; referralFee: string | null; notes: string | null;
   dealType?: string; sourceCompanyId?: string | null; sourceKind?: string | null; sourceAccurate?: boolean | null; sourceNote?: string | null;
@@ -56,15 +57,10 @@ export function PropertyForm({ property, people, companies = [], defaultSource, 
             <label className="f">How It Came to Us
               <select name="sourceKind" defaultValue={property?.sourceKind ?? defaultSourceKind ?? ''}><option value="">Not recorded</option>{sourceKinds.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
             </label>
-            <label className="f">Their Company
-              <select name="sourceCompanyId" defaultValue={property?.sourceCompanyId ?? ''}><option value="">None</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            </label>
-            <label className="f">Sent by
-              <select name="sourcePersonId" defaultValue={property?.sourcePersonId ?? defaultSource ?? ''}>
-                <option value="">We found it ourselves</option>
-                {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.companyName ? ` (${p.companyName})` : ''}</option>)}
-              </select>
-            </label>
+            <SearchPicker name="sourceCompanyId" label="Their Company" placeholder="Type the company" options={companies.map((c) => ({ id: c.id, label: c.name }))}
+              defaultId={property?.sourceCompanyId ?? null} add={{ kind: 'company' }} />
+            <SearchPicker name="sourcePersonId" label="Sent by" hint="Empty: we found it ourselves" placeholder="Type a name or company"
+              options={people.map((p) => ({ id: p.id, label: p.name, sub: p.companyName }))} defaultId={property?.sourcePersonId ?? defaultSource ?? null} add={{ kind: 'person' }} />
             <label className="f">Referral Fee<input name="referralFee" inputMode="decimal" defaultValue={property?.referralFee ?? ''} /></label>
           </div>
           <div className="fields">

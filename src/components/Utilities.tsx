@@ -7,6 +7,7 @@ import { addUtility, removeUtility } from '@/app/(app)/utility-actions';
 import { utilityServices, utilityServiceLabel } from '@/lib/roles';
 import { formatDate } from '@/lib/format';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type Row = { id: string; service: string; companyId: string | null; companyName: string | null; personId: string | null; personName: string | null; personPhone: string | null; personEmail: string | null; startedOn: string | null; notes: string | null };
 
@@ -36,13 +37,10 @@ export function Utilities({ projectId, rows, companies, people, canEdit }: {
             <input type="hidden" name="projectId" value={projectId} />
             <div className="fields">
               <Choice name="service" label="Service" options={utilityServices} required color="aqua" />
-              <label className="f">Company<span className="h">Utility suppliers first</span><select name="companyId" defaultValue="">
-                <option value="">None</option>
-                {utilityCos.length ? <optgroup label="Utilities">{utilityCos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup> : null}
-                <optgroup label="Everyone else">{others.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>
-              </select></label>
-              <label className="f">Contact Here<span className="h">The person we deal with for this property</span><select name="personId" defaultValue="">
-                <option value="">None</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.companyName ? ` (${p.companyName})` : ''}</option>)}</select></label>
+              <SearchPicker name="companyId" label="Company" hint="Utility suppliers first" placeholder="Type the company"
+                options={[...utilityCos.map((c) => ({ id: c.id, label: c.name, sub: 'Utility' })), ...others.map((c) => ({ id: c.id, label: c.name }))]} add={{ kind: 'company' }} />
+              <SearchPicker name="personId" label="Contact Here" hint="The person we deal with for this property" placeholder="Type a name or company"
+                options={people.map((p) => ({ id: p.id, label: p.name, sub: p.companyName }))} add={{ kind: 'person' }} />
               <label className="f">Since<input type="date" name="startedOn" /></label>
             </div>
             <label className="f">Notes<input name="notes" placeholder="Service in our name from closing; deposit paid" /></label>

@@ -9,6 +9,7 @@ import { formatCents, formatDate, today } from '@/lib/format';
 import type { managerOptions, rentalContactsFor, rentalFor } from '@/lib/rental-data';
 import { ManagerPicker } from './ManagerPicker';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type Data = Awaited<ReturnType<typeof rentalFor>>;
 type Opt = { id: string; name: string };
@@ -38,8 +39,8 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
   const short = months.filter((x) => x.received < x.expected);
   const alerts = lease ? leaseAlerts(lease, today()) : [];
   const workTotal = data.whileRented.reduce((s, b) => s + cents(b.amount), 0);
-  const companyOpts = (name: string, value: string | null) => (
-    <select name={name} defaultValue={value ?? ''}><option value="">None</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+  const companyOpts = (label: string, name: string, value: string | null) => (
+    <SearchPicker name={name} label={label} placeholder="Type the company" options={companies.map((c) => ({ id: c.id, label: c.name }))} defaultId={value ?? null} add={{ kind: 'company' }} />
   );
   return (
     <div className="stack">
@@ -204,7 +205,7 @@ export function RentalTab({ projectId, data, allIn, marketValue, companies, mana
             <ActionForm action={saveLoan} submit="Save">
               <input type="hidden" name="projectId" value={projectId} />{data.loans[0] ? <input type="hidden" name="loanId" value={data.loans[0].id} /> : null}
               <div className="fields">
-                <label className="f">Lender{companyOpts('lenderCompanyId', data.loans[0]?.lenderCompanyId ?? null)}</label>
+                {companyOpts('Lender', 'lenderCompanyId', data.loans[0]?.lenderCompanyId ?? null)}
                 <label className="f">Or Lender Name<input name="lenderName" defaultValue={data.loans[0]?.lenderName ?? ''} /></label>
                 <label className="f">Original Amount<input name="originalAmount" defaultValue={num(data.loans[0]?.originalAmount)} /></label>
                 <label className="f">Balance<input name="balance" defaultValue={num(data.loans[0]?.balance)} /></label>

@@ -131,6 +131,9 @@ export async function permitsByArea(limit = 20) {
 }
 
 /** Permit points in the last 12 months (for counting around each buy-box zone). */
+// Six hours; one second in the tests (outside sources off), which add made-up permits straight to the database.
+const CACHE_SECONDS = process.env.COUNTY_LOOKUPS === 'off' ? 1 : 6 * 3600;
+
 export const recentPermitPoints = unstable_cache(async () => {
   const y = Number(today().slice(0, 4)) - 1;
   const r = await db.execute<{ kind: string; lat: string; lng: string; builder: string | null }>(sql`
@@ -141,7 +144,7 @@ export const recentPermitPoints = unstable_cache(async () => {
     const b = builderName(x.builder);
     return { kind: x.kind, lat: Number(x.lat), lng: Number(x.lng), builder: b, bucket: b ? builderBucket(b, counts.get(b) ?? 0) : null };
   });
-}, ['recent-permits'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: 6 * 3600 }); // market-zones: saving the buy box refreshes it too
+}, ['recent-permits'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: CACHE_SECONDS }); // market-zones: saving the buy box refreshes it too
 
 export async function feedCounts() {
   const r = await db.execute<{ rates: number; trends: number; permits: number }>(sql`
@@ -181,7 +184,7 @@ export const builderTable = unstable_cache(async (): Promise<BuilderRow[]> => {
       medianCost: mid(rows.map((x) => Number(x.cost)).filter((c) => c > 0)), ...rec,
     };
   }).sort((a, b) => b.permits12 - a.permits12 || b.homes - a.homes);
-}, ['builder-table'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: 6 * 3600 });
+}, ['builder-table'], { tags: [FEEDS_TAG, 'market-zones'], revalidate: CACHE_SECONDS });
 
 /** Where local builders with a track record are moving in: their new permits in the last 6 months, by ZIP. */
 export async function localBuildersMovingIn() {

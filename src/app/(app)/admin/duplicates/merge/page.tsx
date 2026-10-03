@@ -11,6 +11,7 @@ import { ActionForm } from '@/components/ActionForm';
 import { Choice } from '@/components/Choice';
 import { Empty, Facts, PageHead, Section } from '@/components/ui';
 import { mergeRecords } from '../../../duplicate-actions';
+import { SearchPicker } from '@/components/SearchPicker';
 
 export const metadata = { title: 'Merge Two Records' };
 
@@ -49,7 +50,7 @@ export default async function MergePage({ searchParams }: { searchParams: Promis
         <Section title="Or Pick Anyone" kind="grey">
           <form className="find-bar" action="/admin/duplicates/merge">
             <input type="hidden" name="kind" value={kind} /><input type="hidden" name="a" value={a.id} />
-            <label className="f grow">{kind === 'person' ? 'Person' : 'Company'}<select name="b" required defaultValue=""><option value="" disabled>Pick one</option>{all.map((x) => <option key={x.id} value={x.id}>{label(x)}</option>)}</select></label>
+            <div className="grow"><SearchPicker name="b" required label={kind === 'person' ? 'Person' : 'Company'} placeholder="Type a name" options={all.map((x) => ({ id: x.id, label: label(x) }))} /></div>
             <button className="btn" type="submit">Compare</button>
           </form>
         </Section>

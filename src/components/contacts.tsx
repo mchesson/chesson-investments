@@ -7,6 +7,7 @@ import { roles, roleDef, roleLabel, roleTag, stageLabel, supplierTypes, supplier
 import { formatDate, formatDateTime, today, addDays } from '@/lib/format';
 import { daysSince } from '@/lib/roles';
 import { Choice } from './Choice';
+import { SearchPicker } from './SearchPicker';
 
 type RoleRow = { id: string; role: string; stage: string; supplierTypes?: string[] | null; trade: string | null; areas: string | null; licenseNumber: string | null; notes: string | null; stageChangedAt: Date; hiredThroughCompanyId?: string | null; hiredThroughName?: string | null };
 
@@ -112,9 +113,8 @@ export function RolesPanel({ items, personId, companyId, canEdit, gcs = [] }: { 
             <RoleFields />
             <SupplierTypePicker hint={false} />
             {gcs.length ? (
-              <label className="f">Through a GC<span className="h">Subs and suppliers whose bills come through a general contractor</span>
-                <select name="hiredThroughCompanyId" defaultValue=""><option value="">No: we hire them directly</option>{gcs.filter((g) => g.id !== companyId).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
-              </label>
+              <SearchPicker name="hiredThroughCompanyId" label="Through a GC" hint="Subs and suppliers whose bills come through a general contractor; empty: we hire them directly"
+                placeholder="Type the GC" options={gcs.filter((g) => g.id !== companyId).map((g) => ({ id: g.id, label: g.name }))} />
             ) : null}
           </ActionForm>
         </details>
