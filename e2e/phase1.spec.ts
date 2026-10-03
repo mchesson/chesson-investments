@@ -950,7 +950,7 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await db.query(`insert into properties (address, city, neighborhood, asking_price) values ($1, 'Raleigh', $2, 400000)`, [`${s} Buyzone St`, hood]);
   // Builders at work there: two new homes and a teardown within half a mile.
   for (const [i, kind] of (['new_home', 'new_home', 'demolition'] as const).entries())
-    await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, lat, lng) values ('raleigh', 'wake', $1, $2, current_date - 20, extract(year from current_date), 35.7905, -78.6402)`, [`BZ${s}${i}`, kind]);
+    await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, lat, lng, builder) values ('raleigh', 'wake', $1, $2, current_date - 20, extract(year from current_date), 35.7905, -78.6402, $3)`, [`BZ${s}${i}`, kind, kind === 'demolition' ? null : `Bzlocal${s} Homes, LLC`]);
   await db.end();
 
   await signIn(page, 'Sample Owner');
@@ -969,6 +969,7 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   // Looking ahead (no trend yet: every sale is recent) and the builders nearby.
   await expect(row).toContainText('no trend yet');
   await expect(row).toContainText(/\d+ new · \d+ teardowns/);
+  await expect(row).toContainText(`Bzlocal${s} Homes (2)`); // the local builder building there, by name
   // Raising the build cost makes it too expensive; then back.
   await page.locator('input[name=buildPerSf]').fill('700');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
@@ -1087,4 +1088,41 @@ test('a land deal from a wholesaler: its facts, the checklist, and the Deal Sour
   await row.getByRole('link', { name: `Lana Land${s}` }).click();
   await page.getByRole('link', { name: /Deals/ }).first().click();
   await expect(page.locator('.tile', { hasText: 'As a Source' })).toContainText('Too Early to Say');
+});
+
+test('builders: a local quick seller, its track record, where it is moving in; national builders kept apart', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const zip = `8${s.slice(-4)}`;
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  // Three homes permitted a year ago and sold about 8 months later, and two new permits this month.
+  for (let i = 0; i < 3; i++) {
+    const addr = `${100 + i} QUICKBUILD${s} LN`;
+    await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, zip, lat, lng, builder, address)
+      values ('raleigh', 'wake', $1, 'new_home', current_date - 400, extract(year from current_date - 400), $2, 35.79, -78.66, $3, $4)`, [`QB${s}${i}`, zip, `Quickbuild${s} Homes, LLC`, addr]);
+    const r = await db.query(`insert into market_parcels (county, parcel_key, address, city, land_use, heated_sf, lat, lng, last_sale_price, last_sale_on)
+      values ('wake', $1, $2, 'Raleigh', 'single_family', 2500, 35.79, -78.66, 1000000, current_date - 160) returning id`, [`QBP${s}${i}`, addr]);
+    await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - 160, 1000000, 2500)`, [r.rows[0].id]);
+  }
+  for (let i = 3; i < 5; i++)
+    await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, zip, lat, lng, builder) values ('raleigh', 'wake', $1, 'new_home', current_date - 10, extract(year from current_date), $2, 35.79, -78.66, $3)`,
+      [`QB${s}${i}`, zip, `Quickbuild${s} Homes, LLC`]);
+  await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, zip, lat, lng, builder) values ('raleigh', 'wake', $1, 'new_home', current_date - 10, extract(year from current_date), $2, 35.79, -78.66, 'Lennar Carolinas, LLC')`, [`LN${s}`, zip]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto('/market');
+  await page.getByRole('link', { name: 'Builders', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Builders' })).toBeVisible();
+  const row = page.locator('.builders-table tr', { hasText: `Quickbuild${s} Homes` });
+  await expect(row).toContainText('Local Builder');
+  await expect(row).toContainText('Quick Seller');
+  await expect(row).toContainText('3 of 5'); // sold
+  await expect(row).toContainText('$400'); // $1M ÷ 2,500 sf
+  await expect(page.locator('section', { hasText: 'Local Builders Moving In' }).first()).toContainText(`ZIP ${zip}`);
+  // National builders have their own list.
+  await expect(page.locator('.builders-table tr', { hasText: 'Lennar Carolinas' })).toHaveCount(0);
+  await page.getByRole('link', { name: /National \/ Production/ }).click();
+  await expect(page.locator('.builders-table tr', { hasText: 'Lennar Carolinas' }).first()).toBeVisible();
 });

@@ -839,6 +839,7 @@ export const marketParcels = pgTable('market_parcels', {
   index('market_parcels_latlng').on(t.lat, t.lng),
   index('market_parcels_hood').on(t.neighborhood),
   index('market_parcels_street').on(t.street, t.city),
+  index('market_parcels_address').on(t.county, t.address), // builders' permits matched to the sale of the same address
 ]).enableRLS();
 
 // Every sale we've seen on a parcel (the county shows only the latest, so the

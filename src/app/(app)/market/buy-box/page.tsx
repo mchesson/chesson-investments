@@ -4,7 +4,7 @@ import { can } from '@/lib/permissions';
 import { buyBoxSettings, judgedZones } from '@/lib/buy-box-data';
 import { buyBoxFields, verdictLabel, type Verdict } from '@/lib/buy-box';
 import { ourPlaces } from '@/lib/market-data';
-import { permitsNear } from '@/lib/market-feeds';
+import { buildersNear, permitsNear } from '@/lib/market-feeds';
 import { rateSummary, recentPermitPoints } from '@/lib/market-feeds-data';
 import { MarketMap } from '@/components/MarketMap';
 import { ActionForm } from '@/components/ActionForm';
@@ -27,7 +27,7 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
   const [{ settings, zones }, saved, places, permits, rates] = await Promise.all([judgedZones(by, county ? [county] : []), buyBoxSettings(), ourPlaces(), recentPermitPoints(), rateSummary()]);
   const inView = zones.filter((z) => (!near || z.near.miles <= settings.nearMiles));
   const listed = inView.filter((z) => (show ? z.verdict === show : z.verdict !== 'thin')).slice(0, 150);
-  const building = new Map(listed.map((z) => [`${z.name}|${z.city}|${z.county}`, permitsNear(z, permits)]));
+  const building = new Map(listed.map((z) => [`${z.name}|${z.city}|${z.county}`, { ...permitsNear(z, permits), locals: buildersNear(z, permits) }]));
   const holdUp = inView.filter((z) => z.verdict === 'buy' && z.outlook?.holdsUp).length;
   const count = (v: Verdict) => inView.filter((z) => z.verdict === v).length;
   const href = (o: Record<string, string | null>) => {
@@ -87,7 +87,8 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
                 <td className="num">{z.money ? z.absorb : '—'}</td>
                 <td className="num outlook">{z.outlook ? <>{money(z.outlook.low)} / <strong>{money(z.outlook.mid)}</strong> / {money(z.outlook.high)}
                   <div className="small muted">{z.outlook.trend === null ? 'no trend yet' : `prices ${z.outlook.trend >= 0 ? '+' : ''}${z.outlook.trend}% a year`}{z.outlook.holdsUp === true ? ' · holds up' : z.outlook.holdsUp === false ? ' · not at Low' : ''}</div></> : '—'}</td>
-                <td className="num">{(() => { const b = building.get(`${z.name}|${z.city}|${z.county}`); return b && (b.newHomes || b.teardowns) ? <>{b.newHomes} new · {b.teardowns} teardowns<div className="small muted">within ½ mile, 12 months</div></> : '—'; })()}</td>
+                <td className="num">{(() => { const b = building.get(`${z.name}|${z.city}|${z.county}`); return b && (b.newHomes || b.teardowns) ? <>{b.newHomes} new · {b.teardowns} teardowns<div className="small muted">within ½ mile, 12 months</div>
+                  {b.locals.length ? <div className="small"><strong>Local builders:</strong> {b.locals.slice(0, 3).map((l) => `${l.name} (${l.count})`).join(', ')}{b.locals.length > 3 ? ` +${b.locals.length - 3}` : ''}</div> : null}</> : '—'; })()}</td>
                 <td className="small">{z.reasons.join('; ')}</td>
               </tr>
             ))}</tbody>
@@ -98,7 +99,7 @@ export default async function BuyBoxPage({ searchParams }: { searchParams: Promi
           less {settings.sellingPct}% selling, the build at ${settings.buildPerSf}/sf, {settings.softPct}% soft and holding, and {settings.profitPct}% profit, divided by 1 + {settings.financingPct}% financing = what we can pay for the lot.
           Lots and teardowns = land sales and houses built before 1970 under 1,600 sf, last 3 years.
           When we’d sell: Mid carries the zone’s own $/sf trend (last 12 months against the 12 before, capped at ±15% a year) forward {settings.monthsToSell} months; Low takes {settings.downsidePct}% off, High adds {settings.upsidePct}%. “Holds up” means the Low case still covers what lots sell for there.
-          Building nearby counts new-home and demolition permits (Raleigh and Durham) within half a mile.
+          Building nearby counts new-home and demolition permits (Raleigh and Durham) within half a mile, and names the local builders there (national and large builders left out; see <Link href="/market/builders">Builders</Link>).
         </p>
       </Section>
       <Section title="Our Numbers" kind="energy" hint={saved.saved ? `Changed ${saved.updated?.toISOString().slice(0, 10)}` : 'The starting numbers from the Plainview math'}>

@@ -1,5 +1,6 @@
 // The Market Map's sections from the free data: rates and what buyers can
 // afford, Redfin's numbers by ZIP code, and who is building (permits).
+import Link from 'next/link';
 import { formatDate } from '@/lib/format';
 import { heatLabel, marketHeat, sensitivityLabel } from '@/lib/market-feeds';
 import type { bandsAndRates, countyTrends, permitsByArea, rateSummary, topBuilders, ZipTrend } from '@/lib/market-feeds-data';
@@ -133,7 +134,7 @@ export function Builders({ builders, areas }: { builders: Awaited<ReturnType<typ
           <li key={b.builder}><strong>{b.builder}</strong> <span className="chip blue">{b.n} new {b.n === 1 ? 'home' : 'homes'}</span>
             <div className="small muted">{b.cost ? `Median ${money(b.cost)} to build · ` : ''}{b.zips.length ? `ZIP ${b.zips.join(', ')} · ` : ''}latest {formatDate(b.latest)}</div></li>
         ))}</ul> : <Empty>No permits loaded yet. Press Update Permits under Update Market Data.</Empty>}
-        <p className="small muted">Raleigh’s permits name the builder; Durham’s don’t.</p>
+        <p className="small muted">Raleigh’s permits name the builder; Durham’s don’t. <Link href="/market/builders">Every builder, their track record and where good local builders are moving in</Link></p>
       </div>
       <div>
         <h3 className="sub-h">Teardowns and New Homes by Area</h3>
