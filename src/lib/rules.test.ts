@@ -45,6 +45,9 @@ test('who may do what', () => {
   assert.equal(can('staff', 'sensitive.view'), false);
   assert.equal(can('accountant', 'contacts.view'), false);
   assert.equal(can('accountant', 'bills.pay'), true);
+  // A partner sees everything but restricted records, and can't manage users or delete for good.
+  for (const p of ['projects.view', 'money.view', 'contacts.edit', 'properties.view', 'bills.approve'] as const) assert.equal(can('partner', p), true);
+  for (const p of ['sensitive.view', 'users.manage', 'records.delete'] as const) assert.equal(can('partner', p), false);
   assert.equal(can('pending', 'projects.view'), false);
   assert.equal(can(null, 'projects.view'), false);
 });

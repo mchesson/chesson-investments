@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { can, effectivePermissions, type Permission, type Role } from './permissions';
+import { can, effectivePermissions, linkRoles, type Permission, type Role } from './permissions';
 import { sessionHours } from './guests';
 import { readStandards } from './access-standards';
 
@@ -21,7 +21,7 @@ export async function currentUser(): Promise<SessionUser | null> {
   const meta = s as unknown as { provider?: string; signedInAt?: number };
   if (meta.signedInAt && Date.now() / 1000 - meta.signedInAt > sessionHours(u.role, meta.provider) * 3600) return null;
   // Someone who signed in by link is a guest page user only, whatever their role.
-  if (meta.provider === 'link' && u.role !== 'guest' && u.role !== 'accountant') return null;
+  if (meta.provider === 'link' && !linkRoles.includes(u.role)) return null;
   return { id: u.id, email: u.email, name: u.name, role: u.role, permissions: effectivePermissions(u.role, u.permissions, u.permissions ? null : (await readStandards()).roles), personId: u.personId, companyId: u.companyId };
 }
 
