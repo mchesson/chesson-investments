@@ -169,6 +169,13 @@
       "when": 1790994338219,
       "tag": "0023_event_association",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791020465219,
+      "tag": "0024_condo_sqft",
+      "breakpoints": true
     }
   ]
 }

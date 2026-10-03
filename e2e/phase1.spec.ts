@@ -604,6 +604,16 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
   await page.locator('.tabs').getByRole('link', { name: 'Vendors and Issues' }).click();
   await expect(page.locator('.grade-card').filter({ has: page.getByRole('link', { name: `Tile${s} Pros`, exact: true }) }).locator('.grade-why')).toContainText('Grout lines uneven', { timeout: 20_000 });
+  // An issue opened right on the job's tab: the vendor is picked by typing, not from a list of everyone.
+  const open = page.locator('section', { has: page.getByRole('heading', { name: /Open an Issue/ }) }).last();
+  await open.locator('input[name=title]').fill(`Loose threshold ${s}`);
+  await expect(async () => {
+    await open.getByRole('combobox', { name: /^Vendor/ }).fill(`Tile${s}`);
+    await page.getByRole('option', { name: new RegExp(`Tile${s} Pros.*On this job`) }).click({ timeout: 2000 });
+  }).toPass({ timeout: 20000 });
+  await open.getByRole('button', { name: 'Open the Issue' }).click();
+  await expect(page.locator('.toast', { hasText: 'Saved' })).toBeVisible();
+  await expect(page.locator('.issue-card', { hasText: `Loose threshold ${s}` })).toContainText(`Tile${s} Pros`);
 });
 
 test('agents: the areas they specialize in', async ({ page }) => {

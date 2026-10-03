@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ActionForm } from './ActionForm';
 import { Choice } from './Choice';
+import { SearchPicker, type PickOption } from './SearchPicker';
 import { Empty, Section, Tile } from './ui';
 import { saveIssue, setIssueStatus } from '@/app/(app)/grade-actions';
 import { daysToFix, involvedRoles, isClosed, isOverdue, issueStatusLabel, issueStatuses, issueSummary, severities } from '@/lib/issues';
@@ -30,17 +31,18 @@ function Involved({ theirs, staff, everyone, picked }: { theirs: Opt[]; staff: O
         <label key={u.id} className="role-btn"><input type="checkbox" name="involvedStaff" value={u.id} defaultChecked={has(u.id)} /><span>{u.name} (us)</span></label>
       ))}</div>
       {others.map((p) => <input key={p.personId} type="hidden" name="involvedPeople" value={p.personId!} />)}
-      <label className="f">Someone Else on File<select name="involvedPeople" defaultValue=""><option value="">—</option>{everyone.map((p) => <option key={p.id} value={p.id}>{p.name}{p.sub ? ` (${p.sub})` : ''}</option>)}</select></label>
+      <SearchPicker name="involvedPeople" label="Someone Else on File" hint="Optional" placeholder="Type their name or company" options={everyone.map((p) => ({ id: p.id, label: p.name, sub: p.sub }))} />
     </fieldset>
   );
 }
 
-export function IssueForm({ who, projects, theirs, staff, everyone, issue, projectId }: {
-  who: WhoProps; projects: Opt[]; theirs: Opt[]; staff: Opt[]; everyone: Opt[]; issue?: IssueRow; projectId?: string;
+export function IssueForm({ who, vendors, projects, theirs, staff, everyone, issue, projectId }: {
+  /** The vendor, when the form is on their page; else `vendors` to pick from by typing. */
+  who?: WhoProps; vendors?: PickOption[]; projects: Opt[]; theirs: Opt[]; staff: Opt[]; everyone: Opt[]; issue?: IssueRow; projectId?: string;
 }) {
   return (
     <ActionForm action={saveIssue} submit={issue ? 'Save Changes' : 'Open the Issue'}>
-      <Target {...who} />
+      {who ? <Target {...who} /> : <SearchPicker name="vendor" label="Vendor" required placeholder="Type the company or person" hint="Who the issue is with" options={vendors ?? []} />}
       {issue ? <input type="hidden" name="id" value={issue.id} /> : null}
       {projectId ? <input type="hidden" name="projectId" value={projectId} /> : null}
       <label className="f">What’s Wrong<input name="title" required defaultValue={issue?.title} placeholder="Shower pan leaking into the subfloor" /></label>
