@@ -24,6 +24,16 @@ export async function rateSummary() {
   return { now, yearAgo, threeAgo, min, max, weeks };
 }
 
+/** Each rate's latest value and a year earlier (15-year, 10-year Treasury, fed funds; 30-year too). */
+export async function latestRates() {
+  const r = await db.execute<{ series: string; week: string; rate: string; ago: string | null }>(sql`
+    with cur as (select distinct on (series) series, week, rate from market_rates order by series, week desc)
+    select cur.series, cur.week::text as week, cur.rate::text as rate,
+      (select a.rate::text from market_rates a where a.series = cur.series and a.week <= cur.week - interval '1 year' order by a.week desc limit 1) as ago
+    from cur`);
+  return Object.fromEntries(r.rows.map((x) => [x.series, { week: x.week, rate: Number(x.rate), yearAgo: x.ago === null ? null : Number(x.ago) }])) as Partial<Record<string, { week: string; rate: number; yearAgo: number | null }>>;
+}
+
 /** What a house at each price band's middle costs a month, now and a year ago, and how each band's sales have moved with rates. */
 export async function bandsAndRates(rate: { now: number; yearAgo: number | null }) {
   const from = addDays(today(), -3 * 365), to = addDays(today(), -30);

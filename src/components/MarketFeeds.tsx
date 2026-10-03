@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { formatDate } from '@/lib/format';
 import { heatLabel, marketHeat, sensitivityLabel } from '@/lib/market-feeds';
-import type { bandsAndRates, countyTrends, permitsByArea, rateSummary, topBuilders, ZipTrend } from '@/lib/market-feeds-data';
+import type { bandsAndRates, countyTrends, latestRates, permitsByArea, rateSummary, topBuilders, ZipTrend } from '@/lib/market-feeds-data';
+import { mortgageSpread } from '@/lib/rate-sources';
 import { Empty, Tile } from './ui';
 
 const money = (n: number | null | undefined) => (n === null || n === undefined ? '—' : n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(2)}M` : `$${Math.round(n / 1000).toLocaleString()}k`);
@@ -30,6 +31,26 @@ function RateChart({ weeks }: { weeks: { week: string; rate: number }[] }) {
       <text x={pad} y={H - 6} fontSize="11" fill="#666">{weeks[0].week.slice(0, 7)}</text>
       <text x={W - pad} y={H - 6} fontSize="11" fill="#666" textAnchor="end">{weeks[weeks.length - 1].week.slice(0, 7)}</text>
     </svg>
+  );
+}
+
+/** The government's rates beside the mortgage rate: fed funds, the 10-year Treasury, the 15-year, and the mortgage spread. */
+export function GovRates({ latest }: { latest: Awaited<ReturnType<typeof latestRates>> }) {
+  const tile = (key: string, label: string, sub: string, color: string) => {
+    const x = latest[key];
+    const d = x && x.yearAgo !== null ? Math.round((x.rate - x.yearAgo) * 100) / 100 : null;
+    return <Tile key={key} k={label} v={x ? `${x.rate.toFixed(2)}%` : '—'} color={color}
+      s={x ? <>{sub}<br />{formatDate(x.week)}{d !== null ? ` · ${d > 0 ? 'up' : d < 0 ? 'down' : 'no change'}${d ? ` ${Math.abs(d).toFixed(2)}` : ''} from a year ago` : ''}</> : 'Not loaded yet'} />;
+  };
+  const sp = mortgageSpread(latest['30yr']?.rate, latest['10yr']?.rate);
+  return (
+    <div className="tiles">
+      {tile('fedfunds', 'Fed Funds Rate', 'The Fed’s overnight rate', 'var(--near-black)')}
+      {tile('10yr', '10-Year Treasury', 'What mortgage rates follow', 'var(--true-blue)')}
+      {tile('15yr', '15-Year Mortgage', 'Freddie Mac', 'var(--aqua)')}
+      <Tile k="Mortgage Over the 10-Year" v={sp ? `${sp.spread.toFixed(2)} pts` : '—'} color="var(--energy)"
+        s={sp ? `${sp.read === 'normal' ? 'Normal (about 1.7)' : sp.read === 'a little wide' ? 'A little wide: room for mortgage rates to fall' : 'Wide: lenders charging extra for risk'}` : 'Needs the 30-year and the 10-year'} />
+    </div>
   );
 }
 
