@@ -8,8 +8,7 @@ import { PageHead, Section, Empty } from '@/components/ui';
 import { Pager } from '@/components/contacts';
 import { dealTypeLabel, dealTypes, isDealType } from '@/lib/deal-sources';
 import { isZoningFamily, zoningFamilies, zoningFamilyLabel } from '@/lib/zoning';
-import { ActionButton } from '@/components/ActionButton';
-import { findLocationsAndZoning } from '../locate-actions';
+import { WorkButton } from '@/components/WorkButton';
 
 export const metadata = { title: 'Watchlist' };
 
@@ -30,7 +29,7 @@ export default async function Watchlist({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHead title="Watchlist" sub="Every lot we like, bid on or watch. Sold ones stay as comparables."
-        actions={<>{can(user, 'properties.edit') ? <ActionButton action={findLocationsAndZoning} className="btn secondary" label="Find Locations and Zoning" done="Done." /> : null}<Link className="btn secondary" href="/watchlist/sources">Deal Sources</Link>{can(user, 'properties.edit') ? <Link className="btn" href={`/watchlist/new${dealType ? `?type=${dealType}` : ''}`}>Add a Property</Link> : null}</>} />
+        actions={<>{can(user, 'properties.edit') ? <WorkButton job="findLocationsAndZoning" className="btn secondary" label="Find Locations and Zoning" busyLabel="Finding Locations…" done="Done." /> : null}<Link className="btn secondary" href="/watchlist/sources">Deal Sources</Link>{can(user, 'properties.edit') ? <Link className="btn" href={`/watchlist/new${dealType ? `?type=${dealType}` : ''}`}>Add a Property</Link> : null}</>} />
       <Section title="Find Properties" kind="grey">
         <nav className="chips" style={{ marginBottom: 10 }} aria-label="Which properties">
           {views.map((v) => (

@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { unzipSync } from 'fflate';
 import { useRouter } from 'next/navigation';
-import { dropSmall, finishDrop, startDrop, type DropResult } from '@/app/(app)/doc-drop-actions';
+import type { DropResult } from '@/app/(app)/doc-drop-actions';
+import { runWork, runWorkForm } from '@/lib/work-client';
 import { toast } from './Toast';
 
 type Row = DropResult | { name: string; status: 'waiting' | 'sending' | 'reading'; message: string; href?: string };
@@ -43,18 +44,18 @@ export function DropDocuments() {
     const set = (r: Row) => setRows((rs) => rs.map((x, j) => (j === i ? r : x)));
     try {
       set({ name: f.name, status: 'sending', message: '' });
-      const s = await startDrop(f.name, f.size);
+      const s = await runWork<{ url: string; path: string; token: string } | { direct: true } | { error: string }>('startDrop', f.name, f.size);
       if ('error' in s) return set({ name: f.name, status: 'error', message: s.error });
       let r: DropResult;
       if ('direct' in s) {
         const d = new FormData(); d.set('file', f);
         set({ name: f.name, status: 'reading', message: '' });
-        r = await dropSmall(d);
+        r = await runWorkForm<DropResult>('dropSmall', d);
       } else {
         const up = await fetch(s.url, { method: 'PUT', body: f, headers: { 'content-type': f.type || 'application/octet-stream', 'x-upsert': 'false' } });
         if (!up.ok) return set({ name: f.name, status: 'error', message: `The upload was refused (${up.status}). Try that file again.` });
         set({ name: f.name, status: 'reading', message: '' });
-        r = await finishDrop(s.path, s.token, f.name);
+        r = await runWork<DropResult>('finishDrop', s.path, s.token, f.name);
       }
       set(r);
     } catch (e) {

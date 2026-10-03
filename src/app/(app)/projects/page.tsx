@@ -8,9 +8,8 @@ import { formatMoney } from '@/lib/format';
 import { PageHead, Section, Empty } from '@/components/ui';
 import { SalePriceTag, saleBasis } from '@/components/SalePriceTag';
 import { saleCosts } from '@/lib/budget';
-import { ActionButton } from '@/components/ActionButton';
-import { findLocationsAndZoning } from '../locate-actions';
 import { sameAsAddress } from '@/lib/locate-rules';
+import { WorkButton } from '@/components/WorkButton';
 
 export const metadata = { title: 'Projects' };
 
@@ -22,7 +21,7 @@ export default async function Projects() {
   const money = seeMoney ? await Promise.all(rows.map((p) => projectMoney(p.id))) : [];
   return (
     <>
-      <PageHead title="Projects" actions={can(user, 'projects.edit') ? <>{can(user, 'properties.edit') ? <ActionButton action={findLocationsAndZoning} className="btn secondary" label="Find Locations and Zoning" done="Done." /> : null}<Link className="btn" href="/projects/new">Add Project</Link></> : null} />
+      <PageHead title="Projects" actions={can(user, 'projects.edit') ? <>{can(user, 'properties.edit') ? <WorkButton job="findLocationsAndZoning" className="btn secondary" label="Find Locations and Zoning" busyLabel="Finding Locations…" done="Done." /> : null}<Link className="btn" href="/projects/new">Add Project</Link></> : null} />
       <Section title="Projects" kind="aqua" hint={`${rows.length}`}>
         {rows.length ? (
           <div className="table-wrap"><table className="t">

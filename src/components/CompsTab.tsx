@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { ActionButton } from './ActionButton';
+import { WorkButton } from './WorkButton';
 import { ActionForm } from './ActionForm';
 import { Empty, Notice, Section, Tile } from './ui';
 import { formatDate, formatMoney } from '@/lib/format';
 import { SearchPicker, type PickOption } from './SearchPicker';
 import { HELD_UP_PCT, isWatched, offBy, adjusted, adjustmentsText, compSources, compStatuses, compSourceLabel, compStatusLabel, finishLabel, finishLevels, isPublicSource, perSf, summarize } from '@/lib/comps';
 import type { CompRecord, Suggestion } from '@/lib/comp-data';
-import { addPublicComp, readCompsFromDocument, removeComp, saveComp, setCompFlag, setFinishLevel, useCompValue } from '@/app/(app)/comp-actions';
+import { addPublicComp, removeComp, saveComp, setCompFlag, setFinishLevel, useCompValue } from '@/app/(app)/comp-actions';
 
 type Subject = { id: string; heatedSf: number | null; finishLevel: string | null; marketValue: string | null; marketValueOn: string | null; marketValueSource: string | null };
 type Doc = { id: string; name: string; caption: string | null; likely: boolean };
@@ -132,7 +133,7 @@ export function CompsTab({ p, rows, docs, suggestions, providers, reliable, canE
           <ul className="rows">{docs.slice(0, 12).map((d) => (
             <li key={d.id} className="sync-row">
               <span><Link href={`/documents/${d.id}`}>{d.caption ?? d.name}</Link>{d.likely ? <> <span className="chip sev-medium">Looks like comps</span></> : null}<div className="small muted">{d.name}</div></span>
-              {canEdit ? <ActionButton action={readCompsFromDocument.bind(null, p.id, d.id)} label="Read Comps" done="Read." className="btn small secondary" dataK="read-comps" /> : null}
+              {canEdit ? <WorkButton job="readCompsFromDocument" args={[p.id, d.id]} label="Read Comps" busyLabel="Reading…" done="Read." className="btn small secondary" dataK="read-comps" /> : null}
             </li>
           ))}</ul>
         ) : <Empty>No PDFs or photos on this project yet.</Empty>}
