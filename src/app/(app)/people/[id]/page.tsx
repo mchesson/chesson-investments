@@ -22,6 +22,9 @@ import { GradeBadge } from '@/components/Grades';
 import { gradesFor, issuesFor } from '@/lib/grade-data';
 import { isClosed } from '@/lib/issues';
 import { isVendorRole } from '@/lib/roles';
+import { Timeline } from '@/components/Timeline';
+import { isTimelineKind } from '@/lib/timeline-rules';
+import { vendorTimeline } from '@/lib/timeline';
 
 type Intro = { id: string; firstName: string; lastName: string; introNote: string | null; created: Date; companyName: string | null };
 
@@ -46,10 +49,10 @@ function Intros({ introduced, edit, id }: { introduced: Intro[]; edit: boolean; 
   );
 }
 
-export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; merged?: string }> }) {
+export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; tl?: string; merged?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview', status, merged } = await searchParams;
+  const { tab = 'overview', status, merged, tl } = await searchParams;
   const data = isUuid(id) ? await getPerson(id) : null;
   if (!data || data.person.archived) notFound();
   const { person: p, company, introducedBy, roles, lastTouch, introduced, metAt } = data;
@@ -109,6 +112,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
             { key: 'overview', label: 'Overview' }, { key: 'touches', label: 'Touches' }, { key: 'tasks', label: 'Tasks' },
             { key: 'work', label: 'Work History' }, { key: 'intros', label: 'Introductions', count: introduced.length }, { key: 'deals', label: 'Deals Sent' },
             ...(vendor ? [{ key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }] : []),
+            ...(vendor ? [{ key: 'timeline', label: 'What They Did for Us' }] : []),
             { key: 'history', label: 'History' },
           ]} />
           {tab === 'grades' ? <VendorGrades who={{ personId: id }} canEdit={edit} override={{ on: p.gradeOverride, reason: p.gradeOverrideReason }} /> : null}
@@ -130,6 +134,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
           {tab === 'work' ? <Work id={id} /> : null}
           {tab === 'intros' ? <Intros introduced={introduced} edit={edit} id={id} /> : null}
           {tab === 'deals' ? <Deals id={id} /> : null}
+          {tab === 'timeline' && vendor ? await (async () => { const t = await vendorTimeline({ personId: id }); return <Timeline events={t.events} summary={t.summary} only={isTimelineKind(tl) ? tl : null} title="What They Did for Us" href={(k) => `${base}?tab=timeline${k ? `&tl=${k}` : ''}`} />; })() : null}
           {tab === 'history' ? (
             <>
               <Section title="History" kind="grey"><HistoryList rows={await historyFor('person', id)} /></Section>
