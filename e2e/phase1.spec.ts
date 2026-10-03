@@ -1733,3 +1733,46 @@ test('People list: name, company, title, then the properties each person is tied
   await expect(row.getByRole('link', { name: `${s} Tied A St` })).toHaveAttribute('href', /\/projects\//);
   await expect(row.getByRole('link', { name: `${s} Sent Lot Rd` })).toHaveAttribute('href', /\/watchlist\//);
 });
+
+test('timelines: everything that happened at a property and who did it; what a vendor did for us across properties', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const co = await db.query(`insert into companies (name) values ($1) returning id`, [`Timeline${s} Framing`]);
+  const cid = co.rows[0].id;
+  const code = (await db.query(`select id from cost_codes order by code limit 1`)).rows[0].id;
+  const ids: string[] = [];
+  for (const n of ['One', 'Two']) {
+    const p = await db.query(`insert into projects (name, address, purchased_on, lot_cost) values ($1, $1, '2026-01-15', 300000) returning id`, [`${s} Timeline ${n} St`]);
+    ids.push(p.rows[0].id);
+    await db.query(`insert into commitments (project_id, cost_code_id, vendor_company_id, scope, amount, signed_on) values ($1, $2, $3, 'Framing', 40000, '2026-02-01')`, [p.rows[0].id, code, cid]);
+    await db.query(`insert into bills (project_id, cost_code_id, vendor_company_id, invoice_number, invoice_on, amount, status, paid_on) values ($1, $2, $3, $4, '2026-03-01', 20000, 'paid', '2026-03-10')`, [p.rows[0].id, code, cid, `T${s}${n}`]);
+  }
+  await db.query(`insert into vendor_issues (number, company_id, project_id, title, severity, status, reported_on) values (nextval('issue_number'), $1, $2, $3, 'medium', 'open', '2026-03-05')`, [cid, ids[0], `Crooked wall ${s}`]);
+  await db.query(`insert into assignments (project_id, description, responsible, company_id, due_on, done_on, status) values ($1, 'Frame the second floor', 'gc', $2, '2026-03-01', '2026-03-04', 'done')`, [ids[0], cid]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto(`/projects/${ids[0]}?tab=timeline`);
+  const tl = page.locator('main');
+  await expect(tl.getByText('Bought it (lot $300,000)')).toBeVisible();
+  await expect(tl.getByText('Committed: Framing ($40,000)')).toBeVisible();
+  await expect(tl.getByText(`Issue #`).first()).toBeVisible();
+  await expect(tl.locator('.tl', { hasText: 'Done: Frame the second floor' })).toContainText('Late');
+  await expect(tl.locator('.tl', { hasText: 'Paid $20,000' }).getByRole('link', { name: `Timeline${s} Framing` })).toBeVisible();
+  // Only the money.
+  await page.getByRole('link', { name: /^Money/ }).click();
+  await expect(page).toHaveURL(/tl=money/);
+  await expect(tl.getByText('Committed: Framing ($40,000)')).toBeVisible();
+  await expect(tl.getByText('Bought it (lot $300,000)')).toHaveCount(0);
+
+  // The vendor: what they did for us on both properties, summed up.
+  await page.goto(`/companies/${cid}?tab=timeline`);
+  const tiles = page.locator('.tiles');
+  await expect(tiles.locator('.tile', { hasText: 'Jobs With Us' })).toContainText('2');
+  await expect(tiles.locator('.tile', { hasText: 'Paid' })).toContainText('$40,000');
+  await expect(tiles.locator('.tile', { hasText: 'On Time' })).toContainText('0%');
+  await expect(tiles.locator('.tile', { hasText: 'Open Issues' })).toContainText('1');
+  await expect(page.locator('.tl', { hasText: 'Committed: Framing' }).getByRole('link', { name: `${s} Timeline Two St` })).toBeVisible();
+});

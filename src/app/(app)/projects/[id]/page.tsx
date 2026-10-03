@@ -38,6 +38,9 @@ import { compDocs, compsFor, providerReliability, suggestedComps } from '@/lib/c
 import { joinAddress } from '@/lib/locate-rules';
 import { hoodMapHref, placeMapHref } from '@/lib/map-links';
 import { SearchPicker } from '@/components/SearchPicker';
+import { Timeline } from '@/components/Timeline';
+import { isTimelineKind } from '@/lib/timeline-rules';
+import { projectTimeline } from '@/lib/timeline';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -47,10 +50,10 @@ type Money = NonNullable<Awaited<ReturnType<typeof projectMoney>>>;
 const m = (c: number) => formatCents(c);
 const signed = (c: number) => (c < 0 ? <span className="red">−{m(-c)}</span> : m(c));
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; stage?: string; status?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; stage?: string; status?: string; tl?: string }> }) {
   const user = await requirePage('projects.view');
   const { id } = await params;
-  const { tab = 'overview', edit: editParam, stage: askedStage, status: issueStatus } = await searchParams;
+  const { tab = 'overview', edit: editParam, stage: askedStage, status: issueStatus, tl } = await searchParams;
   const data = isUuid(id) ? await projectMoney(id) : null;
   if (!data || data.project.archived) notFound();
   const { project: p } = data;
@@ -62,7 +65,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const rentalKind = (await rentalFor(id)).rental?.r.kind ?? null;
   const missed = sched.assignments.filter((a) => a.state === 'missed');
   const tabs = [
-    { key: 'overview', label: 'Overview' },
+    { key: 'overview', label: 'Overview' }, { key: 'timeline', label: 'Timeline' },
     ...(seeMoney ? [{ key: 'budget', label: 'Budget' }, { key: 'commitments', label: 'Commitments', count: data.commitments.length }, { key: 'bills', label: 'Bills', count: data.bills.length }, { key: 'holding', label: 'Holding Costs' }] : []),
     { key: 'schedule', label: 'Schedule' },
     ...(seeMoney ? [{ key: 'review', label: 'Post-Project Review' }] : []),
@@ -101,6 +104,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {tab === 'holding' && seeMoney ? <Holding data={data} edit={can(user, 'bills.edit')} /> : null}
           {tab === 'schedule' ? <ScheduleTab projectId={id} sched={sched} codes={data.codes} companies={await companyOptions()} people={await peopleOptions()} canEdit={editProject} /> : null}
           {tab === 'review' && seeMoney ? <ProjectReview data={data} canEdit={editProject} /> : null}
+          {tab === 'timeline' ? <Timeline events={await projectTimeline(id)} only={isTimelineKind(tl) ? tl : null} title="Everything That Happened Here" href={(k) => `${base}?tab=timeline${k ? `&tl=${k}` : ''}`} /> : null}
           {tab === 'comps' ? <><CompsTab p={p} rows={await compsFor(id)} docs={await compDocs(id)} suggestions={await suggestedComps(p)} reliable={await providerReliability()} canEdit={editProject}
             providers={editProject ? [...(await companyOptions()).map((c) => ({ id: `c:${c.id}`, label: c.name, sub: 'Company' })), ...(await peopleOptions()).map((x) => ({ id: `p:${x.id}`, label: x.name, sub: x.companyName ?? 'Person' }))] : []} /><AgentsHere place={{ city: p.city, zip: p.zip, neighborhood: p.neighborhood }} /></> : null}
           {tab === 'documents' ? <ProjectDocuments projectId={id} canAdd={editProject} /> : null}

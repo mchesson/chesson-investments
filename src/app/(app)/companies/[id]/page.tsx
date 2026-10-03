@@ -17,11 +17,14 @@ import { formatDate } from '@/lib/format';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
 import { Phone } from '@/components/Phone';
 import { HistoryList, RoleChips, RolesPanel, TaskForm, TaskRows } from '@/components/contacts';
+import { Timeline } from '@/components/Timeline';
+import { isTimelineKind } from '@/lib/timeline-rules';
+import { vendorTimeline } from '@/lib/timeline';
 
-export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; merged?: string }> }) {
+export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; status?: string; tl?: string; merged?: string }> }) {
   const user = await requirePage('contacts.view');
   const { id } = await params;
-  const { tab = 'overview', status, merged } = await searchParams;
+  const { tab = 'overview', status, merged, tl } = await searchParams;
   const [gs, iss] = await Promise.all([gradesFor({ companyId: id }), issuesFor({ companyId: id })]);
   const openIssues = iss.filter((i) => !isClosed(i.status)).length;
   const data = isUuid(id) ? await getCompany(id) : null;
@@ -53,7 +56,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           <RecordManage kind="company" id={id} canArchive={edit} canDelete={can(user, 'records.delete')} />
         </div>
         <div>
-          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, ...(isAssociation ? [{ key: 'events', label: 'Events', count: evs.length }] : []), { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
+          <Tabs base={base} current={tab} tabs={[{ key: 'overview', label: 'Overview' }, { key: 'people', label: 'People', count: current.length }, ...(isAssociation ? [{ key: 'events', label: 'Events', count: evs.length }] : []), { key: 'grades', label: gs.overall ? `Grades (${gs.overall.letter})` : 'Grades' }, { key: 'issues', label: 'Issues', count: openIssues }, { key: 'timeline', label: 'What They Did for Us' }, { key: 'tasks', label: 'Tasks' }, { key: 'history', label: 'History' }]} />
           {tab === 'overview' ? (
             <div className="stack">
               {seeMoney ? <VendorSpend bills={await vendorBills({ companyId: id })} /> : null}
@@ -112,6 +115,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           ) : null}
           {tab === 'grades' ? <VendorGrades who={{ companyId: id }} canEdit={edit} override={{ on: c.gradeOverride, reason: c.gradeOverrideReason }} /> : null}
           {tab === 'issues' ? <VendorIssues who={{ companyId: id }} theirs={current.map((x) => ({ id: x.id, name: `${x.firstName} ${x.lastName}` }))} base={base} status={status ?? null} canEdit={edit} /> : null}
+          {tab === 'timeline' ? await (async () => { const t = await vendorTimeline({ companyId: id }); return <Timeline events={t.events} summary={t.summary} only={isTimelineKind(tl) ? tl : null} title="What They Did for Us" href={(k) => `${base}?tab=timeline${k ? `&tl=${k}` : ''}`} />; })() : null}
           {tab === 'history' ? <Section title="History" kind="grey"><HistoryList rows={await historyFor('company', id)} /></Section> : null}
         </div>
       </div>

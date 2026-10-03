@@ -489,3 +489,13 @@ form:has(input[name=kind][value=short_term]:checked) .rental-status-lease { disp
 .chip-field { position: relative; }
 .chip-field .chips { margin: 4px 0; }
 .chip-x { border: 0; background: none; cursor: pointer; padding: 0 0 0 4px; font-weight: 700; color: inherit; }
+/* Timelines (Timeline.tsx): a dot per thing, colored by kind. */
+.timeline { list-style: none; margin: 0 0 12px; padding: 0 0 0 4px; border-left: 2px solid var(--hair); display: flex; flex-direction: column; gap: 10px; }
+.tl { position: relative; display: grid; grid-template-columns: 7.5em 1fr; gap: 10px; padding-left: 14px; }
+.tl::before { content: ''; position: absolute; left: -7px; top: .35em; width: 12px; height: 12px; border-radius: 50%; background: var(--true-blue); border: 2px solid #fff; }
+.tl-work::before { background: var(--aqua); } .tl-money::before { background: var(--energy-deep); } .tl-people::before { background: #8a5a00; } .tl-docs::before { background: var(--ash); } .tl-deal::before { background: var(--true-blue); }
+.tl-bad::before, .tl-late::before { background: var(--red); }
+.tl-date { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.tl-body { min-width: 0; }
+.timeline-filter { margin-bottom: 10px; }
+@media (max-width: 560px) { .tl { grid-template-columns: 1fr; gap: 0; } }
