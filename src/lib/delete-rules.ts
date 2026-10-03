@@ -37,6 +37,7 @@ export const deleteRules: Record<'person' | 'company', Rule[]> = {
     { table: 'party_roles', column: 'hired_through_company_id', does: 'clear', label: 'subs and suppliers through them (the link only)' },
     { table: 'assignments', column: 'company_id', does: 'clear', label: 'schedule commitments (who only)' },
     { table: 'project_utilities', column: 'company_id', does: 'clear', label: 'property utilities (company only)' },
+    { table: 'properties', column: 'source_company_id', does: 'clear', label: 'watchlist leads they sent (the credit only)' },
     { table: 'bills', column: 'vendor_company_id', does: 'block', label: 'bills from them' },
     { table: 'commitments', column: 'vendor_company_id', does: 'block', label: 'commitments with them' },
     { table: 'budget_versions', column: 'company_id', does: 'block', label: 'bids from them' },

@@ -6,10 +6,11 @@ import { activeStages, type PropertyStage } from './properties';
 
 export type WatchView = 'active' | 'comps' | 'past' | 'all';
 
-export async function listProperties(opts: { view: WatchView; q?: string; page?: number }) {
+export async function listProperties(opts: { view: WatchView; q?: string; page?: number; dealType?: string | null }) {
   const where: SQL[] = [isNull(properties.archived)];
   if (opts.view === 'active') where.push(inArray(properties.stage, activeStages));
   if (opts.view === 'comps') where.push(eq(properties.stage, 'sold'));
+  if (opts.dealType) where.push(eq(properties.dealType, opts.dealType));
   if (opts.view === 'past') where.push(inArray(properties.stage, ['lost', 'passed', 'under_contract'] as PropertyStage[]));
   if (opts.q) {
     const like = `%${opts.q}%`;
@@ -18,7 +19,7 @@ export async function listProperties(opts: { view: WatchView; q?: string; page?:
   const page = Math.max(1, opts.page ?? 1);
   const rows = await db.select({
     id: properties.id, address: properties.address, city: properties.city, zip: properties.zip, neighborhood: properties.neighborhood,
-    stage: properties.stage, askingPrice: properties.askingPrice, lotSf: properties.lotSf, zoning: properties.zoning,
+    stage: properties.stage, dealType: properties.dealType, lotsPossible: properties.lotsPossible, askingPrice: properties.askingPrice, lotSf: properties.lotSf, zoning: properties.zoning,
     ourOffer: properties.ourOffer, soldPrice: properties.soldPrice, soldOn: properties.soldOn, winningPrice: properties.winningPrice,
     sourceId: properties.sourcePersonId, sourceName: sql<string | null>`(select p.first_name || ' ' || p.last_name from ${people} p where p.id = ${properties.sourcePersonId})`,
     updated: properties.updated,

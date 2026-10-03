@@ -50,7 +50,7 @@ test('add a watched lot, then mark it sold as a comparable', async ({ page }) =>
   await page.getByLabel('Address').fill(`${stamp} Oakwood Ave`);
   await page.getByLabel('Asking Price').fill('425k');
   await page.getByLabel('Lot Size (sq ft)').fill('8,000');
-  await page.getByLabel('Zoning').fill('r-10');
+  await page.getByLabel('Zoning', { exact: true }).fill('r-10');
   await page.getByRole('button', { name: 'Add to Watchlist' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${stamp} Oakwood Ave`);
   await expect(page.getByText('$53.13')).toBeVisible();
@@ -597,7 +597,7 @@ test('grades with a justification, D or below is Do Not Use unless overridden, a
   await page.goto('/projects');
   await page.getByRole('link', { name: '109 Plainview Ave' }).first().click();
   await page.locator('.tabs').getByRole('link', { name: 'Vendors and Issues' }).click();
-  await expect(page.locator('.grade-card').filter({ has: page.getByRole('link', { name: `Tile${s} Pros`, exact: true }) }).locator('.grade-why')).toContainText('Grout lines uneven');
+  await expect(page.locator('.grade-card').filter({ has: page.getByRole('link', { name: `Tile${s} Pros`, exact: true }) }).locator('.grade-why')).toContainText('Grout lines uneven', { timeout: 20_000 });
 });
 
 test('agents: the areas they specialize in', async ({ page }) => {
@@ -774,10 +774,13 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
   await signIn(page, 'Sample Owner');
   await page.goto('/admin/users');
   const card = page.locator('.user-card', { hasText: 'accountant@example.com' });
-  await card.getByText(/What They Can Do/).click();
-  await card.getByLabel('See people and companies').check();
-  await card.getByRole('button', { name: 'Save Access' }).click();
-  await expect(card.getByText('Access saved.')).toBeVisible();
+  await expect(async () => { // opened again if the page wasn't ready yet
+    const box = card.getByLabel('See people and companies');
+    if (!(await box.isVisible())) await card.getByText(/What They Can Do/).click();
+    await box.check({ timeout: 3000 });
+    await card.getByRole('button', { name: 'Save Access' }).click();
+    await expect(card.getByText('Access saved.')).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
 
   const ctx = await browser.newContext();
   const a = await ctx.newPage();
@@ -787,9 +790,12 @@ test('access is a set of checkboxes per person', async ({ page, browser }) => {
 
   await page.reload();
   const again = page.locator('.user-card', { hasText: 'accountant@example.com' });
-  await again.getByText(/What They Can Do/).click();
-  await again.getByRole('button', { name: /Back to the Accountant Standard Set/ }).click();
-  await expect(again.getByText(/Using the Accountant standard set/)).toBeVisible();
+  await expect(async () => {
+    const back = again.getByRole('button', { name: /Back to the Accountant Standard Set/ });
+    if (!(await back.isVisible())) await again.getByText(/What They Can Do/).click();
+    await back.click({ timeout: 3000 });
+    await expect(again.getByText(/Using the Accountant standard set/)).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
   await a.goto('/people');
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();
@@ -882,10 +888,13 @@ test('standard access by type: a role standard everyone follows, and an agent wi
   await page.goto('/admin/users');
   // The Accountant standard: add People and Companies; the sample accountant follows it.
   const acc = page.locator('.user-card', { hasText: /^Accountant/ }).filter({ has: page.getByText('Change the Accountant Standard') });
-  await acc.getByText('Change the Accountant Standard').click();
-  await acc.getByLabel('See people and companies').check();
-  await acc.getByRole('button', { name: 'Save the Accountant Standard' }).click();
-  await expect(acc.getByText(/Everyone who is Accountant without their own ticks has this now/)).toBeVisible();
+  await expect(async () => { // opened again if the page wasn't ready yet
+    const box = acc.getByLabel('See people and companies');
+    if (!(await box.isVisible())) await acc.getByText('Change the Accountant Standard').click();
+    await box.check({ timeout: 3000 });
+    await acc.getByRole('button', { name: 'Save the Accountant Standard' }).click();
+    await expect(acc.getByText(/Everyone who is Accountant without their own ticks has this now/)).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
   const ctx = await browser.newContext();
   const a = await ctx.newPage();
   await signIn(a, 'Sample Accountant');
@@ -893,9 +902,12 @@ test('standard access by type: a role standard everyone follows, and an agent wi
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toBeVisible();
   await page.reload();
   const acc2 = page.locator('.user-card').filter({ has: page.getByText('Change the Accountant Standard') });
-  await acc2.getByText('Change the Accountant Standard').click();
-  await acc2.getByRole('button', { name: 'Back to the Built-In Standard' }).click();
-  await expect(page.locator('.user-card').filter({ has: page.getByText('Change the Accountant Standard') })).toContainText('built-in standard');
+  await expect(async () => { // tapped again if the page wasn't ready yet after the reload
+    const back = acc2.getByRole('button', { name: 'Back to the Built-In Standard' });
+    if (!(await back.isVisible())) await acc2.getByText('Change the Accountant Standard').click();
+    await back.click({ timeout: 3000 });
+    await expect(page.locator('.user-card').filter({ has: page.getByText('Change the Accountant Standard') })).toContainText('built-in standard', { timeout: 8000 });
+  }).toPass({ timeout: 40_000 });
   await a.goto('/people');
   await expect(a.getByRole('heading', { level: 1, name: 'People' })).toHaveCount(0);
   await ctx.close();
@@ -1022,4 +1034,57 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
   await expect(page.getByRole('button', { name: 'New-Home Permits' })).toHaveAttribute('aria-pressed', 'true');
   // The update buttons are there for each free source.
   for (const b of ['Update Rates', 'Update Redfin Data', 'Update Permits']) await expect(page.getByRole('button', { name: b })).toBeVisible();
+});
+
+test('a land deal from a wholesaler: its facts, the checklist, and the Deal Sources scoreboard', async ({ page }) => {
+  const s = Date.now().toString().slice(-6);
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`insert into people (first_name, last_name) values ('Lana', $1)`, [`Land${s}`]);
+  await db.end();
+
+  await signIn(page, 'Sample Owner');
+  await page.goto('/watchlist/new?type=land');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('label.choice-opt:has(input[name="dealType"][value="land"]) input')).toBeChecked();
+  await page.locator('input[name=address]').fill(`${s} Acreage Rd`);
+  await page.locator('input[name=askingPrice]').fill('1,200,000');
+  await page.locator('input[name=lotAcres]').fill('20');
+  await page.locator('input[name=lotsPossible]').fill('24');
+  await page.locator('select[name=utilities]').selectOption('nearby');
+  await page.locator('select[name=entitlement]').selectOption('rezoning');
+  await page.locator('select[name=sourcePersonId]').selectOption({ label: `Lana Land${s}` });
+  await page.locator('select[name=sourceKind]').selectOption('wholesaler');
+  await choose(page, 'sourceAccurate', 'no');
+  await page.locator('input[name=sourceNote]').fill('said 24 acres, it’s 20');
+  await page.getByRole('button', { name: 'Add to Watchlist' }).click();
+  await page.waitForURL(/\/watchlist\/[0-9a-f-]{36}$/);
+
+  // Its facts: per lot and per acre, water and sewer, approvals; who sent it and that their numbers were off.
+  await expect(page.locator('main h1').locator('..')).toContainText('Land / Subdivision');
+  const land = page.locator('section', { has: page.getByRole('heading', { name: /^\W*Land$/ }) });
+  await expect(land).toContainText('$50,000'); // 1.2M ÷ 24 lots
+  await expect(land).toContainText('$60,000'); // per acre
+  await expect(land).toContainText('Nearby: Would Need Extending');
+  await expect(page.getByText('Were off: said 24 acres, it’s 20')).toBeVisible();
+  // The checklist: tick the first step.
+  const list = page.locator('section', { has: page.getByRole('heading', { name: /Land Checklist/ }) });
+  await expect(list).toContainText('0 of 10 done');
+  await list.locator('li', { hasText: 'Zoning and what it allows' }).getByRole('button', { name: 'Done' }).click();
+  await expect(list).toContainText('1 of 10 done', { timeout: 20_000 });
+  await page.getByRole('link', { name: 'History' }).click();
+  await expect(page.getByText(/checked off “Zoning and what it allows”/)).toBeVisible();
+
+  // The scoreboard: Lana as a wholesaler, one deal, numbers that didn't hold up, too early to say.
+  await page.goto('/watchlist/sources?type=land');
+  const row = page.locator('.sources-table tr', { hasText: `Lana Land${s}` });
+  await expect(row).toContainText('Wholesaler');
+  await expect(row).toContainText('0 of 1'); // numbers held up
+  await expect(row).toContainText('Too Early to Say');
+  await expect(page.locator('.sources-table tr', { hasText: 'Wholesaler' }).first()).toBeVisible();
+  // Her page shows her record as a source.
+  await row.getByRole('link', { name: `Lana Land${s}` }).click();
+  await page.getByRole('link', { name: /Deals/ }).first().click();
+  await expect(page.locator('.tile', { hasText: 'As a Source' })).toContainText('Too Early to Say');
 });

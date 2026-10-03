@@ -11,6 +11,7 @@ import { bool, str, uuidOrNull } from '@/lib/forms';
 import { formatState, isDay, parseIntOrNull, parseMoney, today } from '@/lib/format';
 import { acresFromSf, isPropertyStage, pickableStages, propertyStageLabel, stageProblem, type PropertyStage } from '@/lib/properties';
 import { DEFAULT_PERCENTS } from '@/lib/cost-codes';
+import { bigDealChecklist, commercialUses, entitlements, isDealType, isSourceKind, utilities } from '@/lib/deal-sources';
 import { saveFile } from '@/lib/files';
 import type { FormResult } from '@/components/ActionForm';
 import { and, isNull } from 'drizzle-orm';
@@ -36,7 +37,44 @@ function propertyFields(d: FormData) {
     metBuyBox: d.get('metBuyBox') === 'yes' ? true : d.get('metBuyBox') === 'no' ? false : null,
     referralFee: moneyField(d, 'referralFee', 'Referral fee'),
     notes: str(d, 'notes'),
+    ...dealFields(d),
   };
+}
+
+/** The kind of deal, where it came from and the land and commercial facts. */
+function dealFields(d: FormData) {
+  const pick = (k: string, list: readonly { key: string }[]) => { const v = str(d, k); return v && list.some((x) => x.key === v) ? v : null; };
+  const lotsPossible = parseIntOrNull(d.get('lotsPossible'));
+  if (lotsPossible === undefined || (lotsPossible !== null && (lotsPossible < 0 || lotsPossible > 100_000))) throw new FieldError('Lots or units: type a whole number.');
+  const type = str(d, 'dealType');
+  const kind = str(d, 'sourceKind');
+  return {
+    dealType: isDealType(type) ? type : 'lot',
+    sourceKind: isSourceKind(kind) ? kind : null,
+    sourceCompanyId: uuidOrNull(d, 'sourceCompanyId'),
+    sourceAccurate: d.get('sourceAccurate') === 'yes' ? true : d.get('sourceAccurate') === 'no' ? false : null,
+    sourceNote: str(d, 'sourceNote'),
+    lotsPossible, utilities: pick('utilities', utilities), entitlement: pick('entitlement', entitlements), commercialUse: pick('commercialUse', commercialUses),
+  };
+}
+
+/** Ticks one step of a land or commercial deal's checklist. */
+export async function setChecklistItem(_: FormResult, d: FormData): Promise<FormResult> {
+  const user = await requireAction('properties.edit');
+  const id = uuidOrNull(d, 'id');
+  const key = str(d, 'key') ?? '';
+  const [p] = id ? await db.select().from(properties).where(eq(properties.id, id)) : [];
+  if (!p) return { error: 'Not found.' };
+  const item = (p.dealType === 'land' || p.dealType === 'commercial') ? bigDealChecklist[p.dealType].find((i) => i.key === key) : undefined;
+  if (!item) return { error: 'Pick a step.' };
+  const done = d.get('done') === 'yes';
+  const next = { ...(p.checklist as Record<string, boolean>), [key]: done };
+  await db.transaction(async (tx) => {
+    await tx.update(properties).set({ checklist: next, updated: new Date() }).where(eq(properties.id, p.id));
+    await audit({ userId: user.id, entity: 'property', entityId: p.id, action: 'checklist', summary: `${done ? 'checked off' : 'unchecked'} “${item.label}”`, before: { [key]: !!(p.checklist as Record<string, boolean>)[key] }, after: { [key]: done } }, tx);
+  });
+  revalidatePath(`/watchlist/${p.id}`);
+  return { ok: done ? 'Checked off.' : 'Unchecked.' };
 }
 
 export async function saveProperty(_: FormResult, d: FormData): Promise<FormResult> {
@@ -49,6 +87,7 @@ export async function saveProperty(_: FormResult, d: FormData): Promise<FormResu
     if (!id) {
       const [p] = await tx.insert(properties).values({ ...f, createdBy: user.id }).returning();
       await audit({ userId: user.id, entity: 'property', entityId: p.id, action: 'create', summary: `added ${p.address} to the watchlist`, after: f }, tx);
+      if (f.sourceCompanyId) await audit({ userId: user.id, entity: 'company', entityId: f.sourceCompanyId, action: 'deal-sent', summary: `sent us ${p.address}` }, tx);
       if (f.sourcePersonId) {
         await audit({ userId: user.id, entity: 'person', entityId: f.sourcePersonId, action: 'deal-sent', summary: `sent us ${p.address}` }, tx);
         // A deal sent moves an agent or wholesaler to "Sent a Deal" (never backwards).

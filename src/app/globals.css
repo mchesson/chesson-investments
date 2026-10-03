@@ -407,3 +407,13 @@ fieldset.choice legend .h { display: block; font-weight: 400; color: var(--muted
 .chip.heat-slow { background: #eef3d6; border-color: #cbd88f; color: #44500c; }
 .outlook { white-space: nowrap; }
 .buy-table td:last-child { min-width: 280px; }
+
+/* Deal sources */
+.chip.grade-proven { background: #d5f3f1; border-color: #8fd9d4; color: #005a55; }
+.chip.grade-promising { background: #e5f0f9; border-color: #b9d6ee; }
+.chip.grade-unproven { background: #f2f2f2; border-color: #d8d8d8; color: #555; }
+.chip.grade-weak { background: #fbe4e2; border-color: #efb7b2; color: #8c1d16; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.checklist li { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.checklist li.done strong { text-decoration: line-through; color: var(--muted); }
+.checklist form { margin: 0; }

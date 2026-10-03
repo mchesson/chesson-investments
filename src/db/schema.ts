@@ -268,6 +268,19 @@ export const properties = pgTable('properties', {
   lat: numeric('lat', { precision: 9, scale: 6 }),
   lng: numeric('lng', { precision: 9, scale: 6 }),
   sourcePersonId: uuid('source_person_id').references(() => people.id),
+  // Where it came from beyond the person (owner, Oct 2, 2026: "track the source and
+  // over time see what proves to provide the best deals"; src/lib/deal-sources.ts).
+  sourceCompanyId: uuid('source_company_id').references(() => companies.id),
+  sourceKind: text('source_kind'), // wholesaler / agent / attorney / builder / owner / referral / driving / mail / online / other
+  sourceAccurate: boolean('source_accurate'), // did the numbers they gave us hold up?
+  sourceNote: text('source_note'),
+  // The kind of deal: a lot or teardown, a house, land for a subdivision, commercial.
+  dealType: text('deal_type').notNull().default('lot'),
+  lotsPossible: integer('lots_possible'), // land: how many lots or units it could hold
+  utilities: text('utilities'), // water_sewer / water_only / well_septic / nearby / unknown
+  entitlement: text('entitlement'), // none / rezoning / site_plan / approved / recorded
+  commercialUse: text('commercial_use'),
+  checklist: jsonb('checklist').notNull().default({}), // land and commercial due diligence: { key: true }
   askingPrice: money('asking_price'),
   lotSf: integer('lot_sf'),
   lotAcres: numeric('lot_acres', { precision: 8, scale: 3 }),
@@ -288,7 +301,7 @@ export const properties = pgTable('properties', {
   created: created(),
   updated: updated(),
   archived: archived(),
-}, (t) => [index('properties_stage').on(t.stage), index('properties_source').on(t.sourcePersonId)]).enableRLS();
+}, (t) => [index('properties_stage').on(t.stage), index('properties_source').on(t.sourcePersonId), index('properties_source_company').on(t.sourceCompanyId)]).enableRLS();
 
 export const projectStage = pgEnum('project_stage', [
   'under_contract', 'design', 'permits', 'building', 'presold_listed', 'closed', 'rental',
