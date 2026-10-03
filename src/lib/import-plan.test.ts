@@ -82,3 +82,8 @@ test('a new person or company with a like name is flagged', () => {
   assert.ok(plan.problems.some((x) => x.startsWith('Baggett Construction: looks like Baggett')));
   assert.ok(plan.problems.some((x) => x.startsWith('Bob Smyth: looks like Robert Smith')));
 });
+
+test('a project can carry what it actually sold for', () => {
+  const f = importSchema.parse({ projects: [{ name: '2211 Hillock Dr', address: '2211 Hillock Dr', stage: 'closed', lotCost: '325,000', actualSalePrice: '$430,000' }] });
+  assert.equal(f.projects[0].actualSalePrice, '430000');
+});

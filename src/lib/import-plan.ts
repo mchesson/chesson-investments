@@ -61,6 +61,7 @@ export const importSchema = z.object({
     lotCost: money.nullish(), marketValue: money.nullish(), notes: z.string().max(4000).nullish(),
     purchasedOn: day.nullish(), completedOn: day.nullish(), originalEstimate: money.nullish(), plannedExit: z.string().max(200).nullish(), actualExit: z.string().max(200).nullish(),
     closingCostAtSale: money.nullish(), sellingCostPct: z.string().nullish(), reviewNotes: z.string().max(8000).nullish(),
+    actualSalePrice: money.nullish(), // what it actually sold for
     lotAcres: z.number().nullish(),
     // The website page (filled only where the project's own is empty).
     site: z.object({
