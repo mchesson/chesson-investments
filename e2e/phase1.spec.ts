@@ -284,6 +284,7 @@ test('archive, restore and delete permanently; a company with bills can only be 
   await page.goto('/admin/archived');
   const row = page.locator('li', { hasText: `Gone Soon${s}` });
   await row.getByRole('button', { name: 'Restore' }).click();
+  await expect(row).toHaveCount(0, { timeout: 20_000 }); // restored before moving on
   await page.goto(`/people?q=Soon${s}`);
   await expect(page.getByRole('link', { name: `Gone Soon${s}` })).toBeVisible();
 
@@ -950,7 +951,8 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await db.query(`insert into properties (address, city, neighborhood, asking_price) values ($1, 'Raleigh', $2, 400000)`, [`${s} Buyzone St`, hood]);
   // Its ZIP sells fast: 15 days on market (Redfin).
   await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_dom) values ('zip', $1, 'Raleigh, NC', 'all', current_date - 30, 15)`, [`7${s.slice(-4)}`]);
-  // Builders at work there: two new homes and a teardown within half a mile.
+  // Builders at work there: two new homes and a teardown within half a mile (earlier runs' made-up permits there cleared first).
+  await db.query(`delete from market_permits where permit_no like 'BZ%'`);
   for (const [i, kind] of (['new_home', 'new_home', 'demolition'] as const).entries())
     await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, lat, lng, builder) values ('raleigh', 'wake', $1, $2, current_date - 20, extract(year from current_date), 35.7905, -78.6402, $3)`, [`BZ${s}${i}`, kind, kind === 'demolition' ? null : `Bzlocal${s} Homes, LLC`]);
   await db.end();
@@ -1035,8 +1037,11 @@ test('free market data: rates and what buyers can afford, time on market by ZIP,
   // The map's permit layer reads them in the view; guests without the Market Map can't.
   const p = await (await page.request.get('/api/market/permits?bbox=-78.63,35.80,-78.61,35.82&kinds=new_home')).json();
   expect(p.permits.filter((x: { b: string | null }) => x.b === `Testbuild${s} Homes`).length).toBe(400);
-  await page.getByRole('button', { name: 'New-Home Permits' }).click();
-  await expect(page.getByRole('button', { name: 'New-Home Permits' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(async () => {
+    const b = page.getByRole('button', { name: 'New-Home Permits' });
+    if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
+    await expect(b).toHaveAttribute('aria-pressed', 'true', { timeout: 2000 });
+  }).toPass({ timeout: 20000 });
   // The update buttons are there for each free source.
   for (const b of ['Update Rates', 'Update Redfin Data', 'Update Permits']) await expect(page.getByRole('button', { name: b })).toBeVisible();
 });
@@ -1129,4 +1134,72 @@ test('builders: a local quick seller, its track record, where it is moving in; n
   await expect(page.locator('.builders-table tr', { hasText: 'Lennar Carolinas' })).toHaveCount(0);
   await page.getByRole('link', { name: /National \/ Production/ }).click();
   await expect(page.locator('.builders-table tr', { hasText: 'Lennar Carolinas' }).first()).toBeVisible();
+});
+
+test('business entities: who owns what, documents, and tax IDs kept encrypted and shown on request; staff can’t see them', async ({ page, browser }) => {
+  const s = Date.now().toString().slice(-6);
+  await signIn(page, 'Sample Owner');
+  // Chesson Investments, then WJ Investment Group with Chesson as a 65% member-manager.
+  for (const name of [`Chesson Test${s}, LLC`, `WJ Test${s}, LLC`]) {
+    await expect(async () => { // filled again if the page wasn't ready yet
+      await page.goto('/entities/new');
+      await page.locator('input[name=name]').fill(name);
+      await page.locator('input[name=taxForm]').fill('Form 1065 partnership');
+      await page.getByRole('button', { name: 'Add the Entity' }).click();
+      await page.waitForURL(/\/entities\/[0-9a-f-]{36}$/, { timeout: 8000 });
+    }).toPass({ timeout: 40_000 });
+  }
+  await expect(page.locator('h1')).toHaveText(`WJ Test${s}, LLC`);
+  const add = page.locator('details', { hasText: 'Add a Member' });
+  await add.locator('summary').click();
+  await add.locator('select[name=memberEntityId]').selectOption({ label: `Chesson Test${s}, LLC` });
+  await add.locator('input[name=percent]').fill('65');
+  await add.locator('input[name=capital]').fill('146,250');
+  await add.locator('select[name=role]').selectOption('member_manager');
+  await add.getByRole('button', { name: 'Add the Member' }).click();
+  await expect(page.locator('.members-table tr', { hasText: `Chesson Test${s}` })).toContainText('65%', { timeout: 20_000 });
+  await add.locator('input[name=name]').fill(`James Test${s}`);
+  await add.locator('input[name=percent]').fill('35');
+  await add.getByRole('button', { name: 'Add the Member' }).click();
+  await expect(page.locator('.members-table tr', { hasText: `James Test${s}` })).toContainText('35%', { timeout: 20_000 });
+  await expect(page.getByText('100% recorded')).toBeVisible();
+
+  // A document, restricted.
+  await page.getByRole('link', { name: /^Documents/ }).click();
+  await page.locator('select[name=docType]').selectOption('Operating Agreement');
+  await page.locator('input[name=note]').fill('signed May 20, 2025');
+  await page.locator('input[name=file]').setInputFiles({ name: `oa-${s}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\n% ${s}\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n`) });
+  await page.getByRole('button', { name: 'Upload' }).click();
+  await expect(page.getByRole('link', { name: 'Operating Agreement · signed May 20, 2025' })).toBeVisible({ timeout: 20_000 });
+  const docHref = await page.getByRole('link', { name: 'Operating Agreement · signed May 20, 2025' }).getAttribute('href');
+
+  // The EIN: saved encrypted, shown as the last 4, opened on request and written to History.
+  await page.getByRole('link', { name: /^Tax IDs/ }).click();
+  await page.locator('input[name=value]').fill('987654321');
+  await page.getByRole('button', { name: 'Save It' }).click();
+  await expect(page.getByText('Saved: •••• 4321.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.tax-id-value').first()).toHaveText('•••• 4321');
+  await page.getByRole('button', { name: 'Show' }).first().click();
+  await expect(page.locator('.tax-id-value').first()).toHaveText('98-7654321');
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  const stored = await db.query(`select t.cipher from entity_tax_ids t join entities e on e.id = t.entity_id where e.name = $1`, [`WJ Test${s}, LLC`]);
+  const logged = await db.query(`select summary from audit_log where summary like '%Federal EIN%' and entity_id = (select id from entities where name = $1)`, [`WJ Test${s}, LLC`]);
+  await db.end();
+  expect(stored.rows[0].cipher).not.toContain('7654321'); // never kept as plain text
+  expect(logged.rows.map((r) => r.summary).sort()).toEqual(['added the Federal EIN (•••• 4321)', 'viewed the Federal EIN (•••• 4321)']);
+  await page.getByRole('link', { name: 'History' }).click();
+  await expect(page.getByText('viewed the Federal EIN (•••• 4321)')).toBeVisible();
+  await expect(page.getByText('7654321')).toHaveCount(0);
+
+  // Staff without restricted-records access: no menu link, the page and the document are not found.
+  const ctx = await browser.newContext();
+  const st = await ctx.newPage();
+  await signIn(st, 'Sample Staff');
+  await expect(st.getByRole('link', { name: 'Business Entities' })).toHaveCount(0);
+  await st.goto('/entities');
+  await expect(st.getByText('This page could not be found.')).toBeVisible();
+  expect((await st.request.get(docHref!.replace('/documents/', '/files/'))).status()).toBe(404);
+  await ctx.close();
 });

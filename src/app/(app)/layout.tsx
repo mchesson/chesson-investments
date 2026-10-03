@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/lists', label: 'Lists', icon: 'lists' },
     ] : []),
     ...(can(user, 'properties.view') ? [{ href: '/watchlist', label: 'Watchlist', icon: 'watch' }, { href: '/market', label: 'Market Map', icon: 'map' }] : []),
+    ...(can(user, 'sensitive.view') ? [{ href: '/entities', label: 'Business Entities', icon: 'building' }] : []),
     { href: '/projects', label: 'Projects', icon: 'projects' },
     ...(can(user, 'contacts.view') ? [{ href: '/tasks', label: 'My Tasks', icon: 'tasks' }] : []),
   ];
