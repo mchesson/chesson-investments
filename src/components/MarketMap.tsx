@@ -11,6 +11,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import type * as Leaflet from 'leaflet';
 import { psfColor } from '@/lib/market-stats';
+import { describeZoning, zoneFieldsOf, zoningFamilies, type ZoningFamily } from '@/lib/zoning';
 
 type Place = { id: string; name: string; stage: string; lat: number; lng: number };
 type Area = { name: string; city: string | null; sales: number; median_price: number; median_psf: number | null; prior_psf: number | null; lat: number; lng: number };
@@ -33,6 +34,32 @@ export const layerDefs = [
   { key: 'watch', label: 'Watchlist' },
 ] as const;
 export type LayerKey = (typeof layerDefs)[number]['key'];
+
+// Planning layers (owner, Oct 3, 2026: zoning, right-of-way and utilities, "to be
+// able to add them, not on my normal maps"): kept apart and off until turned on.
+export const planDefs = [
+  { key: 'zoning', label: 'Zoning', hint: 'Every Wake town and Durham, colored by what it allows' },
+  { key: 'overlays', label: 'Zoning Overlays', hint: 'Wake: historic, watershed, corridor and other overlays' },
+  { key: 'easements', label: 'Easements', hint: 'Wake: access and major utility easements' },
+  { key: 'septic', label: 'Septic (No Sewer)', hint: 'Wake: septic permits, where there’s no city sewer' },
+  { key: 'nowater', label: 'No City Water', hint: 'Durham: parcels without water access' },
+  { key: 'row', label: 'Right-of-Way', hint: 'Durham: the street right-of-way lines' },
+] as const;
+export type PlanKey = (typeof planDefs)[number]['key'];
+const PLAN_STORE = 'ci-market-plan';
+/** Planning layers draw from this zoom in (closer than a town, so the county maps answer quickly). */
+export const PLAN_ZOOM = 14;
+export const familyColor: Record<ZoningFamily, string> = {
+  houses: '#f2c94c', houses_plus: '#f2994a', multi: '#c0582b', mixed: '#c45bb5', commercial: '#d64545', office: '#4a7fd6',
+  industrial: '#7b5ea7', planned: '#9c7a54', rural: '#9bc46b', conservation: '#2f8f4e', other: '#9e9e9e',
+};
+const WAKE_ZONING = 'https://maps.wakegov.com/arcgis/rest/services/Planning/Zoning/MapServer';
+const DURHAM_ZONING = 'https://services2.arcgis.com/G5vR3cOjh6g2Ed8E/arcgis/rest/services/Zoning_Features/FeatureServer/0';
+const WAKE_TOWN_ZONING: [number, string][] = [[14, 'Apex'], [15, 'Angier'], [16, 'Cary'], [17, 'Wake County'], [18, 'Fuquay-Varina'], [19, 'Garner'], [20, 'Holly Springs'], [21, 'Knightdale'], [22, 'Morrisville'], [23, 'Raleigh'], [24, 'Rolesville'], [25, 'Wake Forest'], [26, 'Wendell'], [27, 'Zebulon']];
+const WAKE_EASEMENTS = 'https://maps.wakegov.com/arcgis/rest/services/Property/Easements/MapServer';
+const WAKE_SEPTIC = 'https://maps.wakegov.com/arcgis/rest/services/Environmental/Septic/MapServer';
+const DURHAM_ROW = 'https://services3.arcgis.com/UqDvtuTcaWV6ztHb/arcgis/rest/services/Right_Of_Way/FeatureServer/44';
+const DURHAM_NO_WATER = 'https://services2.arcgis.com/G5vR3cOjh6g2Ed8E/arcgis/rest/services/Parcels_Without_Water_Access/FeatureServer/0';
 const STORE = 'ci-market-layers';
 /** Street level: every sale shows as a labelled dot and parcels show their lines. */
 export const STREET_ZOOM = 16;
@@ -60,6 +87,10 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
   const points = useRef<Pt[]>([]);
   const found = useRef<Leaflet.Layer | null>(null);
   const [on, setOn] = useState<Record<LayerKey, boolean>>({ heat: true, dots: false, parcels: true, areas: true, zips: false, permits: false, teardowns: false, zones: true, projects: true, watch: true });
+  const [plan, setPlan] = useState<Record<PlanKey, boolean>>({ zoning: false, overlays: false, easements: false, septic: false, nowater: false, row: false });
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const planGroups = useRef<Partial<Record<PlanKey, Leaflet.Layer>>>({});
   const [aerial, setAerial] = useState(false);
   const [full, setFull] = useState(false);
   const [zoom, setZoom] = useState(10);
@@ -78,6 +109,8 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
     try {
       const s = localStorage.getItem(STORE);
       if (s) { const v = JSON.parse(s); setOn((o) => ({ ...o, ...(v.layers ?? v) })); if (typeof v.aerial === 'boolean') setAerial(v.aerial); }
+      const p = localStorage.getItem(PLAN_STORE);
+      if (p) setPlan((o) => ({ ...o, ...JSON.parse(p) }));
     } catch { /* private window */ }
   }, []);
 
@@ -123,19 +156,46 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
       }).bindTooltip(`${esc(z.name)}: ${esc(z.label)}`, { className: 'zone-label' })
         .bindPopup(`<strong>${esc(z.name)}</strong>${z.city ? `, ${esc(z.city)}` : ''}<br><b>${esc(z.label)}</b>${z.value ? `<br>A new house would sell for about ${money(z.value)}` : ''}${z.maxLot ? `<br>We can pay up to ${money(z.maxLot)} for the lot` : ''}${z.entry ? `<br>Lots and teardowns sell around ${money(z.entry)}` : ''}`)));
 
+      // Planning layers: drawn from the county maps, colored our way, only up close.
+      const zoneStyle = (code: string | null, place: string) => {
+        const fam = code ? describeZoning(code, place).family : 'other';
+        return { color: familyColor[fam], weight: 1, fillColor: familyColor[fam], fillOpacity: 0.35 };
+      };
+      const zonePopup = (place: string) => (l: Leaflet.Layer) => {
+        const f = zoneFieldsOf(((l as unknown as { feature?: { properties: Record<string, unknown> } }).feature?.properties) ?? {});
+        if (!f.code) return 'No zoning on this piece';
+        const z = describeZoning(f.code, place, f.label);
+        return `<strong>${esc(z.code)}</strong> · ${esc(z.label)} (${esc(place)})<br><span class="small">${esc(z.detail)}</span>${z.ordinance ? `<br><a href="${esc(z.ordinance)}" target="_blank" rel="noreferrer">${esc(place)}’s rules</a>` : ''}`;
+      };
+      planGroups.current.zoning = lib.layerGroup([
+        ...WAKE_TOWN_ZONING.map(([id, place]) => esri.featureLayer({ url: `${WAKE_ZONING}/${id}`, minZoom: PLAN_ZOOM, simplifyFactor: 0.5,
+          style: (f: { properties: Record<string, unknown> }) => zoneStyle(zoneFieldsOf(f.properties).code, place) } as never).bindPopup(zonePopup(place) as never)),
+        esri.featureLayer({ url: DURHAM_ZONING, minZoom: PLAN_ZOOM, simplifyFactor: 0.5, fields: ['OBJECTID', 'UDO', 'UDO_LABEL', 'ZONE_CODE'],
+          style: (f: { properties: Record<string, unknown> }) => zoneStyle(zoneFieldsOf(f.properties).code, 'Durham') } as never).bindPopup(zonePopup('Durham') as never),
+      ]);
+      planGroups.current.overlays = esri.dynamicMapLayer({ url: WAKE_ZONING, layers: Array.from({ length: 14 }, (_, i) => i), format: 'png32', transparent: true, opacity: 0.6, minZoom: PLAN_ZOOM } as never);
+      planGroups.current.easements = esri.dynamicMapLayer({ url: WAKE_EASEMENTS, format: 'png32', transparent: true, minZoom: PLAN_ZOOM } as never);
+      planGroups.current.septic = esri.dynamicMapLayer({ url: WAKE_SEPTIC, format: 'png32', transparent: true, minZoom: PLAN_ZOOM } as never);
+      planGroups.current.nowater = esri.featureLayer({ url: DURHAM_NO_WATER, minZoom: PLAN_ZOOM, simplifyFactor: 0.5, fields: ['OBJECTID', 'LOCATION_ADDR'],
+        style: () => ({ color: '#b3261e', weight: 2, fillColor: '#b3261e', fillOpacity: 0.15, dashArray: '4 3' }) } as never)
+        .bindPopup(((l: Leaflet.Layer) => `<strong>No city water access</strong><br>${esc(String(((l as unknown as { feature?: { properties: Record<string, unknown> } }).feature?.properties.LOCATION_ADDR) ?? ''))}<br><span class="small">Durham’s own analysis: water would need extending or a well.</span>`) as never);
+      planGroups.current.row = esri.featureLayer({ url: DURHAM_ROW, minZoom: PLAN_ZOOM, style: () => ({ color: '#212121', weight: 2, dashArray: '6 4' }) } as never);
+      for (const k of Object.keys(planGroups.current) as PlanKey[]) (planGroups.current[k] as unknown as { __plan?: string }).__plan = k;
+
       // Up close, a click on a parcel says what it is and who owns it (staff only).
       if (parcelInfo) m.on('click', async (e: Leaflet.LeafletMouseEvent) => {
         if (m.getZoom() < 15) return;
         const pop = lib.popup().setLatLng(e.latlng).setContent('Looking up the parcel…').openOn(m);
         try {
           const r = await fetch(`/api/market/parcel?lat=${e.latlng.lat.toFixed(6)}&lng=${e.latlng.lng.toFixed(6)}`);
-          const { parcel: p } = await r.json();
-          if (!p) { pop.setContent('No parcel here on the county records.'); return; }
+          const { parcel: p, zoning: z } = await r.json();
+          const zline = z ? `<br><b>Zoning: ${esc(z.code)}</b> · ${esc(z.label)} (${esc(z.place)}, ${esc(z.family)})<br><span class="small">${esc(z.detail)}${z.overlays?.length ? ` Overlays: ${esc(z.overlays.join(', '))}.` : ''}</span>${z.ordinance ? ` <a href="${esc(z.ordinance)}" target="_blank" rel="noreferrer">Rules</a>` : ''}` : '';
+          if (!p) { pop.setContent(`No parcel here on the county records.${zline}`); return; }
           pop.setContent(`<div class="parcel-pop"><strong>${esc(p.address)}</strong>${p.city ? `, ${esc(p.city)}` : ''}<br>${esc(p.county)}${p.neighborhood ? ` · ${esc(p.neighborhood)}` : ''}<br>`
             + `${useLabel[p.landUse] ?? ''}${p.heatedSf ? ` · ${Number(p.heatedSf).toLocaleString()} sf` : ''}${p.yearBuilt ? ` · built ${p.yearBuilt}` : ''}${p.acres ? ` · ${p.acres} ac` : ''}<br>`
             + `Owner: ${esc(p.owner) || '—'}${p.absentee ? ' <b>(lives elsewhere)</b>' : ''}<br>`
             + `${p.assessedValue ? `Assessed ${money(p.assessedValue)}` : ''}${p.lastSalePrice ? ` · last sold ${money(p.lastSalePrice)}${p.lastSaleOn ? ` on ${p.lastSaleOn}` : ''}` : ''}<br>`
-            + `<a href="/watchlist/new?address=${encodeURIComponent(p.address ?? '')}&city=${encodeURIComponent(p.city ?? '')}">Add to the Watchlist</a></div>`);
+            + `${zline ? `${zline}<br>` : ''}<a href="/watchlist/new?address=${encodeURIComponent(p.address ?? '')}&city=${encodeURIComponent(p.city ?? '')}">Add to the Watchlist</a></div>`);
         } catch { pop.setContent('Couldn’t reach the county records just now.'); }
       });
       m.on('moveend', () => { load(); loadPermits(); });
@@ -155,7 +215,7 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
     apply();
     try { localStorage.setItem(STORE, JSON.stringify({ layers: on, aerial })); } catch { /* private window */ }
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [on, aerial]);
+  }, [on, aerial, plan]);
   // Full screen: the map fills the window (Esc to leave).
   useEffect(() => {
     setTimeout(() => map.current?.invalidateSize(), 50);
@@ -170,6 +230,12 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
     if (!m) return;
     const b = base.current;
     if (b.aerial && b.streets) { if (aerialRef.current && !m.hasLayer(b.aerial)) b.aerial.addTo(m); if (!aerialRef.current && m.hasLayer(b.aerial)) m.removeLayer(b.aerial); }
+    for (const d of planDefs) {
+      const g = planGroups.current[d.key];
+      if (!g) continue;
+      if (planRef.current[d.key] && !m.hasLayer(g)) g.addTo(m);
+      if (!planRef.current[d.key] && m.hasLayer(g)) m.removeLayer(g);
+    }
     for (const d of layerDefs) {
       const g = groups.current[d.key];
       if (!g) continue;
@@ -294,6 +360,26 @@ export function MarketMap({ query, projects, watch, areas, only, zones = [], zip
           <button key={d.key} type="button" className="layer-btn" data-k={d.key} aria-pressed={on[d.key]} onClick={() => setOn((o) => ({ ...o, [d.key]: !o[d.key] }))}>{d.label}</button>
         ))}
       </nav>
+      <details className="map-plan" open={Object.values(plan).some(Boolean) || undefined}>
+        <summary>Planning Layers <span className="small muted">zoning, easements, sewer, water, right-of-way{Object.values(plan).some(Boolean) ? ` · ${Object.values(plan).filter(Boolean).length} on` : ''}</span></summary>
+        <nav className="map-layers" aria-label="Planning layers">
+          <span className="map-layers-label">Add</span>
+          {planDefs.map((d) => (
+            <button key={d.key} type="button" className="layer-btn" data-k={d.key} title={d.hint} aria-pressed={plan[d.key]} onClick={() => setPlan((o) => {
+              // Saved as it's tapped (an effect could write the starting value over it while the page loads).
+              const n = { ...o, [d.key]: !o[d.key] };
+              try { localStorage.setItem(PLAN_STORE, JSON.stringify(n)); } catch { /* private window */ }
+              return n;
+            })}>{d.label}</button>
+          ))}
+        </nav>
+        {plan.zoning ? (
+          <div className="zoning-legend small" aria-label="Zoning colors">
+            {zoningFamilies.map((f) => <span key={f.key}><i style={{ background: familyColor[f.key] }} />{f.label}</span>)}
+          </div>
+        ) : null}
+        {Object.values(plan).some(Boolean) && zoom < PLAN_ZOOM ? <p className="small muted" style={{ margin: '4px 0 0' }}>Zoom in to a neighborhood to see the planning layers.</p> : null}
+      </details>
       <div ref={box} className="market-map" role="region" aria-label="Market map" />
       <div className="map-foot">
         <span className="small" role="status">{status}{(on.permits || on.teardowns) && zoom < 12 ? ' · Zoom in to see permits.' : ''}{zoom < STREET_ZOOM ? ' · Zoom in to street level to see every sale with its price, and the parcel lines.' : parcelInfo ? ' · Tap a parcel for its owner and last sale.' : ''}</span>

@@ -685,6 +685,17 @@ test('the market map: filters and layer buttons, sales in view, neighborhoods an
   await expect(page.locator('.market-map-wrap.is-full')).toBeVisible();
   await page.getByRole('button', { name: 'Exit Full Screen' }).click();
 
+  // Planning layers are kept apart and start off; Zoning turns on with its color legend, and stays on next time.
+  await page.locator('.map-plan > summary').click();
+  for (const k of ['zoning', 'overlays', 'easements', 'septic', 'nowater', 'row'])
+    await expect(page.locator(`.map-plan .layer-btn[data-k=${k}]`)).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('.map-plan .layer-btn[data-k=zoning]').click();
+  await expect(page.locator('.map-plan .layer-btn[data-k=zoning]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.zoning-legend')).toContainText('Houses and Townhomes');
+  await page.reload();
+  await expect(page.locator('.map-plan .layer-btn[data-k=zoning]')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.map-plan .layer-btn[data-k=zoning]').click();
+
   // Filters are buttons in the address.
   await page.locator('.market-filters').getByRole('link', { name: 'Durham' }).click();
   await expect(page).toHaveURL(/county=durham/);

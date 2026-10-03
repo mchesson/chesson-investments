@@ -30,6 +30,7 @@ import { Facts, PageHead, Section, Tabs, Tile, Empty } from '@/components/ui';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
 import { SalePriceTag } from '@/components/SalePriceTag';
+import { ZoningFact } from '@/components/ZoningFact';
 import {
   addBill, addChangeOrder, addCommitment, addDailyLog, addHoldingCost, addItem, approveBill, markBillPaid, priceItem, saveBudget, setLienWaiver,
 } from '../../project-actions';
@@ -74,7 +75,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <Section title="The House" kind="aqua">
             <Facts items={[
               ['Plan', p.plan], ['Heated SF', p.heatedSf ? p.heatedSf.toLocaleString() : null],
-              ['Lot', p.lotSf ? `${p.lotSf.toLocaleString()} sf${p.lotAcres ? ` (${Number(p.lotAcres)} ac)` : ''}` : null], ['Zoning', p.zoning],
+              ['Lot', p.lotSf ? `${p.lotSf.toLocaleString()} sf${p.lotAcres ? ` (${Number(p.lotAcres)} ac)` : ''}` : null], ['Zoning', <ZoningFact key="z" lat={p.lat} lng={p.lng} typed={p.zoning} />],
               ['Lot Cost', formatMoney(p.lotCost)], ['Lot Value', p.lotValue ? formatMoney(p.lotValue) : null],
               ['Sale Price', p.actualSalePrice ? `${formatMoney(p.actualSalePrice)} (actual)` : p.proformaSalePrice ? `${formatMoney(p.proformaSalePrice)} (pro forma)` : null],
               ['From Watchlist', p.propertyId ? <Link href={`/watchlist/${p.propertyId}`}>Open the lead</Link> : null],

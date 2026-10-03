@@ -13,6 +13,7 @@ import { isUuid } from '@/lib/forms';
 import { formatDate, formatMoney, today } from '@/lib/format';
 import { pickableStages, pricePerLotSf, propertyStageLabel } from '@/lib/properties';
 import { Facts, PageHead, Section, Tabs, Empty } from '@/components/ui';
+import { ZoningFact } from '@/components/ZoningFact';
 import { ActionForm } from '@/components/ActionForm';
 import { HistoryList, TaskForm, TaskRows } from '@/components/contacts';
 import { addPropertyPhoto, convertToProject, markSold, setChecklistItem, setPropertyStage } from '../../watch-actions';
@@ -48,7 +49,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
               ['Asking', formatMoney(p.askingPrice)],
               ['Lot', p.lotSf ? `${p.lotSf.toLocaleString()} sf${p.lotAcres ? ` (${Number(p.lotAcres)} ac)` : ''}` : null],
               ['$ per Lot SF', ppsf ? `$${ppsf.toFixed(2)}` : null],
-              ['Zoning', p.zoning],
+              ['Zoning', <ZoningFact key="z" lat={p.lat} lng={p.lng} typed={p.zoning} />],
               ['Buy Box', p.metBuyBox === null ? 'Not decided' : p.metBuyBox ? 'Meets it' : 'Doesn’t meet it'],
               ['Sent By', source ? <Link href={`/people/${source.id}`}>{source.firstName} {source.lastName}</Link> : sourceCompany ? null : 'We found it'],
               ['Their Company', sourceCompany ? <Link href={`/companies/${sourceCompany.id}`}>{sourceCompany.name}</Link> : null],
