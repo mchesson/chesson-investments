@@ -128,15 +128,15 @@ export async function zoneStats(kind: 'neighborhood' | 'street', counties: strin
   ], sql` and `);
   const r = await db.execute<{
     name: string; city: string | null; county: string; lat: number; lng: number;
-    finished: number; top_psf: number | null; new_count: number; new_psf: number | null; entry_count: number; entry_price: number | null; psf_recent: number | null; psf_prior: number | null;
+    finished: number; top_psf: number | null; new_count: number; new_psf: number | null; entry_count: number; entry_price: number | null; psf_recent: number | null; psf_prior: number | null; zip: string | null;
   }>(sql`
     with z as (
-      select ${key} as name, p.city, p.county, p.lat::float as lat, p.lng::float as lng, p.land_use, p.year_built, p.heated_sf as sf, s.price::float as price, s.sold_on,
+      select ${key} as name, p.city, p.county, left(p.zip, 5) as zip, p.lat::float as lat, p.lng::float as lng, p.land_use, p.year_built, p.heated_sf as sf, s.price::float as price, s.sold_on,
         ${bandSql} as band
       from market_sales s join market_parcels p on p.id = s.parcel_id
       where ${where} and ${key} is not null and s.sold_on > ${y3}
     )
-    select name, min(city) as city, min(county) as county, avg(lat) as lat, avg(lng) as lng,
+    select name, min(city) as city, min(county) as county, mode() within group (order by zip) as zip, avg(lat) as lat, avg(lng) as lng,
       count(*) filter (where sold_on > ${y2} and land_use in ('single_family', 'townhouse') and sf >= 1500)::int as finished,
       percentile_cont(0.75) within group (order by price / sf) filter (where sold_on > ${y2} and land_use in ('single_family', 'townhouse') and sf >= 1500) as top_psf,
       count(*) filter (where sold_on > ${y2} and land_use = 'single_family' and year_built >= ${newYear} and sf >= 1500)::int as new_count,
@@ -183,7 +183,7 @@ export async function zoneStats(kind: 'neighborhood' | 'street', counties: strin
       if (near.length >= 3) { lots = near.map((x) => x.e.price); lotsFrom = `within ${Math.max(0.1, Math.round(near[near.length - 1].d * 10) / 10)} mi`; }
     }
     return {
-      name: z.name, city: z.city, county: z.county, lat: Number(z.lat), lng: Number(z.lng),
+      name: z.name, city: z.city, county: z.county, zip: z.zip, lat: Number(z.lat), lng: Number(z.lng),
       finished: useNew ? z.new_count : z.finished, finishedPsf,
       basis: useNew ? 'new builds' as const : 'top quarter of houses' as const,
       entryCount: lots.length, entryPrice: lots.length ? Math.round(median(lots)!) : null, entryFrom: lotsFrom,

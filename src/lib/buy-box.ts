@@ -19,11 +19,12 @@ export type BuyBoxSettings = {
   monthsToSell: number; // buying the lot to selling the house: how far ahead the trend is carried
   downsidePct: number; // the Low case: finished prices this much lower when we sell
   upsidePct: number; // the High case: this much higher
+  maxDom: number; // days on market (the zone's ZIP, Redfin): slower than this and a buy zone is only a watch
 };
 // Starting numbers from the owner's Plainview math (Sept 10, 2025): 2,600 sf at
 // $190/sf; holding, demolition, survey and closing about 18% of the build;
 // realtor and closing about 6%; profit about $150k on $1.1M (13.5%).
-export const defaultBuyBox: BuyBoxSettings = { houseSf: 2600, buildPerSf: 190, softPct: 18, sellingPct: 6, profitPct: 13.5, financingPct: 8, nearMiles: 6, minSales: 5, minAbsorb: 3, minLot: 75000, monthsToSell: 15, downsidePct: 10, upsidePct: 5 };
+export const defaultBuyBox: BuyBoxSettings = { houseSf: 2600, buildPerSf: 190, softPct: 18, sellingPct: 6, profitPct: 13.5, financingPct: 8, nearMiles: 6, minSales: 5, minAbsorb: 3, minLot: 75000, monthsToSell: 15, downsidePct: 10, upsidePct: 5, maxDom: 60 };
 
 export const buyBoxFields: { key: keyof BuyBoxSettings; label: string; hint: string; min: number; max: number }[] = [
   { key: 'houseSf', label: 'House We’d Build (heated sf)', hint: 'The size used for every zone', min: 600, max: 10000 },
@@ -39,6 +40,7 @@ export const buyBoxFields: { key: keyof BuyBoxSettings; label: string; hint: str
   { key: 'monthsToSell', label: 'Months From Buying the Lot to Selling', hint: 'How far ahead each zone’s price trend is carried', min: 1, max: 48 },
   { key: 'downsidePct', label: 'Low Case: Prices Fall (%)', hint: 'Does the zone still work if finished prices drop this much?', min: 0, max: 50 },
   { key: 'upsidePct', label: 'High Case: Prices Rise (%)', hint: 'The better case', min: 0, max: 50 },
+  { key: 'maxDom', label: 'Slowest Days on Market for a Buy Zone', hint: 'The zone’s ZIP (Redfin); slower zones are only a watch', min: 5, max: 365 },
 ];
 
 export function readBuyBox(v: unknown): BuyBoxSettings {
@@ -85,6 +87,8 @@ export type ZoneStats = {
   bandCounts: Partial<Record<BandKey, number>>; entryFrom?: string;
   /** Median finished $/sf in the last 12 months and the 12 before (the zone's trend). */
   psfRecent?: number | null; psfPrior?: number | null;
+  /** The zone's main ZIP and Redfin's median days on market there (3 months). */
+  zip?: string | null; dom?: number | null;
 };
 
 /** The zone's yearly $/sf change, from its own finished sales (null with too little to compare); capped at ±15%. */
@@ -134,6 +138,11 @@ export function judgeZone(z: ZoneStats, s: BuyBoxSettings) {
     if (verdict === 'buy') verdict = 'watch';
     reasons.push(`only ${absorb} ${absorb === 1 ? 'sale' : 'sales'} at ${price(money.value)}-level prices there in 12 months (needs ${s.minAbsorb})`);
   }
+  // How fast homes sell there (owner: "areas with lowest days on market are super important").
+  if (z.dom !== null && z.dom !== undefined) {
+    if (z.dom > s.maxDom && verdict === 'buy') { verdict = 'watch'; reasons.push(`homes in ${z.zip ?? 'its ZIP'} take about ${Math.round(z.dom)} days to sell (over ${s.maxDom})`); }
+    else if (z.dom <= 20) reasons.push(`homes in ${z.zip ?? 'its ZIP'} sell in about ${Math.round(z.dom)} days`);
+  }
   if (near.miles > s.nearMiles) reasons.push(`${near.miles} miles from ${near.name}`);
   const ahead = outlook(z.finishedPsf, z, s);
   if (ahead.trend !== null && Math.abs(ahead.trend) >= 3) reasons.push(`prices there are ${ahead.trend > 0 ? 'up' : 'down'} ${Math.abs(ahead.trend)}% in a year`);
@@ -149,6 +158,7 @@ export function rankZones<T extends JudgedZone>(zs: T[], s: BuyBoxSettings): T[]
   const order: Record<Verdict, number> = { buy: 0, watch: 1, pass: 2, thin: 3 };
   return [...zs].sort((a, b) => order[a.verdict] - order[b.verdict]
     || Number(a.near.miles > s.nearMiles) - Number(b.near.miles > s.nearMiles)
+    || Number((a.dom ?? 999) > 30) - Number((b.dom ?? 999) > 30) // homes selling within a month first
     || (b.marginPct ?? -1e9) - (a.marginPct ?? -1e9)
     || (b.money?.maxLot ?? -1e9) - (a.money?.maxLot ?? -1e9));
 }

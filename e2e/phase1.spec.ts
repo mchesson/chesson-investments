@@ -941,13 +941,15 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
   await db.connect();
   const add = async (i: number, use: string, sf: number | null, price: number, year: number | null) => {
-    const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, neighborhood, land_use, heated_sf, year_built, lat, lng, last_sale_price, last_sale_on)
-      values ('wake', $1, $2, $3, 'Raleigh', $4, $5, $6, $7, 35.79, -78.64, $8, current_date - 40) returning id`, [`B${s}${i}`, `${i} BUYZONE${s} ST`, `BUYZONE${s} ST`, hood, use, sf, year, price]);
+    const r = await db.query(`insert into market_parcels (county, parcel_key, address, street, city, zip, neighborhood, land_use, heated_sf, year_built, lat, lng, last_sale_price, last_sale_on)
+      values ('wake', $1, $2, $3, 'Raleigh', $9, $4, $5, $6, $7, 35.79, -78.64, $8, current_date - 40) returning id`, [`B${s}${i}`, `${i} BUYZONE${s} ST`, `BUYZONE${s} ST`, hood, use, sf, year, price, `7${s.slice(-4)}`]);
     await db.query(`insert into market_sales (parcel_id, sold_on, price, heated_sf) values ($1, current_date - 40, $2, $3)`, [r.rows[0].id, price, sf]);
   };
   for (let i = 0; i < 6; i++) await add(i, 'single_family', 2600, 2_300_000 + i * 10_000, 2022); // new builds at ~$890/sf
   for (let i = 6; i < 9; i++) await add(i, 'land', null, 300_000, null); // lots at $300k
   await db.query(`insert into properties (address, city, neighborhood, asking_price) values ($1, 'Raleigh', $2, 400000)`, [`${s} Buyzone St`, hood]);
+  // Its ZIP sells fast: 15 days on market (Redfin).
+  await db.query(`insert into market_trends (region_type, region, metro, property_type, period_end, median_dom) values ('zip', $1, 'Raleigh, NC', 'all', current_date - 30, 15)`, [`7${s.slice(-4)}`]);
   // Builders at work there: two new homes and a teardown within half a mile.
   for (const [i, kind] of (['new_home', 'new_home', 'demolition'] as const).entries())
     await db.query(`insert into market_permits (source, county, permit_no, kind, issued_on, year, lat, lng, builder) values ('raleigh', 'wake', $1, $2, current_date - 20, extract(year from current_date), 35.7905, -78.6402, $3)`, [`BZ${s}${i}`, kind, kind === 'demolition' ? null : `Bzlocal${s} Homes, LLC`]);
@@ -970,6 +972,8 @@ test('the buy box: a zone where we can pay more than lots sell for, on the page 
   await expect(row).toContainText('no trend yet');
   await expect(row).toContainText(/\d+ new · \d+ teardowns/);
   await expect(row).toContainText(`Bzlocal${s} Homes (2)`); // the local builder building there, by name
+  await expect(row).toContainText('15 days');
+  await expect(row).toContainText(`homes in 7${s.slice(-4)} sell in about 15 days`);
   // Raising the build cost makes it too expensive; then back.
   await page.locator('input[name=buildPerSf]').fill('700');
   await page.getByRole('button', { name: 'Save and Work It Out Again' }).click();
