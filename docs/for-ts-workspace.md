@@ -127,3 +127,17 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   inputs (Durham's year built) get an "unknown" marker instead of dropping
   the row. TS Workspace can use the same method for "what drives bill rates"
   (skill, tier, location, client, contract type) from its own placements.
+- **Face value and share, for factors that overlap** (Buyer Factors "What
+  Moves the Whole Market", Oct 4, 2026; `market-drivers.ts`). Each factor
+  gets two numbers:
+  - **Face value:** what one unit of it does, e.g. "1 point on the rate:
+    7.6% fewer sales".
+  - **Share:** how much of the ups and downs it accounts for. This uses the
+    Shapley method: every combination of factors is tried, and each factor
+    gets its average added explanation. Factors that move together (spring
+    brings both more listings and more buyers) split the credit fairly.
+
+  The shares add to 100% together with an "unexplained" row, so nothing
+  claims more than the data shows. TS Workspace can use the same method for
+  what moves fill rates or time to fill (season, client speed, pay vs.
+  market, req priority).
