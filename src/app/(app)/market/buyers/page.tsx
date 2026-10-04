@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requirePage } from '@/lib/session';
 import { areaDrivers } from '@/lib/price-drivers-data';
 import { marketDriversNow, whoIsBuying } from '@/lib/market-drivers-data';
+import { marketFactors } from '@/lib/market-drivers';
 import { buyingPowerPerPoint, driverSentences } from '@/lib/price-drivers';
 import { latestRates } from '@/lib/market-feeds-data';
 import { affordability } from '@/lib/market-feeds';
@@ -47,10 +48,10 @@ export default async function BuyerFactors({ searchParams }: { searchParams: Pro
             <thead><tr><th>Factor</th><th>Face Value</th><th className="num">Share of the Market’s Swings</th></tr></thead>
             <tbody>
               {mkt.factors.map((f) => <tr key={f.key}><td><strong>{f.label}</strong></td><td>{f.face}</td><td className="num"><ShareBar pct={f.share} /></td></tr>)}
-              <tr className="muted-row"><td><strong>Not explained</strong></td><td>One-off news, local events, and what isn’t measured yet (jobs, people moving in, buyer confidence)</td><td className="num"><ShareBar pct={Math.round((100 - mkt.explained) * 10) / 10} muted /></td></tr>
+              <tr className="muted-row"><td><strong>Not explained</strong></td><td>One-off news, local events, and anything not in the list above{mkt.missing.length ? ` (not loaded yet: ${mkt.missing.map((k) => marketFactors.find((f) => f.key === k)!.label.toLowerCase()).join(', ')})` : ''}</td><td className="num"><ShareBar pct={Math.round((100 - mkt.explained) * 10) / 10} muted /></td></tr>
             </tbody>
           </table></div>
-          <p className="small muted">Measured over {mkt.months} county-months: each factor’s share is its average added explanation over every combination of the others (the Shapley method), so factors that move together (spring brings both more listings and more buyers) split the credit fairly. The shares add to 100% with what isn’t explained. Sales follow the rate by a month or two (contract to closing).</p>
+          <p className="small muted">Measured over {mkt.months} county-months: each factor’s share is its average added explanation over every combination of the others (the Shapley method), so factors that move together (spring brings both more listings and more buyers) split the credit fairly. The shares add to 100% with what isn’t explained. Sales follow the rate by a month or two (contract to closing). Sources: Redfin (sales and listings by county), Freddie Mac (rates), U.S. Bureau of Labor Statistics (local jobs, unemployment, prices), University of Michigan (consumer confidence), the S&amp;P 500, and the Census Bureau (people moving in, by county and year). They update by themselves twice a day.</p>
         </> : <Empty>Not enough monthly county data loaded yet. Update Redfin data on the Market Map.</Empty>}
       </Section>
       <Section title="3. Who Is Buying: Share of the Market" kind="grey" hint={who ? `${who.n.toLocaleString()} home sales, ${where}, the last 12 months (county records)` : undefined}>

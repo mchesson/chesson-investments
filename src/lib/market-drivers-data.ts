@@ -3,7 +3,8 @@ import { unstable_cache } from 'next/cache';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { addDays, today } from './format';
-import { marketDrivers, type MarketDrivers } from './market-drivers';
+import { marketDrivers, type Extras, type MarketDrivers } from './market-drivers';
+import { countyMetro } from './econ-sources';
 
 // Read for Buyer Factors: Redfin's monthly county numbers with each month's
 // average 30-year rate, and who bought in the last 12 months (county records).
@@ -15,7 +16,9 @@ export const marketDriversNow = unstable_cache(async (): Promise<MarketDrivers |
     select t.region, t.period_end::text as period, t.homes_sold, t.new_listings, t.median_sale_price::text as price, rates.rate::text as rate
     from market_trends t left join rates on rates.month = date_trunc('month', t.period_end)::date
     where t.region_type = 'county' and t.property_type = 'all' order by t.region, t.period_end`);
-  return marketDrivers(r.rows.map((x) => ({ region: x.region, period: x.period, homesSold: Number(x.homes_sold ?? 0), newListings: Number(x.new_listings ?? 0), price: Number(x.price ?? 0), rate: x.rate === null ? null : Number(x.rate) })));
+  const extras = await economyFor();
+  return marketDrivers(r.rows.map((x) => ({ region: x.region, period: x.period, homesSold: Number(x.homes_sold ?? 0), newListings: Number(x.new_listings ?? 0), price: Number(x.price ?? 0),
+    rate: x.rate === null ? null : Number(x.rate), extras: extras(x.region, x.period) })));
 }, ['market-drivers'], { revalidate: CACHE_SECONDS });
 
 export type WhoBuys = { n: number; investor: number | null; newBuild: number | null; townhouse: number; condo: number; bands: { label: string; pct: number }[] };
@@ -43,3 +46,21 @@ export const whoIsBuying = unstable_cache(async (county: 'wake' | 'durham' | nul
     bands: [['Under $400k', x.b1], ['$400k–700k', x.b2], ['$700k–1M', x.b3], ['$1M–1.5M', x.b4], ['$1.5M and up', x.b5]].map(([label, v]) => ({ label: String(label), pct: Number(v) })),
   };
 }, ['who-is-buying'], { revalidate: CACHE_SECONDS });
+
+/** The economy for a county-month: its metro's jobs and unemployment, the county's migration that year (the latest year up to two back), last-known national confidence, stocks and inflation over the year. */
+async function economyFor() {
+  const r = await db.execute<{ series: string; period: string; value: string }>(sql`select series, period::text, value::text from market_econ`);
+  const v = new Map(r.rows.map((x) => [`${x.series}|${x.period}`, Number(x.value)]));
+  const get = (series: string, period: string) => v.get(`${series}|${period}`) ?? null;
+  const shift = (period: string, months: number) => { const d = new Date(`${period}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + months); return d.toISOString().slice(0, 10); };
+  return (region: string, redfinPeriod: string): Extras => {
+    const m = `${redfinPeriod.slice(0, 7)}-01`, metro = countyMetro[region], y = Number(redfinPeriod.slice(0, 4));
+    let migration: number | null = null;
+    for (const yy of [y, y - 1, y - 2]) { migration = get(`migration:${region}`, `${yy}-07-01`); if (migration !== null) break; }
+    const cpi = get('cpi', m), cpiAgo = get('cpi', shift(m, -12));
+    return {
+      jobs: metro ? get(`jobs_${metro}`, m) : null, unemployment: metro ? get(`unemp_${metro}`, m) : null, migration,
+      confidence: get('sentiment', m), stocks: get('stocks', m), inflation: cpi !== null && cpiAgo ? Math.round((cpi / cpiAgo - 1) * 1000) / 10 : null,
+    };
+  };
+}

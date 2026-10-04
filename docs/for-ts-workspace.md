@@ -141,3 +141,14 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   claims more than the data shows. TS Workspace can use the same method for
   what moves fill rates or time to fill (season, client speed, pay vs.
   market, req priority).
+- **The economy as data, free** (Oct 4, 2026; `econ-sources.ts`). The app
+  pulls in:
+  - BLS (its free v1 API, no key): metro jobs, unemployment and the CPI;
+  - the University of Michigan: consumer confidence;
+  - Stooq: the S&P 500;
+  - the Census Bureau: net migration by county.
+
+  FRED is the backup for each, and every source is tested with a copy of its
+  format. TS Workspace can use the same BLS metro jobs and unemployment
+  series (by metro) to explain req volume and time to fill: hiring follows
+  local jobs.

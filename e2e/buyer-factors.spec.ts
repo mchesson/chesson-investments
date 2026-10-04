@@ -28,13 +28,16 @@ test('Buyer Factors: the rate gate, what buyers pay for measured from sales, and
   // Redfin's months for a made-up county: busier in spring, slower when the rate was higher.
   await db.query(`delete from market_trends where region_type = 'county' and region like 'Testmarket%'`);
   for (let i = 0; i < 48; i++) {
-    const y = 2022 + Math.floor(i / 12), m = (i % 12) + 1;
+    const y = 2016 + Math.floor(i / 12), m = (i % 12) + 1;
     const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-    const rate = 4 + (i / 48) * 3;
+    const rate = 4 + (i / 48) * 2 + 1.2 * Math.sin(i / 5); // rates go up and down, not in a straight line like the trend
     await db.query(`insert into market_rates (series, week, rate) values ('30yr', $1, $2) on conflict (series, week) do update set rate = excluded.rate`, [`${y}-${String(m).padStart(2, '0')}-10`, rate.toFixed(2)]);
     const sold = Math.round(500 * (m >= 4 && m <= 7 ? 1.4 : m === 1 ? 0.8 : 1) * Math.exp(-0.08 * rate) * (1 + (i % 5) * 0.01));
+    // National confidence and stocks for the month (made up; no source is called in tests).
+    for (const [series, value] of [['sentiment', 60 + 10 * Math.sin(i / 6)], ['stocks', 4000 + 400 * Math.sin(i / 4)], ['cpi', 280 * Math.exp(0.03 * i / 12 + 0.01 * Math.sin(i / 5))]] as const)
+      await db.query(`insert into market_econ (series, period, value) values ($1, $2, $3) on conflict (series, period) do update set value = excluded.value`, [series, `${y}-${String(m).padStart(2, '0')}-01`, value.toFixed(2)]);
     await db.query(`insert into market_trends (region_type, region, property_type, period_end, homes_sold, new_listings, median_sale_price)
-      values ('county', $1, 'all', $2, $3, $4, $5) on conflict do nothing`, [`Testmarket${s} County, NC`, end, sold, Math.round(sold * 1.3), 400000 + i * 1000]);
+      values ('county', $1, 'all', $2, $3, $4, $5) on conflict do nothing`, [`Testmarket${s} County, NC`, end, sold, Math.round(650 * (1 + 0.2 * Math.sin(i / 3))) /* listings move on their own, not in lockstep with sales */, 400000 + i * 1000]);
   }
   await db.end();
 
@@ -47,8 +50,15 @@ test('Buyer Factors: the rate gate, what buyers pay for measured from sales, and
   await expect(page.locator('.trend-sentence').first()).toContainText('each 1-point rise in the 30-year rate cuts what a buyer can borrow on the same payment by about 9.7%');
   // What moves the whole market: each factor's face value and its share, adding to 100% with what isn't explained.
   const market = page.locator('section', { hasText: '2. What Moves the Whole Market' }).first();
+  await expect(async () => {
+    await page.reload();
+    await expect(market.locator('tr', { hasText: 'Buyer confidence' })).toBeVisible({ timeout: 2000 });
+    await expect(market.locator('tr', { hasText: 'Mortgage rate' })).toContainText(/fewer sales/, { timeout: 2000 });
+  }).toPass({ timeout: 60_000 });
   await expect(market.locator('tr', { hasText: 'Mortgage rate' })).toContainText(/Each 1-point rise in the 30-year rate: [\d.]+% fewer sales/);
   await expect(market.locator('tr', { hasText: 'Time of year' })).toContainText(/sells [\d.]+% more homes than January/);
+  await expect(market.locator('tr', { hasText: 'Buyer confidence' })).toContainText(/10 points more consumer confidence: [\d.]+% (more|fewer) sales the next month/);
+  await expect(market.locator('tr', { hasText: 'Stock market' })).toContainText(/Stocks 10% higher/);
   const shares = (await market.locator('.sb-num').allTextContents()).map((v) => Number(v.replace('%', '')));
   expect(Math.round(shares.reduce((a, b) => a + b, 0))).toBeGreaterThanOrEqual(99);
   // Who is buying, as shares of the market.
