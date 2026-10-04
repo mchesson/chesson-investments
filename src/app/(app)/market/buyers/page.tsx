@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { requirePage } from '@/lib/session';
 import { areaDrivers } from '@/lib/price-drivers-data';
+import { marketDriversNow, whoIsBuying } from '@/lib/market-drivers-data';
 import { buyingPowerPerPoint, driverSentences } from '@/lib/price-drivers';
 import { latestRates } from '@/lib/market-feeds-data';
 import { affordability } from '@/lib/market-feeds';
 import { formatDate, formatMoney } from '@/lib/format';
 import { GovRates } from '@/components/MarketFeeds';
 import { FactorBars } from '@/components/FactorBars';
-import { Empty, PageHead, Section } from '@/components/ui';
+import { Empty, PageHead, Section, Tile } from '@/components/ui';
 
 export const metadata = { title: 'Buyer Factors' };
 export const maxDuration = 120;
@@ -19,7 +20,7 @@ export default async function BuyerFactors({ searchParams }: { searchParams: Pro
   await requirePage('properties.view');
   const sp = await searchParams;
   const county = sp.county === 'wake' || sp.county === 'durham' ? sp.county : null;
-  const [d, latest] = await Promise.all([areaDrivers(county), latestRates()]);
+  const [d, latest, mkt, who] = await Promise.all([areaDrivers(county), latestRates(), marketDriversNow(), whoIsBuying(county)]);
   const r30 = latest['30yr'];
   const where = county === 'wake' ? 'Wake County' : county === 'durham' ? 'Durham County' : 'Wake and Durham';
   return (
@@ -39,7 +40,31 @@ export default async function BuyerFactors({ searchParams }: { searchParams: Pro
           <p className="small muted">Principal and interest plus about 1.2% of the price a year for taxes and insurance; the income is that payment at 28% of gross income. Cash buyers (more of them above $1.5M) don’t pass through this gate: the Market Map’s Rates and Buyers shows which price bands sell less when rates rise.</p>
         </> : <Empty>No rates loaded yet: they update by themselves with the market data.</Empty>}
       </Section>
-      <Section title="2. What They Pay For, Measured Here" kind="aqua" hint={d ? `${d.n.toLocaleString()} sales, ${where}, the last 2 years` : where}>
+      <Section title="2. What Moves the Whole Market" kind="blue" hint={mkt ? `How many homes sell each month: ${mkt.regions} Triangle counties, ${mkt.from.slice(0, 7)} to ${mkt.to.slice(0, 7)} (Redfin)` : 'How many homes sell each month'}>
+        {mkt ? <>
+          <p className="trend-sentence"><strong>Not all equal: the time of year and the mortgage rate move the market most. Each factor’s face value is what one unit of it does; its share is how much of the ups and downs in sales it accounts for.</strong></p>
+          <div className="table-wrap"><table className="t market-drivers">
+            <thead><tr><th>Factor</th><th>Face Value</th><th className="num">Share of the Market’s Swings</th></tr></thead>
+            <tbody>
+              {mkt.factors.map((f) => <tr key={f.key}><td><strong>{f.label}</strong></td><td>{f.face}</td><td className="num"><ShareBar pct={f.share} /></td></tr>)}
+              <tr className="muted-row"><td><strong>Not explained</strong></td><td>One-off news, local events, and what isn’t measured yet (jobs, people moving in, buyer confidence)</td><td className="num"><ShareBar pct={Math.round((100 - mkt.explained) * 10) / 10} muted /></td></tr>
+            </tbody>
+          </table></div>
+          <p className="small muted">Measured over {mkt.months} county-months: each factor’s share is its average added explanation over every combination of the others (the Shapley method), so factors that move together (spring brings both more listings and more buyers) split the credit fairly. The shares add to 100% with what isn’t explained. Sales follow the rate by a month or two (contract to closing).</p>
+        </> : <Empty>Not enough monthly county data loaded yet. Update Redfin data on the Market Map.</Empty>}
+      </Section>
+      <Section title="3. Who Is Buying: Share of the Market" kind="grey" hint={who ? `${who.n.toLocaleString()} home sales, ${where}, the last 12 months (county records)` : undefined}>
+        {who ? <>
+          <div className="tiles">
+            {who.investor !== null ? <Tile k="Owner Doesn’t Live There" v={`${who.investor}%`} s="Investors, rentals and second homes: less moved by the rate" /> : null}
+            {who.newBuild !== null ? <Tile k="New Construction" v={`${who.newBuild}%`} s="Built the year of the sale or the year before" /> : null}
+            <Tile k="Townhouses" v={`${who.townhouse}%`} s={who.condo ? `Condos ${who.condo}%` : undefined} />
+          </div>
+          <FactorBars shares={who.bands.map((b) => ({ key: b.label, label: b.label, share: b.pct }))} />
+          <p className="small muted">Share of home sales by price. Buyers under $700k mostly need a mortgage, so they feel the rate most; more buyers above $1.5M pay cash. “Owner doesn’t live there” is the county’s mailing address differing from the house (Wake marks it; Durham doesn’t).</p>
+        </> : <Empty>No county sales loaded.</Empty>}
+      </Section>
+      <Section title="4. What They Pay For, Measured Here" kind="aqua" hint={d ? `${d.n.toLocaleString()} sales, ${where}, the last 2 years` : where}>
         <nav className="role-pick" aria-label="County"><span className="filter-label">Where</span>
           {[[null, 'Both'], ['wake', 'Wake'], ['durham', 'Durham']].map(([k, l]) => <Link key={l} className="role-btn" aria-pressed={county === k} href={k ? `/market/buyers?county=${k}` : '/market/buyers'}>{l}</Link>)}
         </nav>
@@ -64,7 +89,7 @@ export default async function BuyerFactors({ searchParams }: { searchParams: Pro
         </Section>
       ) : null}
       <div className="grid-2">
-        <Section title="3. What Buyers Say Matters" kind="energy" hint="National surveys, not measured here">
+        <Section title="5. What Buyers Say Matters" kind="energy" hint="National surveys, not measured here">
           <ul className="rows">
             <li><strong>Quality of the neighborhood</strong>: the reason buyers give most often for where they bought.</li>
             <li><strong>Commute and convenience</strong>: to work, then to family and friends, shopping and health care.</li>
@@ -84,4 +109,9 @@ export default async function BuyerFactors({ searchParams }: { searchParams: Pro
       </div>
     </>
   );
+}
+
+/** A share as a bar with its number (one measure, one color). */
+function ShareBar({ pct, muted = false }: { pct: number; muted?: boolean }) {
+  return <span className="share-bar"><span className="sb-track"><span className={`sb-fill${muted ? ' muted' : ''}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span><span className="sb-num">{pct}%</span></span>;
 }
