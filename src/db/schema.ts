@@ -1024,10 +1024,61 @@ export const entityTaxIds = pgTable('entity_tax_ids', {
 // Business overhead (owner, Oct 3, 2026: "a general overhead receipt and where it
 // might go"): spending for the business itself, not one property, under the
 // business entity it's for. Read from the receipt by the document drop, or typed.
+// The Trip Log (owner, Oct 3, 2026: "track when I go to a property and why, not
+// just for mileage ... to justify writing off a car"; "let's track both ways so we
+// can compare"): vehicles with their odometer each year (the business-use share),
+// every trip with its reason, and car costs tagged to the vehicle (overhead).
+// src/lib/trip-rules.ts.
+export const vehicles = pgTable('vehicles', {
+  id: id(),
+  name: text('name').notNull(), // "2022 Tahoe"
+  entityId: uuid('entity_id').references(() => entities.id), // the business that deducts it
+  placedInService: date('placed_in_service'),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}).enableRLS();
+
+// The odometer at the start and end of each year: total miles, for the business-use share.
+export const vehicleOdometers = pgTable('vehicle_odometers', {
+  id: id(),
+  vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
+  year: integer('year').notNull(),
+  startMiles: integer('start_miles'),
+  endMiles: integer('end_miles'),
+  updated: updated(),
+}, (t) => [uniqueIndex('vehicle_odometers_year').on(t.vehicleId, t.year)]).enableRLS();
+
+export const trips = pgTable('trips', {
+  id: id(),
+  on: date('trip_on').notNull(),
+  vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+  entityId: uuid('entity_id').references(() => entities.id), // which business it was for
+  kind: text('kind').notNull().default('site_visit'), // trip-rules.ts tripKinds
+  purpose: text('purpose').notNull(), // the business reason, in plain words (the IRS asks for it)
+  projectId: uuid('project_id').references(() => projects.id), // the main stop
+  propertyId: uuid('property_id').references(() => properties.id), // or a watched property
+  place: text('place'), // or anywhere else (Home Depot, the bank)
+  stops: jsonb('stops').$type<{ kind: 'project' | 'property' | 'place'; id?: string; label: string }[]>().notNull().default([]), // more stops the same trip
+  miles: numeric('miles', { precision: 8, scale: 1 }).notNull(),
+  milesHow: text('miles_how').notNull().default('typed'), // typed / odometer / estimate
+  startOdometer: integer('start_odometer'),
+  endOdometer: integer('end_odometer'),
+  roundTrip: boolean('round_trip').notNull().default(true),
+  lat: numeric('lat', { precision: 9, scale: 6 }), // where "I'm Here" was pressed
+  lng: numeric('lng', { precision: 9, scale: 6 }),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  created: created(),
+  archived: archived(),
+}, (t) => [index('trips_on').on(t.on), index('trips_project').on(t.projectId)]).enableRLS();
+
 export const overheadExpenses = pgTable('overhead_expenses', {
   id: id(),
   entityId: uuid('entity_id').notNull().references(() => entities.id),
   fileId: uuid('file_id').references(() => files.id),
+  vehicleId: uuid('vehicle_id'), // a car cost: the vehicle it was for (Trip Log's actual-cost method); vehicles is defined above
   vendor: text('vendor'),
   amount: money('amount'),
   spentOn: date('spent_on'),

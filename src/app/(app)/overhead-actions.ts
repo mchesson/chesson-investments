@@ -3,7 +3,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { entities, overheadExpenses } from '@/db/schema';
+import { entities, overheadExpenses, vehicles } from '@/db/schema';
 import type { FormResult } from '@/components/ActionForm';
 import { audit, diff } from '@/lib/audit';
 import { requireAction } from '@/lib/session';
@@ -22,7 +22,9 @@ export async function saveOverhead(_: FormResult, d: FormData): Promise<FormResu
   const spentOn = str(d, 'spentOn');
   if (spentOn && !isDay(spentOn)) return { error: 'Date: a real date.' };
   const category = str(d, 'category');
-  const f = { entityId: entityId!, vendor: str(d, 'vendor'), amount, spentOn: spentOn ?? null, category: isOverheadCategory(category) ? category : 'other', notes: str(d, 'notes') };
+  const vehicleIn = uuidOrNull(d, 'vehicleId');
+  const [veh] = vehicleIn ? await db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.id, vehicleIn)) : [];
+  const f = { entityId: entityId!, vendor: str(d, 'vendor'), amount, spentOn: spentOn ?? null, category: isOverheadCategory(category) ? category : 'other', notes: str(d, 'notes'), vehicleId: veh?.id ?? null };
   const id = uuidOrNull(d, 'id');
   await db.transaction(async (tx) => {
     if (!id) {

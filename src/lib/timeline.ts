@@ -48,6 +48,11 @@ export async function projectTimeline(projectId: string): Promise<TimelineEvent[
   for (const r of await rows(sql`select d.logged_on, d.work, d.on_site, u.name as who from daily_logs d left join users u on u.id = d.user_id where d.project_id = ${projectId} and d.archived_at is null`)) {
     out.push({ on: day(r.logged_on), kind: 'work', title: `Daily log: ${String(r.work ?? '').slice(0, 140)}`, detail: [r.on_site ? `on site: ${r.on_site}` : null, r.who ? `by ${r.who}` : null].filter(Boolean).join(' · ') || null, href: `${base}?tab=log` });
   }
+  // Trips here (the Trip Log): who went, why, the miles.
+  for (const r of await rows(sql`select t.trip_on, t.purpose, t.miles, u.name as who from trips t left join users u on u.id = t.created_by
+      where t.archived_at is null and (t.project_id = ${projectId} or t.stops @> ${JSON.stringify([{ id: projectId }])}::jsonb)`)) {
+    out.push({ on: day(r.trip_on), kind: 'work', title: `Trip here: ${String(r.purpose).slice(0, 140)}`, detail: [`${Number(r.miles)} mi`, r.who ? `by ${r.who}` : null].filter(Boolean).join(' · '), href: '/trips' });
+  }
   // Bids and who won, commitments and change orders.
   for (const r of await rows(sql`select label, kind, total_cents, submitted_on, created_at, status, decided_at, company_id as vendor_company_id, person_id as vendor_person_id,
       ${vendorName('budget_versions.company_id', 'budget_versions.person_id')} as vendor_name from budget_versions where project_id = ${projectId}`)) {
