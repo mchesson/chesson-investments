@@ -8,7 +8,7 @@ import { watchPresales } from './comp-watch';
 import { placeAndZoneAll } from './locate';
 import { isCounty, sources } from './market-sources';
 import { countSince, locateOurPlaces, nextSince, runStep } from './market-sync';
-import { updatePermits, updateRates, updateRedfin } from './market-feeds-sync';
+import { updateEconomy, updatePermits, updateRates, updateRedfin } from './market-feeds-sync';
 
 // The twice-daily update (owner, Oct 3, 2026: "update at night or twice a day
 // ... and then place them now automatically"), and Update Everything Now. In
@@ -42,6 +42,8 @@ async function feeds(withRedfin: boolean, userId: string | null) {
   const out: string[] = [];
   const r = await updateRates(userId);
   out.push(r.ok ? `rates: ${r.added} new` : `rates stopped: ${r.error}`);
+  const e = await updateEconomy(userId);
+  out.push(e.ok ? `economy: ${e.added.toLocaleString()} new${e.problems.length ? ` (${e.problems.length} source${e.problems.length === 1 ? '' : 's'} didn’t answer)` : ''}` : `economy stopped: ${e.error}`);
   const p = await updatePermits(userId);
   out.push(p.ok ? `permits: ${p.added.toLocaleString()} new` : `permits stopped: ${p.error}`);
   if (withRedfin) {

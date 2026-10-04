@@ -12,7 +12,7 @@ import { requireAction } from '@/lib/session';
 import { isCounty, sources } from '@/lib/market-sources';
 import { countSince, locateOurPlaces, nextSince, runStep } from '@/lib/market-sync';
 import { placeAndZoneAll } from '@/lib/locate';
-import { isFeed, updatePermits, updateRates, updateRedfin } from '@/lib/market-feeds-sync';
+import { isFeed, updateEconomy, updatePermits, updateRates, updateRedfin } from '@/lib/market-feeds-sync';
 import { FEEDS_TAG } from '@/lib/market-feeds-data';
 import { isAutoPart, runAutoUpdate } from '@/lib/market-auto';
 
@@ -49,13 +49,13 @@ export async function stepMarketSync(id: string): Promise<SyncState | { problem:
   return view(s);
 }
 
-const feedLabel = { rates: 'mortgage rates (Federal Reserve)', redfin: 'Redfin market data by ZIP code', permits: 'building permits (Raleigh and Durham)' } as const;
+const feedLabel = { rates: 'interest rates (Freddie Mac, Treasury, New York Fed)', redfin: 'Redfin market data by ZIP code', permits: 'building permits (Raleigh and Durham)', economy: 'the economy (jobs, unemployment, prices, confidence, stocks, people moving in)' } as const;
 
 /** Reads one of the free sources: rates, Redfin or permits (each in one go; Redfin's file takes a minute or two). */
 export async function updateFeed(key: string): Promise<{ ok?: string; problem?: string }> {
   const user = await requireAction('market.update');
   if (!isFeed(key)) return { problem: 'Pick a source.' };
-  const run = key === 'rates' ? updateRates : key === 'redfin' ? updateRedfin : updatePermits;
+  const run = key === 'rates' ? updateRates : key === 'redfin' ? updateRedfin : key === 'economy' ? updateEconomy : updatePermits;
   const r = await run(user.id);
   await audit({ userId: user.id, entity: 'market', entityId: r.id, action: r.ok ? 'feed-done' : 'feed-failed',
     summary: r.ok ? `updated ${feedLabel[key]}: ${r.rows.toLocaleString()} records read, ${r.added.toLocaleString()} new` : `updating ${feedLabel[key]} stopped: ${r.error}` });

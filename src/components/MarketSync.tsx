@@ -10,9 +10,10 @@ import { toast } from './Toast';
 
 const counties = [{ key: 'wake', label: 'Wake County' }, { key: 'durham', label: 'Durham County' }] as const;
 const feeds = [
-  { key: 'rates', label: 'Mortgage Rates', button: 'Update Rates', what: 'the 30-year rate each week (Federal Reserve, free)' },
+  { key: 'rates', label: 'Mortgage Rates', button: 'Update Rates', what: 'mortgage rates, the 10-year Treasury and the fed funds rate (Freddie Mac, Treasury, New York Fed; free)' },
   { key: 'redfin', label: 'Redfin Market Data', button: 'Update Redfin Data', what: 'days on market, homes for sale and price drops by ZIP code (free; about 2 minutes)' },
   { key: 'permits', label: 'Building Permits', button: 'Update Permits', what: 'new homes and teardowns, Raleigh and Durham (free)' },
+  { key: 'economy', label: 'The Economy', button: 'Update the Economy', what: 'local jobs and unemployment, prices, consumer confidence, the stock market and people moving in (BLS, University of Michigan, Census; free)' },
 ] as const;
 
 export function MarketSync({ last, auto }: { last: Record<string, { status: string; finished: string | null; parcels: number; newSales: number; error: string | null } | undefined>; auto: { part: string; label: string; at: string | null; summary: string | null }[] }) {

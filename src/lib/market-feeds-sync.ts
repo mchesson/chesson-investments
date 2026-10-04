@@ -3,16 +3,17 @@ import { Readable } from 'node:stream';
 import { createGunzip } from 'node:zlib';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { marketPermits, marketRates, marketSyncs, marketTrends } from '@/db/schema';
+import { marketEcon, marketPermits, marketRates, marketSyncs, marketTrends } from '@/db/schema';
 import { headerCols, parseRedfinLine, PERMIT_PAGE, permitQuery, permitSources, redfinFiles, redfinMetros, type PermitRow, type TrendRow } from './market-feeds';
 import { addDays, today } from './format';
+import { econSeries, econUrls, parseBls, parseCensusCounties, parseFredMonthly, parseSentiment, parseStooq, type EconKey, type EconPoint } from './econ-sources';
 import { parseEffr, parseFred, parsePmms, parseTreasury, rateSeries, rateSourceUrls, type RateKey, type RatePoint } from './rate-sources';
 
 // Reading the free sources into the app (read-only on each). Each update is a
 // market_syncs row (county = 'rates' / 'redfin' / 'permits') so the page can
 // say when it last ran and what it added.
 
-export const feedKeys = ['rates', 'redfin', 'permits'] as const;
+export const feedKeys = ['rates', 'redfin', 'permits', 'economy'] as const;
 export type FeedKey = (typeof feedKeys)[number];
 export const isFeed = (k: string): k is FeedKey => (feedKeys as readonly string[]).includes(k);
 
@@ -72,6 +73,52 @@ export async function updateRates(userId: string | null, fetcher: typeof fetch =
     }
     if (problems.length) console.warn('rates: some sources failed', problems.join('; '));
     return { rows: kept.length, added };
+  });
+}
+
+// ---------- The economy ----------
+
+/** Jobs, unemployment, prices, confidence, stocks and migration: each from its first source, FRED as the backup. */
+export async function updateEconomy(userId: string | null, fetcher: typeof fetch = fetch) {
+  return record('economy', '2015-01-01', userId, async () => {
+    const urls = econUrls(today());
+    const opts = (accept: string) => ({ signal: AbortSignal.timeout(25_000), cache: 'no-store' as const, headers: { 'user-agent': 'Mozilla/5.0 (compatible; ChessonInvestments/1.0)', accept } });
+    const text = async (url: string) => { const r = await fetcher(url, opts('text/csv,*/*')); if (!r.ok) throw new Error(`answered ${r.status}`); return r.text(); };
+    const must = (p: EconPoint[]) => { if (!p.length) throw new Error('nothing readable'); return p; };
+    const tries: { label: string; run: () => Promise<EconPoint[]> }[] = [
+      { label: 'BLS (jobs, unemployment, prices)', run: async () => {
+        const r = await fetcher(urls.bls, { ...opts('application/json'), method: 'POST', headers: { ...opts('application/json').headers, 'content-type': 'application/json' }, body: JSON.stringify(urls.blsBody) });
+        if (!r.ok) throw new Error(`answered ${r.status}`);
+        return must(parseBls(await r.json()));
+      } },
+      { label: 'University of Michigan', run: async () => must(parseSentiment(await text(urls.sentiment))) },
+      { label: 'Stooq', run: async () => must(parseStooq(await text(urls.stooq))) },
+      { label: 'Census', run: async () => {
+        for (const u of urls.census) { try { const p = parseCensusCounties(await text(u)); if (p.length) return [...p, ...(await text(urls.censusOld).then(parseCensusCounties).catch(() => []))]; } catch { /* the next vintage */ } }
+        throw new Error('no county estimates file answered');
+      } },
+    ];
+    const results = await Promise.allSettled(tries.map((t) => t.run()));
+    const points: EconPoint[] = [];
+    const problems: string[] = [];
+    results.forEach((r, i) => { if (r.status === 'fulfilled') points.push(...r.value); else problems.push(`${tries[i].label}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`); });
+    const missing = econSeries.map((x) => x.key).filter((k) => !points.some((p) => p.series === k)) as EconKey[];
+    const back = await Promise.allSettled(missing.map(async (k) => must(parseFredMonthly(await text(urls.fred(urls.fredIds[k])), k))));
+    back.forEach((r, i) => { if (r.status === 'fulfilled') points.push(...r.value); else problems.push(`FRED ${missing[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`); });
+    // One value per series and period (a source can repeat a month); from 2015 on (migration from 2010).
+    const seen = new Map<string, EconPoint>();
+    for (const p of points) if (p.period >= (p.series.startsWith('migration:') ? '2010-01-01' : '2015-01-01')) seen.set(`${p.series}|${p.period}`, p);
+    const kept = [...seen.values()];
+    if (!kept.length) throw new Error(`nothing came back (${problems.join('; ')})`);
+    let added = 0;
+    for (let i = 0; i < kept.length; i += 500) {
+      const rows = kept.slice(i, i + 500).map((p) => ({ series: p.series, period: p.period, value: String(p.value) }));
+      const res = await db.insert(marketEcon).values(rows).onConflictDoUpdate({ target: [marketEcon.series, marketEcon.period], set: { value: sql`excluded.value` } })
+        .returning({ added: sql<boolean>`xmax = 0` });
+      added += res.filter((x) => x.added).length;
+    }
+    if (problems.length) console.warn('economy: some sources failed', problems.join('; '));
+    return { rows: kept.length, added, problems };
   });
 }
 

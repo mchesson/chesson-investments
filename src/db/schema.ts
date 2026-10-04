@@ -905,6 +905,17 @@ export const marketRates = pgTable('market_rates', {
   rate: numeric('rate', { precision: 5, scale: 2 }).notNull(),
 }, (t) => [uniqueIndex('market_rates_week').on(t.series, t.week)]).enableRLS();
 
+// The economy behind home buying (owner, Oct 4, 2026: "Cover all"): local jobs
+// and unemployment, consumer prices, consumer confidence, the stock market (each
+// month: period = the month's first day) and each county's net migration per
+// 1,000 residents (period = July 1 of the year). src/lib/econ-sources.ts.
+export const marketEcon = pgTable('market_econ', {
+  id: id(),
+  series: text('series').notNull(), // jobs_raleigh, unemp_durham, cpi, sentiment, stocks, migration:Wake County, NC ...
+  period: date('period').notNull(),
+  value: numeric('value', { precision: 16, scale: 4 }).notNull(),
+}, (t) => [uniqueIndex('market_econ_once').on(t.series, t.period)]).enableRLS();
+
 // Redfin's market data by ZIP code and county, 3-month rolling, each month.
 export const marketTrends = pgTable('market_trends', {
   id: id(),

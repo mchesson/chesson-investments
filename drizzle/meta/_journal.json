@@ -267,6 +267,13 @@
       "when": 1791048153413,
       "tag": "0037_role_areas",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791074505938,
+      "tag": "0038_market_econ",
+      "breakpoints": true
     }
   ]
 }

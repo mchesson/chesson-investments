@@ -41,6 +41,23 @@ test('the market model gets back the season and the rate it was given', () => {
   assert.match(d.factors.find((f) => f.key === 'rate')!.face, /^Each 1-point rise in the 30-year rate: \d+(\.\d)?% fewer sales/);
 });
 
+test('the economy: factors with enough months are measured, the rest named as left out', () => {
+  const base = made();
+  let x = 3;
+  const rnd = () => { x = (x * 16807) % 2147483647; return x / 2147483647; };
+  // Jobs that grow and lift sales; confidence that wobbles; no migration loaded.
+  const withJobs = base.map((m, i) => {
+    const jobs = 700 * (1 + (i % 72) / 300) * (0.99 + rnd() * 0.02);
+    return { ...m, homesSold: Math.round(m.homesSold * (jobs / 700) ** 1.5), extras: { jobs, confidence: 60 + 10 * Math.sin(i / 7), unemployment: 4 + Math.cos(i / 9) } };
+  });
+  const d = marketDrivers(withJobs)!;
+  assert.ok(d.factors.some((f) => f.key === 'jobs'));
+  assert.ok(d.missing.includes('migration') && d.missing.includes('stocks') && d.missing.includes('inflation'));
+  assert.match(d.factors.find((f) => f.key === 'jobs')!.face, /^1% more local jobs: [\d.]+% more sales$/);
+  const sum = d.factors.reduce((a, f) => a + f.share, 0);
+  assert.ok(Math.abs(sum - d.explained) < 0.5);
+});
+
 test('too few months to say', () => {
   assert.equal(marketDrivers(made().slice(0, 20)), null);
 });
