@@ -74,7 +74,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   return (
     <>
       <PageHead eyebrow={p.projectNumber ? `Project P-${p.projectNumber}` : 'Project'} title={p.name} sub={<>{activeStages(stageStates(p.stage, p.stageStates)).map((k) => <span key={k} className="chip blue">{stageLabelFor(k, rentalKind)}</span>)} {(() => { const full = joinAddress(p); const map = placeMapHref({ lat: p.lat, lng: p.lng, label: full }); return <>{map ? <Link href={map} title="On the map">{full}</Link> : full}{p.neighborhood ? <> <Link className="hood-link" href={hoodMapHref(p.neighborhood)} title="On the map">{p.neighborhood}</Link></> : null}</>; })()}</>}
-        actions={editProject || can(user, 'bills.edit') ? <>{can(user, 'bills.edit') ? <Link className="btn secondary" href={`/receipts/snap?project=${id}`}>Snap a Receipt</Link> : null} {editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null}</> : null} />
+        actions={editProject || can(user, 'bills.edit') ? <>{can(user, 'bills.edit') ? <><Link className="btn secondary" href={`/receipts/snap?project=${id}`}>Snap a Receipt</Link> <Link className="btn secondary" href={`/trips?project=${id}`}>Log a Trip</Link></> : null} {editProject ? <Link className="btn secondary" href={`${base}/edit`}>Edit</Link> : null}</> : null} />
       {await (async () => {
         const states = stageStates(p.stage, p.stageStates);
         const rentalRow = (await rentalFor(id)).rental?.r;

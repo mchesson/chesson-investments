@@ -152,3 +152,15 @@ by itself**: a TS Workspace session picks an item up as its own pull request.
   format. TS Workspace can use the same BLS metro jobs and unemployment
   series (by metro) to explain req volume and time to fill: hiring follows
   local jobs.
+- **Trip Log** (Oct 4, 2026; `trip-rules.ts`, `/trips`):
+  - **I'm Here:** the browser's location against our places within half a
+    mile (Permissions-Policy `geolocation=(self)`).
+  - **Miles:** from the odometer, or typed, or estimated from a start point
+    (the straight line × 1.3, always labeled as an estimate).
+  - **Year-end comparison:** the standard rate against actual car costs ×
+    the business share from the odometer.
+  - **The IRS-style log** as CSV, with formulas neutralized.
+
+  TS Workspace can use the same I'm Here + log pattern for recruiter client
+  visits (meetings out of the office count toward the weekly meeting goal)
+  and staff mileage reimbursement.

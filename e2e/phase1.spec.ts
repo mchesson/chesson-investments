@@ -114,6 +114,12 @@ test("109 Plainview's budget, a split GC bill, and the lien waiver rule", async 
 });
 
 test('the accountant sees projects and money, not contacts', async ({ page }) => {
+  // 109 Plainview on the map (on a fresh database nothing has placed it yet).
+  const { Client } = await import('pg');
+  const db = new Client({ connectionString: process.env.DATABASE_URL ?? 'postgres://ci:ci@localhost:5432/ci' });
+  await db.connect();
+  await db.query(`update projects set lat = 35.7925, lng = -78.6280 where name = '109 Plainview Ave' and lat is null`);
+  await db.end();
   await signIn(page, 'Sample Accountant');
   await page.goto('/people');
   await expect(page.getByText('This page could not be found.')).toBeVisible();

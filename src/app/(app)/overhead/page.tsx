@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { and, asc, desc, eq, gte, isNull, lt } from 'drizzle-orm';
 import { db } from '@/db';
-import { entities, overheadExpenses } from '@/db/schema';
+import { entities, overheadExpenses, vehicles } from '@/db/schema';
 import { requirePage } from '@/lib/session';
 import { can } from '@/lib/permissions';
 import { formatCents, formatDate, formatMoney, today } from '@/lib/format';
@@ -21,13 +21,14 @@ export default async function OverheadPage({ searchParams }: { searchParams: Pro
   const year = /^\d{4}$/.test(sp.year ?? '') ? Number(sp.year) : Number(today().slice(0, 4));
   const ents = await db.select({ id: entities.id, name: entities.name }).from(entities).where(isNull(entities.archived)).orderBy(asc(entities.name));
   const entityId = ents.find((e) => e.id === sp.entity)?.id ?? null;
+  const cars = await db.select({ id: vehicles.id, name: vehicles.name }).from(vehicles).where(isNull(vehicles.archived)).orderBy(asc(vehicles.name));
   const rows = await db.select({
     id: overheadExpenses.id, entityId: overheadExpenses.entityId, fileId: overheadExpenses.fileId, vendor: overheadExpenses.vendor, amount: overheadExpenses.amount,
-    spentOn: overheadExpenses.spentOn, category: overheadExpenses.category, notes: overheadExpenses.notes, entityName: entities.name,
+    spentOn: overheadExpenses.spentOn, category: overheadExpenses.category, notes: overheadExpenses.notes, vehicleId: overheadExpenses.vehicleId, entityName: entities.name,
   }).from(overheadExpenses).innerJoin(entities, eq(entities.id, overheadExpenses.entityId))
     .where(and(isNull(overheadExpenses.archived), gte(overheadExpenses.spentOn, `${year}-01-01`), lt(overheadExpenses.spentOn, `${year + 1}-01-01`), entityId ? eq(overheadExpenses.entityId, entityId) : undefined))
     .orderBy(desc(overheadExpenses.spentOn));
-  const undated = await db.select({ id: overheadExpenses.id, vendor: overheadExpenses.vendor, amount: overheadExpenses.amount, fileId: overheadExpenses.fileId, entityId: overheadExpenses.entityId, category: overheadExpenses.category, notes: overheadExpenses.notes, spentOn: overheadExpenses.spentOn })
+  const undated = await db.select({ id: overheadExpenses.id, vendor: overheadExpenses.vendor, amount: overheadExpenses.amount, fileId: overheadExpenses.fileId, entityId: overheadExpenses.entityId, category: overheadExpenses.category, notes: overheadExpenses.notes, spentOn: overheadExpenses.spentOn, vehicleId: overheadExpenses.vehicleId })
     .from(overheadExpenses).where(and(isNull(overheadExpenses.archived), isNull(overheadExpenses.spentOn)));
   const t = overheadTotals(rows);
   const edit = can(user, 'bills.edit');
@@ -42,6 +43,7 @@ export default async function OverheadPage({ searchParams }: { searchParams: Pro
         <label className="f">Date<input type="date" name="spentOn" defaultValue={r?.spentOn ?? today()} /></label>
         <label className="f">Category<select name="category" defaultValue={r?.category ?? 'other'}>{overheadCategories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}</select></label>
         <label className="f">Notes<input name="notes" defaultValue={r?.notes ?? ''} /></label>
+        {cars.length ? <label className="f">Vehicle<span className="h">For a car cost (the Trip Log compares)</span><select name="vehicleId" defaultValue={r?.vehicleId ?? ''}><option value="">None</option>{cars.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label> : null}
       </div>
     </ActionForm>
   );

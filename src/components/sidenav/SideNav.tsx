@@ -9,6 +9,7 @@ type Item = { href: string; label: string; icon: string };
 // Inline line icons, 24px grid, 1.8 stroke (as TS Workspace).
 const icons: Record<string, string> = {
   docs: 'M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6',
+  car: 'M5 16h14v-4l-2-5H7l-2 5z M5 12h14 M7.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3 M16.5 19a1.5 1.5 0 1 0 0-3a1.5 1.5 0 1 0 0 3',
   camera: 'M4 8h4l2-3h4l2 3h4v11H4z M12 10.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7',
   receipt: 'M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6 M9 16h4',
   map: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14',
